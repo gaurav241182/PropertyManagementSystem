@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,11 +79,28 @@ export default function AdminSettings() {
     active: true
   });
 
+  // Restaurant Item State
+  const [restaurantItems, setRestaurantItems] = useState([
+    { id: 1, name: "Club Sandwich", category: "Food", price: 15 },
+    { id: 2, name: "Cappuccino", category: "Beverage", price: 5 },
+    { id: 3, name: "Caesar Salad", category: "Food", price: 12 },
+  ]);
+  const [isRestaurantItemDialogOpen, setIsRestaurantItemDialogOpen] = useState(false);
+  const [newRestaurantItem, setNewRestaurantItem] = useState({
+    name: "",
+    category: "Food",
+    price: 0
+  });
+
   // Load Room Types from Local Storage on Mount
   useEffect(() => {
     const savedTypes = localStorage.getItem("roomTypes");
     if (savedTypes) {
       setRoomTypes(JSON.parse(savedTypes));
+    }
+    const savedRestaurantItems = localStorage.getItem("restaurantItems");
+    if (savedRestaurantItems) {
+      setRestaurantItems(JSON.parse(savedRestaurantItems));
     }
   }, []);
 
@@ -91,6 +108,11 @@ export default function AdminSettings() {
   useEffect(() => {
     localStorage.setItem("roomTypes", JSON.stringify(roomTypes));
   }, [roomTypes]);
+  
+  // Save Restaurant Items
+  useEffect(() => {
+    localStorage.setItem("restaurantItems", JSON.stringify(restaurantItems));
+  }, [restaurantItems]);
 
   const handleAddRoomType = () => {
     const id = newRoomType.name.toLowerCase().replace(/\s+/g, '_');
@@ -170,6 +192,24 @@ export default function AdminSettings() {
     setFacilities(facilities.map(f => f.id === id ? { ...f, active: !f.active } : f));
   };
 
+  const handleAddRestaurantItem = () => {
+    setRestaurantItems([...restaurantItems, { id: Date.now(), ...newRestaurantItem }]);
+    setIsRestaurantItemDialogOpen(false);
+    setNewRestaurantItem({ name: "", category: "Food", price: 0 });
+    toast({
+      title: "Item Added",
+      description: `${newRestaurantItem.name} has been added to the restaurant menu items.`,
+    });
+  };
+
+  const handleDeleteRestaurantItem = (id: number) => {
+    setRestaurantItems(restaurantItems.filter(item => item.id !== id));
+    toast({
+      title: "Item Removed",
+      description: "The item has been removed from the list.",
+    });
+  };
+
   const handleGenerateSalaries = () => {
     // Generate salary records for current month
     const currentDate = new Date();
@@ -201,12 +241,13 @@ export default function AdminSettings() {
         </div>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
+            <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
             <TabsTrigger value="devtools" className="text-amber-600">Dev Tools</TabsTrigger>
           </TabsList>
 
@@ -784,6 +825,111 @@ export default function AdminSettings() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Restaurant Items */}
+          <TabsContent value="restaurant" className="mt-6">
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Restaurant Items</CardTitle>
+                  <CardDescription>Manage food and beverage items available for sale.</CardDescription>
+                </div>
+                <Dialog open={isRestaurantItemDialogOpen} onOpenChange={setIsRestaurantItemDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Item
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add Restaurant Item</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Item Name</Label>
+                        <Input 
+                          placeholder="e.g. Club Sandwich" 
+                          value={newRestaurantItem.name}
+                          onChange={(e) => setNewRestaurantItem({...newRestaurantItem, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Category</Label>
+                          <Select 
+                            value={newRestaurantItem.category}
+                            onValueChange={(val) => setNewRestaurantItem({...newRestaurantItem, category: val})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Food">Food</SelectItem>
+                              <SelectItem value="Beverage">Beverage</SelectItem>
+                              <SelectItem value="Dessert">Dessert</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Price ({currency})</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={newRestaurantItem.price}
+                            onChange={(e) => setNewRestaurantItem({...newRestaurantItem, price: parseFloat(e.target.value)})}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsRestaurantItemDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddRestaurantItem}>Save Item</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {restaurantItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />
+                            {item.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{item.category}</TableCell>
+                        <TableCell>{currency} {item.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRestaurantItem(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {restaurantItems.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          No items found. Add food and beverage items to build your menu.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>

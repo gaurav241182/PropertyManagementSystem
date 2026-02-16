@@ -18,7 +18,8 @@ import AdminExpenses from "@/pages/admin-expenses";
 import AdminStaff from "@/pages/admin-staff";
 import AdminSalaries from "@/pages/admin-salaries";
 import AdminMenu from "@/pages/admin-menu";
-import AdminSales from "@/pages/admin-sales"; // New Import
+import AdminRestaurantMenu from "@/pages/admin-restaurant-menu"; // New Import
+import AdminSales from "@/pages/admin-sales";
 import AdminReports from "@/pages/admin-reports";
 import AdminSettings from "@/pages/admin-settings";
 
@@ -28,15 +29,17 @@ const OwnerExpenses = () => <AdminExpenses role="owner" />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
 const OwnerMenu = () => <AdminMenu role="owner" />;
+const OwnerRestaurantMenu = () => <AdminRestaurantMenu role="owner" />; // New Wrapper
 const OwnerSalaries = () => <AdminSalaries role="owner" />;
-const OwnerSales = () => <AdminSales role="owner" />; // New Wrapper
+const OwnerSales = () => <AdminSales role="owner" />;
 
 const ManagerStaff = () => <AdminStaff role="manager" />;
 const ManagerExpenses = () => <AdminExpenses role="manager" />;
 const ManagerBookings = () => <AdminBookings role="manager" />;
 const ManagerRooms = () => <AdminRooms role="manager" />;
 const ManagerMenu = () => <AdminMenu role="manager" />;
-const ManagerSales = () => <AdminSales role="manager" />; // New Wrapper
+const ManagerRestaurantMenu = () => <AdminRestaurantMenu role="manager" />; // New Wrapper
+const ManagerSales = () => <AdminSales role="manager" />;
 
 function Router() {
   return (
@@ -58,9 +61,10 @@ function Router() {
       <Route path="/admin/bookings" component={OwnerBookings} />
       <Route path="/admin/rooms" component={OwnerRooms} />
       <Route path="/admin/menu" component={OwnerMenu} />
+      <Route path="/admin/restaurant-menu" component={OwnerRestaurantMenu} /> // New Route
       <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/admin/salaries" component={OwnerSalaries} />
-      <Route path="/admin/sales" component={OwnerSales} /> // New Route
+      <Route path="/admin/sales" component={OwnerSales} />
       
       {/* Manager Routes (Explicit Role) */}
       <Route path="/manager" component={ManagerDashboard} />
@@ -69,7 +73,8 @@ function Router() {
       <Route path="/manager/bookings" component={ManagerBookings} />
       <Route path="/manager/rooms" component={ManagerRooms} />
       <Route path="/manager/menu" component={ManagerMenu} />
-      <Route path="/manager/sales" component={ManagerSales} /> // New Route
+      <Route path="/manager/restaurant-menu" component={ManagerRestaurantMenu} /> // New Route
+      <Route path="/manager/sales" component={ManagerSales} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />

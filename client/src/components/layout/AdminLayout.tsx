@@ -15,7 +15,8 @@ import {
   ChevronDown,
   Building,
   DollarSign,
-  ShoppingBag // New Icon for Sales
+  ShoppingBag,
+  ChefHat // New Icon for Menu Management
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,7 +36,8 @@ const ROLE_NAV_ITEMS = {
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
-    { href: "/admin/sales", icon: ShoppingBag, label: "Sales" }, // New Item
+    { href: "/admin/sales", icon: ShoppingBag, label: "Sales" },
+    { href: "/admin/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" }, // New Item
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
   ],
@@ -45,8 +47,8 @@ const ROLE_NAV_ITEMS = {
     { href: "/manager/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
-    { href: "/manager/menu", icon: UtensilsCrossed, label: "Menu & Services" },
-    { href: "/manager/sales", icon: ShoppingBag, label: "Sales" }, // Also added for Manager
+    { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" }, // Replaces simple "Menu & Services"
+    { href: "/manager/sales", icon: ShoppingBag, label: "Sales" },
   ]
 };
 
