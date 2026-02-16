@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 // Default Room Types if nothing in local storage
@@ -54,6 +53,30 @@ export default function AdminSettings() {
     rate: 0,
     type: "Percentage",
     appliedTo: "All"
+  });
+
+  // Price Rule State
+  const [priceRules, setPriceRules] = useState<any[]>([]);
+  const [isPriceRuleDialogOpen, setIsPriceRuleDialogOpen] = useState(false);
+  const [newPriceRule, setNewPriceRule] = useState({
+    roomTypeId: "",
+    startDate: "",
+    endDate: "",
+    price: 0
+  });
+
+  // Facility State
+  const [facilities, setFacilities] = useState([
+    { id: 1, name: "Extra Bed", price: 30, unit: "night", active: true },
+    { id: 2, name: "Honeymoon Decoration", price: 100, unit: "stay", active: true },
+    { id: 3, name: "Birthday Cake", price: 25, unit: "item", active: true },
+  ]);
+  const [isFacilityDialogOpen, setIsFacilityDialogOpen] = useState(false);
+  const [newFacility, setNewFacility] = useState({
+    name: "",
+    price: 0,
+    unit: "item",
+    active: true
   });
 
   // Load Room Types from Local Storage on Mount
@@ -105,6 +128,46 @@ export default function AdminSettings() {
       title: "Tax Rule Removed",
       description: "The tax rule has been removed.",
     });
+  };
+
+  const handleAddPriceRule = () => {
+    setPriceRules([...priceRules, { id: Date.now(), ...newPriceRule }]);
+    setIsPriceRuleDialogOpen(false);
+    setNewPriceRule({ roomTypeId: "", startDate: "", endDate: "", price: 0 });
+    toast({
+      title: "Price Rule Added",
+      description: "Seasonal pricing rule has been activated.",
+    });
+  };
+
+  const handleDeletePriceRule = (id: number) => {
+    setPriceRules(priceRules.filter(pr => pr.id !== id));
+    toast({
+      title: "Price Rule Removed",
+      description: "Pricing rule has been deactivated.",
+    });
+  };
+
+  const handleAddFacility = () => {
+    setFacilities([...facilities, { id: Date.now(), ...newFacility }]);
+    setIsFacilityDialogOpen(false);
+    setNewFacility({ name: "", price: 0, unit: "item", active: true });
+    toast({
+      title: "Facility Added",
+      description: `${newFacility.name} is now available for booking.`,
+    });
+  };
+
+  const handleDeleteFacility = (id: number) => {
+    setFacilities(facilities.filter(f => f.id !== id));
+    toast({
+      title: "Facility Removed",
+      description: "The facility has been removed from options.",
+    });
+  };
+
+  const toggleFacility = (id: number) => {
+    setFacilities(facilities.map(f => f.id === id ? { ...f, active: !f.active } : f));
   };
 
   return (
@@ -171,7 +234,7 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
 
-            {/* Tax Rules - Moved here */}
+            {/* Tax Rules */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -409,50 +472,120 @@ export default function AdminSettings() {
           {/* Pricing Rules */}
           <TabsContent value="pricing" className="mt-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Seasonal Pricing Configuration</CardTitle>
-                <CardDescription>Set base rates for room types based on date ranges or seasons.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Seasonal Pricing Configuration</CardTitle>
+                  <CardDescription>Set base rates for room types based on date ranges or seasons.</CardDescription>
+                </div>
+                <Dialog open={isPriceRuleDialogOpen} onOpenChange={setIsPriceRuleDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Price Rule
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add Pricing Rule</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Room Type</Label>
+                        <Select 
+                          value={newPriceRule.roomTypeId}
+                          onValueChange={(val) => setNewPriceRule({...newPriceRule, roomTypeId: val})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Room Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {roomTypes.map(rt => (
+                              <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Start Date</Label>
+                          <Input 
+                            type="date"
+                            value={newPriceRule.startDate}
+                            onChange={(e) => setNewPriceRule({...newPriceRule, startDate: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>End Date</Label>
+                          <Input 
+                            type="date"
+                            value={newPriceRule.endDate}
+                            onChange={(e) => setNewPriceRule({...newPriceRule, endDate: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Special Price ({currency})</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="e.g. 250" 
+                          value={newPriceRule.price}
+                          onChange={(e) => setNewPriceRule({...newPriceRule, price: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Overrides the default base price for this period.</p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsPriceRuleDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddPriceRule}>Save Rule</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex justify-end">
-                   <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Price Rule
-                  </Button>
-                </div>
-                <div className="border rounded-md p-4 space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 space-y-2">
-                       <Label>Room Type</Label>
-                       <Select defaultValue="deluxe">
-                         <SelectTrigger><SelectValue /></SelectTrigger>
-                         <SelectContent>
-                           {roomTypes.map(rt => (
-                             <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
+              <CardContent>
+                <div className="space-y-4">
+                  {priceRules.length === 0 ? (
+                    <div className="bg-muted/30 p-8 rounded-lg flex flex-col items-center justify-center text-center">
+                      <CalendarRange className="h-10 w-10 text-muted-foreground mb-3 opacity-50" />
+                      <h4 className="text-sm font-medium">No Active Rules</h4>
+                      <p className="text-xs text-muted-foreground max-w-xs mt-1">
+                        No custom pricing rules are currently active. Standard base rates will apply for all dates.
+                      </p>
                     </div>
-                    <div className="flex-1 space-y-2">
-                       <Label>Date Range</Label>
-                       <div className="flex items-center gap-2">
-                         <Input type="date" className="w-full" />
-                         <span>to</span>
-                         <Input type="date" className="w-full" />
-                       </div>
-                    </div>
-                    <div className="w-32 space-y-2">
-                       <Label>Price ({currency})</Label>
-                       <Input type="number" placeholder="250" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">Active Rules</h3>
-                  <div className="bg-muted/30 p-4 rounded text-sm text-center text-muted-foreground">
-                    No custom pricing rules active. Default base rates apply.
-                  </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Room Type</TableHead>
+                          <TableHead>Date Range</TableHead>
+                          <TableHead>New Price</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {priceRules.map((rule) => {
+                          const roomName = roomTypes.find(rt => rt.id === rule.roomTypeId)?.name || rule.roomTypeId;
+                          return (
+                            <TableRow key={rule.id}>
+                              <TableCell className="font-medium">{roomName}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span>{rule.startDate}</span>
+                                  <span className="text-muted-foreground">to</span>
+                                  <span>{rule.endDate}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{currency} {rule.price}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeletePriceRule(rule.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -532,35 +665,101 @@ export default function AdminSettings() {
                   <CardTitle>Facilities & Extras</CardTitle>
                   <CardDescription>Configure extra services available for booking.</CardDescription>
                 </div>
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Facility
-                </Button>
+                <Dialog open={isFacilityDialogOpen} onOpenChange={setIsFacilityDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Facility
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add New Facility</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Facility / Service Name</Label>
+                        <Input 
+                          placeholder="e.g. Airport Pickup" 
+                          value={newFacility.name}
+                          onChange={(e) => setNewFacility({...newFacility, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Price ({currency})</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={newFacility.price}
+                            onChange={(e) => setNewFacility({...newFacility, price: parseFloat(e.target.value)})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Unit</Label>
+                          <Select 
+                            value={newFacility.unit}
+                            onValueChange={(val) => setNewFacility({...newFacility, unit: val})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="item">Per Item</SelectItem>
+                              <SelectItem value="person">Per Person</SelectItem>
+                              <SelectItem value="night">Per Night</SelectItem>
+                              <SelectItem value="stay">Per Stay</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                         <Switch 
+                            checked={newFacility.active}
+                            onCheckedChange={(checked) => setNewFacility({...newFacility, active: checked})}
+                         />
+                         <Label>Active (Available for booking)</Label>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsFacilityDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddFacility}>Save Facility</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Mock Data */}
-                  <div className="border rounded-lg p-4 flex items-center justify-between">
-                     <div>
-                       <h4 className="font-bold">Extra Bed</h4>
-                       <p className="text-sm text-muted-foreground">$30.00 / night</p>
-                     </div>
-                     <Switch checked={true} />
-                  </div>
-                  <div className="border rounded-lg p-4 flex items-center justify-between">
-                     <div>
-                       <h4 className="font-bold">Honeymoon Decoration</h4>
-                       <p className="text-sm text-muted-foreground">$100.00 / stay</p>
-                     </div>
-                     <Switch checked={true} />
-                  </div>
-                   <div className="border rounded-lg p-4 flex items-center justify-between">
-                     <div>
-                       <h4 className="font-bold">Birthday Cake</h4>
-                       <p className="text-sm text-muted-foreground">$25.00 / item</p>
-                     </div>
-                     <Switch checked={true} />
-                  </div>
+                  {facilities.map((facility) => (
+                    <div key={facility.id} className="border rounded-lg p-4 flex items-center justify-between">
+                       <div className="flex items-start gap-3">
+                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                           <Sparkles className="h-4 w-4" />
+                         </div>
+                         <div>
+                           <h4 className="font-bold">{facility.name}</h4>
+                           <p className="text-sm text-muted-foreground">
+                             {currency} {facility.price.toFixed(2)} / {facility.unit}
+                           </p>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <Switch 
+                            checked={facility.active} 
+                            onCheckedChange={() => toggleFacility(facility.id)}
+                         />
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => handleDeleteFacility(facility.id)}>
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       </div>
+                    </div>
+                  ))}
+                  
+                  {facilities.length === 0 && (
+                    <div className="col-span-full py-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                      No facilities configured. Add services like Extra Bed, Airport Transfer, etc.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
