@@ -8,7 +8,8 @@ import {
   UtensilsCrossed, 
   FileBarChart, 
   LogOut,
-  Hotel
+  Hotel,
+  BedDouble
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,15 +17,17 @@ import { cn } from "@/lib/utils";
 const ROLE_NAV_ITEMS = {
   owner: [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/admin/inventory", icon: CalendarDays, label: "Inventory & Bookings" }, // RESTORED for Owner
+    { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
+    { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" }, // Separate Inventory
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
   ],
   manager: [
     { href: "/manager", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/manager/bookings", icon: CalendarDays, label: "Bookings" },
+    { href: "/manager/rooms", icon: BedDouble, label: "Room Inventory" }, // Manager also has access
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
-    { href: "/manager/inventory", icon: CalendarDays, label: "Inventory & Bookings" },
     { href: "/manager/menu", icon: UtensilsCrossed, label: "Menu & Services" },
   ]
 };

@@ -9,11 +9,24 @@ import Login from "@/pages/login";
 import PlatformDashboard from "@/pages/platform-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
-import AdminInventory from "@/pages/admin-inventory";
+import AdminBookings from "@/pages/admin-bookings";
+import AdminRooms from "@/pages/admin-rooms";
 import AdminExpenses from "@/pages/admin-expenses";
 import AdminStaff from "@/pages/admin-staff";
 import AdminMenu from "@/pages/admin-menu";
 import AdminReports from "@/pages/admin-reports";
+
+// Wrappers to satisfy wouter's Route component type
+const OwnerStaff = () => <AdminStaff role="owner" />;
+const OwnerExpenses = () => <AdminExpenses role="owner" />;
+const OwnerBookings = () => <AdminBookings role="owner" />;
+const OwnerRooms = () => <AdminRooms role="owner" />;
+
+const ManagerStaff = () => <AdminStaff role="manager" />;
+const ManagerExpenses = () => <AdminExpenses role="manager" />;
+const ManagerBookings = () => <AdminBookings role="manager" />;
+const ManagerRooms = () => <AdminRooms role="manager" />;
+const ManagerMenu = () => <AdminMenu role="manager" />;
 
 function Router() {
   return (
@@ -27,17 +40,19 @@ function Router() {
       {/* Owner Routes (Default Role) */}
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/reports" component={AdminReports} />
-      <Route path="/admin/staff" component={() => <AdminStaff role="owner" />} />
-      <Route path="/admin/expenses" component={() => <AdminExpenses role="owner" />} />
-      <Route path="/admin/inventory" component={() => <AdminInventory role="owner" />} />
+      <Route path="/admin/staff" component={OwnerStaff} />
+      <Route path="/admin/expenses" component={OwnerExpenses} />
+      <Route path="/admin/bookings" component={OwnerBookings} />
+      <Route path="/admin/rooms" component={OwnerRooms} />
       <Route path="/admin/menu" component={AdminMenu} />
       
       {/* Manager Routes (Explicit Role) */}
       <Route path="/manager" component={ManagerDashboard} />
-      <Route path="/manager/staff" component={() => <AdminStaff role="manager" />} />
-      <Route path="/manager/expenses" component={() => <AdminExpenses role="manager" />} />
-      <Route path="/manager/inventory" component={() => <AdminInventory role="manager" />} />
-      <Route path="/manager/menu" component={() => <AdminMenu role="manager" />} />
+      <Route path="/manager/staff" component={ManagerStaff} />
+      <Route path="/manager/expenses" component={ManagerExpenses} />
+      <Route path="/manager/bookings" component={ManagerBookings} />
+      <Route path="/manager/rooms" component={ManagerRooms} />
+      <Route path="/manager/menu" component={ManagerMenu} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />
