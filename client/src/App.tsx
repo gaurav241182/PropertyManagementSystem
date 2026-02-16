@@ -17,11 +17,12 @@ import AdminMenu from "@/pages/admin-menu";
 import AdminReports from "@/pages/admin-reports";
 import AdminSettings from "@/pages/admin-settings";
 
-// Wrappers to satisfy wouter's Route component type
+// Wrappers to satisfy wouter's Route component type and avoid prop mismatches
 const OwnerStaff = () => <AdminStaff role="owner" />;
 const OwnerExpenses = () => <AdminExpenses role="owner" />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
+const OwnerMenu = () => <AdminMenu role="owner" />; // Added wrapper for consistency
 
 const ManagerStaff = () => <AdminStaff role="manager" />;
 const ManagerExpenses = () => <AdminExpenses role="manager" />;
@@ -45,7 +46,7 @@ function Router() {
       <Route path="/admin/expenses" component={OwnerExpenses} />
       <Route path="/admin/bookings" component={OwnerBookings} />
       <Route path="/admin/rooms" component={OwnerRooms} />
-      <Route path="/admin/menu" component={AdminMenu} />
+      <Route path="/admin/menu" component={OwnerMenu} /> {/* Updated to use wrapper */}
       <Route path="/admin/settings" component={AdminSettings} />
       
       {/* Manager Routes (Explicit Role) */}
