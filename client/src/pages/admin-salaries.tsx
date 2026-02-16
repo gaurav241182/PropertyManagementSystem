@@ -8,18 +8,67 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "manager" }) {
+  const { toast } = useToast();
   const [salaries, setSalaries] = useState([
-    { id: 1, name: "John Doe", role: "Manager", month: "February 2024", amount: 2500, status: "Paid", paymentDate: "2024-02-28" },
-    { id: 2, name: "Jane Smith", role: "Chef", month: "February 2024", amount: 1800, status: "Pending", paymentDate: "-" },
-    { id: 3, name: "Mike Johnson", role: "Housekeeping", month: "February 2024", amount: 1200, status: "Pending", paymentDate: "-" },
-    { id: 4, name: "Emily Davis", role: "Receptionist", month: "February 2024", amount: 1400, status: "Paid", paymentDate: "2024-02-28" },
+    { 
+      id: 1, 
+      name: "John Doe", 
+      role: "Manager", 
+      month: "February 2024", 
+      amount: 2500, 
+      status: "Paid", 
+      paymentDate: "2024-02-28",
+      advance: 0,
+      pending: 0,
+      dueDate: "2024-03-05"
+    },
+    { 
+      id: 2, 
+      name: "Jane Smith", 
+      role: "Chef", 
+      month: "February 2024", 
+      amount: 1800, 
+      status: "Pending", 
+      paymentDate: "-",
+      advance: 200,
+      pending: 1600,
+      dueDate: "2024-03-05"
+    },
+    { 
+      id: 3, 
+      name: "Mike Johnson", 
+      role: "Housekeeping", 
+      month: "February 2024", 
+      amount: 1200, 
+      status: "Pending", 
+      paymentDate: "-",
+      advance: 0,
+      pending: 1200,
+      dueDate: "2024-03-05"
+    },
+    { 
+      id: 4, 
+      name: "Emily Davis", 
+      role: "Receptionist", 
+      month: "February 2024", 
+      amount: 1400, 
+      status: "Paid", 
+      paymentDate: "2024-02-28",
+      advance: 0,
+      pending: 0,
+      dueDate: "2024-03-05"
+    },
   ]);
 
   const [selectedMonth, setSelectedMonth] = useState("current"); // Default to current or closest
+  const [selectedSalaries, setSelectedSalaries] = useState<number[]>([]);
 
   // Load generated salaries from localStorage on mount
   useEffect(() => {
@@ -29,7 +78,12 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       // Determine if we need to merge or replace. For simplicity in mock, let's append unique ones
       setSalaries(prev => {
         const prevIds = new Set(prev.map(p => p.id));
-        const uniqueNew = newRecords.filter((nr: any) => !prevIds.has(nr.id));
+        const uniqueNew = newRecords.filter((nr: any) => !prevIds.has(nr.id)).map((nr: any) => ({
+          ...nr,
+          advance: 0,
+          pending: nr.amount,
+          dueDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 5).toISOString().split('T')[0] // 5th of next month
+        }));
         return [...prev, ...uniqueNew];
       });
       
@@ -41,7 +95,70 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   }, []);
 
   const handlePay = (id: number) => {
-    setSalaries(salaries.map(s => s.id === id ? { ...s, status: "Paid", paymentDate: new Date().toISOString().split('T')[0] } : s));
+    setSalaries(salaries.map(s => s.id === id ? { 
+      ...s, 
+      status: "Paid", 
+      paymentDate: new Date().toISOString().split('T')[0],
+      pending: 0 
+    } : s));
+    
+    toast({
+      title: "Salary Paid",
+      description: "Employee salary has been marked as paid.",
+    });
+  };
+
+  const handleRevert = (id: number) => {
+    setSalaries(salaries.map(s => s.id === id ? { 
+      ...s, 
+      status: "Pending", 
+      paymentDate: "-",
+      pending: s.amount - (s.advance || 0)
+    } : s));
+
+    toast({
+      title: "Status Reverted",
+      description: "Salary status has been reverted to pending.",
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    setSalaries(salaries.filter(s => s.id !== id));
+    toast({
+      title: "Record Deleted",
+      description: "Salary record has been permanently removed.",
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedSalaries(filteredSalaries.map(s => s.id));
+    } else {
+      setSelectedSalaries([]);
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    if (selectedSalaries.includes(id)) {
+      setSelectedSalaries(selectedSalaries.filter(sid => sid !== id));
+    } else {
+      setSelectedSalaries([...selectedSalaries, id]);
+    }
+  };
+
+  const handleBulkPay = () => {
+    setSalaries(salaries.map(s => selectedSalaries.includes(s.id) ? { 
+      ...s, 
+      status: "Paid", 
+      paymentDate: new Date().toISOString().split('T')[0],
+      pending: 0
+    } : s));
+    setSelectedSalaries([]);
+    
+    toast({
+      title: "Bulk Payment Successful",
+      description: `${selectedSalaries.length} salaries marked as paid.`,
+    });
   };
 
   const filteredSalaries = salaries.filter(s => {
@@ -116,6 +233,18 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
           </Card>
         </div>
 
+        {selectedSalaries.length > 0 && (
+          <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-primary">{selectedSalaries.length} selected</span>
+            </div>
+            <Button onClick={handleBulkPay} size="sm" className="bg-green-600 hover:bg-green-700">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Mark Selected as Paid
+            </Button>
+          </div>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Payroll List</CardTitle>
@@ -124,17 +253,32 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox 
+                      checked={filteredSalaries.length > 0 && selectedSalaries.length === filteredSalaries.length}
+                      onCheckedChange={(checked) => toggleSelectAll(checked as boolean)}
+                    />
+                  </TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>Total Salary</TableHead>
+                  <TableHead>Advance</TableHead>
+                  <TableHead>Pending</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Payment Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Paid Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSalaries.map((salary) => (
                   <TableRow key={salary.id}>
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedSalaries.includes(salary.id)}
+                        onCheckedChange={() => toggleSelect(salary.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -145,32 +289,57 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     </TableCell>
                     <TableCell>{salary.role}</TableCell>
                     <TableCell className="font-medium">${salary.amount}</TableCell>
+                    <TableCell className="text-muted-foreground">${salary.advance || 0}</TableCell>
+                    <TableCell className="font-medium text-amber-600">${salary.pending !== undefined ? salary.pending : (salary.status === 'Paid' ? 0 : salary.amount)}</TableCell>
                     <TableCell>
                       <Badge variant={salary.status === "Paid" ? "default" : "secondary"} className={salary.status === "Paid" ? "bg-green-600 hover:bg-green-700" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}>
                         {salary.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{salary.dueDate || "2024-03-05"}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                        {salary.paymentDate}
                     </TableCell>
                     <TableCell className="text-right">
-                      {salary.status === "Pending" ? (
-                         <Button size="sm" onClick={() => handlePay(salary.id)} className="bg-green-600 hover:bg-green-700">
-                           <DollarSign className="mr-1 h-3 w-3" />
-                           Mark Paid
-                         </Button>
-                      ) : (
-                         <Button variant="ghost" size="sm" disabled>
-                           <CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />
-                           Paid
-                         </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {salary.status === "Pending" ? (
+                           <Button size="sm" onClick={() => handlePay(salary.id)} className="bg-green-600 hover:bg-green-700 h-8 px-2">
+                             <DollarSign className="mr-1 h-3 w-3" />
+                             Pay
+                           </Button>
+                        ) : (
+                           <Button variant="outline" size="sm" onClick={() => handleRevert(salary.id)} className="h-8 px-2 text-amber-600 border-amber-200 hover:bg-amber-50">
+                             <Undo className="mr-1 h-3 w-3" />
+                             Revert
+                           </Button>
+                        )}
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Salary Record?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the salary record for {salary.name}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(salary.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredSalaries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No salary records found for this month.
                     </TableCell>
                   </TableRow>
