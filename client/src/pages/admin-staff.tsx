@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban } from "lucide-react";
+import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2 } from "lucide-react";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -520,6 +520,12 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleToggleStatus(employee.id, employee.status)}>
                           <Ban className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
+                          setStaff(staff.filter(s => s.id !== employee.id));
+                          toast({ title: "Staff Deleted", description: "Employee has been permanently removed.", variant: "destructive" });
+                        }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -581,6 +587,12 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleToggleStatus(employee.id, employee.status)}>
                             <Power className="h-3 w-3 mr-1" />
                             Activate
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
+                            setStaff(staff.filter(s => s.id !== employee.id));
+                            toast({ title: "Staff Deleted", description: "Employee record removed permanently.", variant: "destructive" });
+                          }}>
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
