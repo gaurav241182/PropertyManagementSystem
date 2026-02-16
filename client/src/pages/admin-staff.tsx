@@ -1,17 +1,17 @@
 import { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, UserPlus, DollarSign, FileText } from "lucide-react";
+import { UserPlus, DollarSign, FileText } from "lucide-react";
 
-export default function AdminStaff() {
+export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [staff] = useState([
     { id: 1, name: "John Doe", role: "Manager", salary: 2500, status: "Active", joined: "2023-01-15", advance: 0 },
     { id: 2, name: "Jane Smith", role: "Chef", salary: 1800, status: "Active", joined: "2023-03-10", advance: 200 },
@@ -20,7 +20,7 @@ export default function AdminStaff() {
   ]);
 
   return (
-    <AdminLayout>
+    <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>

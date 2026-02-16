@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit, Trash2 } from "lucide-react";
 
-export default function AdminMenu() {
+export default function AdminMenu({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [menuItems] = useState([
     { id: 1, name: "Continental Breakfast", category: "Breakfast", price: 15, available: true },
     { id: 2, name: "Club Sandwich", category: "Lunch", price: 12, available: true },
@@ -28,7 +28,7 @@ export default function AdminMenu() {
   ]);
 
   return (
-    <AdminLayout>
+    <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>

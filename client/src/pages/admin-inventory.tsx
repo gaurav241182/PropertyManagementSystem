@@ -6,9 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Plus, Filter, RefreshCw, BedDouble } from "lucide-react";
+import { Filter, RefreshCw, BedDouble } from "lucide-react";
 
-export default function AdminInventory() {
+export default function AdminInventory({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [rooms] = useState([
     { id: "101", type: "Standard King", status: "Available", price: 150, platform: "Direct" },
     { id: "102", type: "Standard King", status: "Occupied", price: 150, platform: "Booking.com" },
@@ -30,7 +30,7 @@ export default function AdminInventory() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -42,10 +42,14 @@ export default function AdminInventory() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Sync Booking.com
             </Button>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Block Room
-            </Button>
+            {/* Hide 'Block Room' / 'Add' buttons for Owner if they shouldn't manage inventory creation 
+                User said: "In owner login, no option to create rooms, inventory."
+                I will hide it for Owner but show for Manager if Manager handles day-to-day?
+                Or maybe hide for both if only Platform Admin creates rooms? 
+                Actually "Hotel Admin or owner... Full inventory view with edit" was in original.
+                New prompt overrides. I will hide creation actions for now as per "no option to create rooms".
+                I'll assume Platform Admin does initial setup or it's a separate Config page.
+            */}
           </div>
         </div>
 

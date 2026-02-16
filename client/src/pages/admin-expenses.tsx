@@ -10,8 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Upload, FileText, Check, X } from "lucide-react";
 
-export default function AdminExpenses() {
-  const [expenses, setExpenses] = useState([
+export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "manager" }) {
+  const [expenses] = useState([
     { id: 1, date: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5kg", price: 10, total: 50, hasBill: true, status: "Pending" },
     { id: 2, date: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2L", price: 25, total: 50, hasBill: false, status: "Paid" },
     { id: 3, date: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10L", price: 5, total: 50, hasBill: true, status: "Paid" },
@@ -19,7 +19,7 @@ export default function AdminExpenses() {
   ]);
 
   return (
-    <AdminLayout>
+    <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -148,6 +148,11 @@ export default function AdminExpenses() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {/* Only show approval actions for owner or if manager is allowed to approve (usually higher role). 
+                            Assuming manager CAN approve daily expenses or at least mark them. 
+                            Let's keep it for both for now or restrict. 
+                            Prompt didn't restrict manager from managing expenses, just said "Create expense list".
+                            I will leave actions visible for now. */}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50">
                           <Check className="h-4 w-4" />
                         </Button>
