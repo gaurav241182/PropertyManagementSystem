@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,9 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+
+// Default Room Types if nothing in local storage
+const DEFAULT_ROOM_TYPES = [
+  { id: "standard_king", name: "Standard King", beds: "1 King Bed", capacity: 2, price: 150, cots: true, infant: true },
+  { id: "standard_twin", name: "Standard Twin", beds: "2 Twin Beds", capacity: 2, price: 140, cots: true, infant: true },
+  { id: "deluxe_ocean", name: "Deluxe Ocean", beds: "1 King Bed", capacity: 2, price: 250, cots: true, infant: true, balcony: true },
+  { id: "executive_suite", name: "Executive Suite", beds: "2 King Beds", capacity: 4, price: 450, cots: true, infant: true, living_area: true },
+];
 
 export default function AdminSettings() {
+  const { toast } = useToast();
   const [currency, setCurrency] = useState("USD");
   const [taxes, setTaxes] = useState([
     { id: 1, name: "VAT", rate: 10, type: "Percentage", appliedTo: "All" },
@@ -23,6 +35,51 @@ export default function AdminSettings() {
     { id: 3, type: "Utility", subtype: "Cleaning", item: "Bleach" },
   ]);
 
+  // Room Types State
+  const [roomTypes, setRoomTypes] = useState(DEFAULT_ROOM_TYPES);
+  const [isRoomTypeDialogOpen, setIsRoomTypeDialogOpen] = useState(false);
+  const [newRoomType, setNewRoomType] = useState<any>({
+    name: "",
+    beds: "",
+    capacity: 2,
+    price: 0,
+    cots: false,
+    infant: false
+  });
+
+  // Load Room Types from Local Storage on Mount
+  useEffect(() => {
+    const savedTypes = localStorage.getItem("roomTypes");
+    if (savedTypes) {
+      setRoomTypes(JSON.parse(savedTypes));
+    }
+  }, []);
+
+  // Save Room Types to Local Storage whenever they change
+  useEffect(() => {
+    localStorage.setItem("roomTypes", JSON.stringify(roomTypes));
+  }, [roomTypes]);
+
+  const handleAddRoomType = () => {
+    const id = newRoomType.name.toLowerCase().replace(/\s+/g, '_');
+    const typeToAdd = { ...newRoomType, id };
+    setRoomTypes([...roomTypes, typeToAdd]);
+    setIsRoomTypeDialogOpen(false);
+    setNewRoomType({ name: "", beds: "", capacity: 2, price: 0, cots: false, infant: false });
+    toast({
+      title: "Room Type Added",
+      description: `${newRoomType.name} has been added to your configuration.`,
+    });
+  };
+
+  const handleDeleteRoomType = (id: string) => {
+    setRoomTypes(roomTypes.filter(rt => rt.id !== id));
+    toast({
+      title: "Room Type Removed",
+      description: "The room type has been removed from configuration.",
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -31,11 +88,12 @@ export default function AdminSettings() {
           <p className="text-muted-foreground">Manage global settings, pricing rules, and categories for this branch.</p>
         </div>
 
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="general">General & Currency</TabsTrigger>
+        <Tabs defaultValue="roomtypes" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
             <TabsTrigger value="taxes">Taxes</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing Rules</TabsTrigger>
+            <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
           </TabsList>
@@ -84,6 +142,132 @@ export default function AdminSettings() {
                     Save General Settings
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Room Types Configuration */}
+          <TabsContent value="roomtypes" className="mt-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Room Types Configuration</CardTitle>
+                  <CardDescription>Define the types of rooms available in your hotel. These settings will appear when adding new rooms.</CardDescription>
+                </div>
+                <Dialog open={isRoomTypeDialogOpen} onOpenChange={setIsRoomTypeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Room Type
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add New Room Type</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Type Name</Label>
+                        <Input 
+                          placeholder="e.g. Garden Villa" 
+                          value={newRoomType.name}
+                          onChange={(e) => setNewRoomType({...newRoomType, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Bed Configuration</Label>
+                          <Input 
+                            placeholder="e.g. 1 Queen Bed" 
+                            value={newRoomType.beds}
+                            onChange={(e) => setNewRoomType({...newRoomType, beds: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max Capacity</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="2" 
+                            value={newRoomType.capacity}
+                            onChange={(e) => setNewRoomType({...newRoomType, capacity: parseInt(e.target.value)})}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default Base Price ({currency})</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="0.00" 
+                          value={newRoomType.price}
+                          onChange={(e) => setNewRoomType({...newRoomType, price: parseFloat(e.target.value)})}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-3 pt-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="new-cots" 
+                            checked={newRoomType.cots}
+                            onCheckedChange={(checked) => setNewRoomType({...newRoomType, cots: checked})}
+                          />
+                          <label htmlFor="new-cots" className="text-sm font-medium">Allows Extra Cot</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="new-infant" 
+                            checked={newRoomType.infant}
+                            onCheckedChange={(checked) => setNewRoomType({...newRoomType, infant: checked})}
+                          />
+                          <label htmlFor="new-infant" className="text-sm font-medium">Infant Friendly</label>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsRoomTypeDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddRoomType}>Save Room Type</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type Name</TableHead>
+                      <TableHead>Bedding</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Default Price</TableHead>
+                      <TableHead>Features</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {roomTypes.map((rt) => (
+                      <TableRow key={rt.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <BedDouble className="h-4 w-4 text-muted-foreground" />
+                            {rt.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{rt.beds}</TableCell>
+                        <TableCell>{rt.capacity} Persons</TableCell>
+                        <TableCell>{currency} {rt.price}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {rt.cots && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Cot</span>}
+                            {rt.infant && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Infant</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
@@ -152,8 +336,9 @@ export default function AdminSettings() {
                        <Select defaultValue="deluxe">
                          <SelectTrigger><SelectValue /></SelectTrigger>
                          <SelectContent>
-                           <SelectItem value="deluxe">Deluxe Ocean View</SelectItem>
-                           <SelectItem value="standard">Standard King</SelectItem>
+                           {roomTypes.map(rt => (
+                             <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                           ))}
                          </SelectContent>
                        </Select>
                     </div>
@@ -207,8 +392,8 @@ export default function AdminSettings() {
                         <Input placeholder="e.g. Grocery" />
                       </div>
                       <div className="space-y-2">
-                         <Label>Subtype</Label>
-                         <Input placeholder="e.g. Vegetables" />
+                        <Label>Subtype</Label>
+                        <Input placeholder="e.g. Vegetables" />
                       </div>
                       <div className="space-y-2">
                          <Label>Default Item Name</Label>

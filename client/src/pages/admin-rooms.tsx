@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const DEFAULT_ROOM_TYPES = [
+  { id: "standard_king", name: "Standard King", beds: "1 King Bed", capacity: 2, price: 150, cots: true, infant: true },
+  { id: "standard_twin", name: "Standard Twin", beds: "2 Twin Beds", capacity: 2, price: 140, cots: true, infant: true },
+  { id: "deluxe_ocean", name: "Deluxe Ocean", beds: "1 King Bed", capacity: 2, price: 250, cots: true, infant: true, balcony: true },
+  { id: "executive_suite", name: "Executive Suite", beds: "2 King Beds", capacity: 4, price: 450, cots: true, infant: true, living_area: true },
+];
+
 export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [rooms, setRooms] = useState([
     { id: "101", type: "Standard King", status: "Available", price: 150, capacity: 2 },
@@ -26,16 +33,29 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [isBlockingRange, setIsBlockingRange] = useState(false);
-
-  // Mock configuration options based on room type
-  const [roomType, setRoomType] = useState("");
   
-  const roomProperties = {
-    "standard_king": { beds: "1 King Bed", capacity: 2, cots: true, infant: true },
-    "standard_twin": { beds: "2 Twin Beds", capacity: 2, cots: true, infant: true },
-    "deluxe_ocean": { beds: "1 King Bed", capacity: 2, cots: true, infant: true, balcony: true },
-    "executive_suite": { beds: "2 King Beds", capacity: 4, cots: true, infant: true, living_area: true },
-  };
+  // Room Type Configuration State
+  const [roomTypes, setRoomTypes] = useState<any[]>(DEFAULT_ROOM_TYPES);
+  const [roomType, setRoomType] = useState("");
+  const [selectedTypeData, setSelectedTypeData] = useState<any>(null);
+
+  // Load configured room types on mount
+  useEffect(() => {
+    const savedTypes = localStorage.getItem("roomTypes");
+    if (savedTypes) {
+      setRoomTypes(JSON.parse(savedTypes));
+    }
+  }, []);
+
+  // Update selected room type data when roomType changes
+  useEffect(() => {
+    if (roomType) {
+      const found = roomTypes.find(rt => rt.id === roomType);
+      setSelectedTypeData(found);
+    } else {
+      setSelectedTypeData(null);
+    }
+  }, [roomType, roomTypes]);
 
   const handleBlockRoom = () => {
     // Logic to update room status would go here
@@ -84,17 +104,16 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                         <SelectValue placeholder="Select Type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="standard_king">Standard King</SelectItem>
-                        <SelectItem value="standard_twin">Standard Twin</SelectItem>
-                        <SelectItem value="deluxe_ocean">Deluxe Ocean</SelectItem>
-                        <SelectItem value="executive_suite">Executive Suite</SelectItem>
+                        {roomTypes.map((rt) => (
+                          <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                {/* Dynamic Property Details */}
-                {roomType && roomProperties[roomType as keyof typeof roomProperties] && (
+                {/* Dynamic Property Details from Configuration */}
+                {selectedTypeData && (
                   <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
                     <h4 className="font-medium text-sm flex items-center gap-2">
                       <BedDouble className="h-4 w-4" />
@@ -103,23 +122,23 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Bed Configuration:</span>
-                        <span className="font-medium">{roomProperties[roomType as keyof typeof roomProperties].beds}</span>
+                        <span className="font-medium">{selectedTypeData.beds}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Max Capacity:</span>
-                        <span className="font-medium">{roomProperties[roomType as keyof typeof roomProperties].capacity} Persons</span>
+                        <span className="font-medium">{selectedTypeData.capacity} Persons</span>
                       </div>
                     </div>
                     
                     <div className="flex flex-wrap gap-4 pt-2">
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="cot" defaultChecked={roomProperties[roomType as keyof typeof roomProperties].cots} />
+                        <Checkbox id="cot" defaultChecked={selectedTypeData.cots} disabled />
                         <label htmlFor="cot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                           Extra Cot Allowed
                         </label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="infant" defaultChecked={roomProperties[roomType as keyof typeof roomProperties].infant} />
+                        <Checkbox id="infant" defaultChecked={selectedTypeData.infant} disabled />
                         <label htmlFor="infant" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                           Infant Friendly
                         </label>
@@ -131,7 +150,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="price">Base Price ($/Night)</Label>
-                    <Input id="price" type="number" placeholder="0.00" />
+                    <Input id="price" type="number" defaultValue={selectedTypeData?.price || ""} placeholder="0.00" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="capacity">Capacity Override</Label>
