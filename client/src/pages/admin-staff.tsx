@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus, DollarSign, FileText, Upload, Calculator } from "lucide-react";
 import { differenceInYears } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [staff] = useState([
@@ -23,6 +25,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   // Form State
   const [dob, setDob] = useState("");
   const [age, setAge] = useState<number | null>(null);
+  const [policeVerification, setPoliceVerification] = useState(false);
   
   // Salary Components
   const [basicSalary, setBasicSalary] = useState(0);
@@ -56,17 +59,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 Onboard Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogTitle>Onboard New Employee</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-6 py-4">
                 {/* Personal Info */}
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="font-medium flex items-center gap-2">Personal Information</h3>
+                  <h3 className="font-medium flex items-center gap-2 text-primary">Personal Information</h3>
                   
-                  <div className="flex items-center gap-4">
-                    <div className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0">
+                  <div className="flex items-start gap-4">
+                    <div className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0 mt-1">
                       <Upload className="h-6 w-6 mb-1" />
                       <span className="text-[10px]">Photo</span>
                     </div>
@@ -79,10 +82,27 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Label htmlFor="lastName">Last Name</Label>
                         <Input id="lastName" placeholder="Doe" />
                       </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="gender">Gender</Label>
+                         <Select>
+                           <SelectTrigger id="gender">
+                             <SelectValue placeholder="Select" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="male">Male</SelectItem>
+                             <SelectItem value="female">Female</SelectItem>
+                             <SelectItem value="other">Other</SelectItem>
+                           </SelectContent>
+                         </Select>
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="nationality">Nationality</Label>
+                         <Input id="nationality" placeholder="e.g. American" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dob">Date of Birth</Label>
                       <Input 
@@ -98,16 +118,63 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         {age !== null ? `${age} Years` : "-"}
                       </div>
                     </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="idCard">ID Card No. (Optional)</Label>
+                      <Input id="idCard" placeholder="SSN / Passport / ID" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="space-y-4 border-b pb-4">
+                  <h3 className="font-medium flex items-center gap-2 text-primary">Contact Details</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
+                      <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="altPhone">Alternate Phone (Optional)</Label>
+                      <Input id="altPhone" type="tel" placeholder="+1 (555) 000-0000" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email ID</Label>
+                      <Input id="email" type="email" placeholder="john.doe@example.com" />
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="state">State / Province</Label>
+                      <Input id="state" placeholder="California" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Permanent Address</Label>
+                    <Textarea id="address" placeholder="House No, Street, City, Zip Code" className="min-h-[60px]" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 bg-red-50 p-4 rounded-md border border-red-100">
+                     <div className="col-span-2">
+                        <Label className="text-red-800 font-semibold">Emergency Contact (Mandatory)</Label>
+                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="emergencyName" className="text-red-700">Contact Person Name</Label>
+                        <Input id="emergencyName" className="bg-white" placeholder="Name" />
+                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="emergencyPhone" className="text-red-700">Contact Number</Label>
+                        <Input id="emergencyPhone" className="bg-white" type="tel" placeholder="Phone" />
+                     </div>
                   </div>
                 </div>
                 
                 {/* Role & Salary */}
                 <div className="space-y-4">
-                  <h3 className="font-medium flex items-center gap-2">Role & Compensation</h3>
+                  <h3 className="font-medium flex items-center gap-2 text-primary">Role & Compensation</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
+                      <Label htmlFor="role">Job Role</Label>
                       <Select>
                         <SelectTrigger id="role">
                           <SelectValue placeholder="Select Role" />
@@ -117,6 +184,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <SelectItem value="chef">Chef</SelectItem>
                           <SelectItem value="housekeeping">Housekeeping</SelectItem>
                           <SelectItem value="receptionist">Receptionist</SelectItem>
+                          <SelectItem value="security">Security</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -129,7 +197,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
                     <div className="flex justify-between items-center">
                       <Label className="text-sm font-semibold">Salary Breakdown</Label>
-                      <Badge variant="outline" className="bg-background">
+                      <Badge variant="outline" className="bg-background font-mono">
                         Total: ${totalSalary.toFixed(2)}
                       </Badge>
                     </div>
@@ -183,9 +251,28 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <Label>ID Proof Upload</Label>
-                  <Input type="file" />
+                <div className="space-y-4 pt-2 border-t mt-2">
+                  <h3 className="font-medium flex items-center gap-2 text-primary mt-2">Verification & Documents</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                      <Label>ID Proof Document</Label>
+                      <Input type="file" />
+                    </div>
+                    <div className="flex items-center space-x-2 h-full pt-6">
+                      <Checkbox 
+                        id="policeVerification" 
+                        checked={policeVerification}
+                        onCheckedChange={(checked) => setPoliceVerification(checked as boolean)}
+                      />
+                      <label
+                        htmlFor="policeVerification"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Police Verification Completed
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
