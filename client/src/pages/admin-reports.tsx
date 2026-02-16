@@ -1,10 +1,19 @@
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, CalendarIcon } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdminReports() {
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [reportPeriod, setReportPeriod] = useState("month");
+
   const revenueData = [
     { name: "Jan", rooms: 4000, food: 2400 },
     { name: "Feb", rooms: 3000, food: 1398 },
@@ -26,15 +35,44 @@ export default function AdminReports() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Financial Reports</h2>
             <p className="text-muted-foreground">Analyze revenue, expenses, and profit margins.</p>
           </div>
-          <Button>
-            <Download className="mr-2 h-4 w-4" />
-            Export for Auditor
-          </Button>
+          
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={reportPeriod} onValueChange={setReportPeriod}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {reportPeriod === "custom" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-[240px] justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Pick a date range</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            )}
+
+            <Button variant="outline" size="icon" title="Export PDF">
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -94,6 +132,9 @@ export default function AdminReports() {
         <Card>
           <CardHeader>
             <CardTitle>Profit & Loss Summary</CardTitle>
+            <CardDescription className="flex items-center gap-1">
+              Reporting Period: <span className="font-medium text-foreground capitalize">{reportPeriod}</span>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

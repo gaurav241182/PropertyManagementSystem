@@ -15,6 +15,7 @@ import AdminExpenses from "@/pages/admin-expenses";
 import AdminStaff from "@/pages/admin-staff";
 import AdminMenu from "@/pages/admin-menu";
 import AdminReports from "@/pages/admin-reports";
+import AdminSettings from "@/pages/admin-settings";
 
 // Wrappers to satisfy wouter's Route component type
 const OwnerStaff = () => <AdminStaff role="owner" />;
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/admin/bookings" component={OwnerBookings} />
       <Route path="/admin/rooms" component={OwnerRooms} />
       <Route path="/admin/menu" component={AdminMenu} />
+      <Route path="/admin/settings" component={AdminSettings} />
       
       {/* Manager Routes (Explicit Role) */}
       <Route path="/manager" component={ManagerDashboard} />
