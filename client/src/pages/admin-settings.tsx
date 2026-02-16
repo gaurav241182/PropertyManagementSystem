@@ -47,6 +47,15 @@ export default function AdminSettings() {
     infant: false
   });
 
+  // Tax Dialog State
+  const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
+  const [newTax, setNewTax] = useState({
+    name: "",
+    rate: 0,
+    type: "Percentage",
+    appliedTo: "All"
+  });
+
   // Load Room Types from Local Storage on Mount
   useEffect(() => {
     const savedTypes = localStorage.getItem("roomTypes");
@@ -80,6 +89,24 @@ export default function AdminSettings() {
     });
   };
 
+  const handleAddTax = () => {
+    setTaxes([...taxes, { id: taxes.length + 1, ...newTax }]);
+    setIsTaxDialogOpen(false);
+    setNewTax({ name: "", rate: 0, type: "Percentage", appliedTo: "All" });
+    toast({
+      title: "Tax Rule Added",
+      description: `${newTax.name} has been added to tax rules.`,
+    });
+  };
+
+  const handleDeleteTax = (id: number) => {
+    setTaxes(taxes.filter(t => t.id !== id));
+    toast({
+      title: "Tax Rule Removed",
+      description: "The tax rule has been removed.",
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -88,18 +115,17 @@ export default function AdminSettings() {
           <p className="text-muted-foreground">Manage global settings, pricing rules, and categories for this branch.</p>
         </div>
 
-        <Tabs defaultValue="roomtypes" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
-            <TabsTrigger value="taxes">Taxes</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
           </TabsList>
 
           {/* General Settings */}
-          <TabsContent value="general" className="mt-6">
+          <TabsContent value="general" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>General Configuration</CardTitle>
@@ -142,6 +168,114 @@ export default function AdminSettings() {
                     Save General Settings
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Tax Rules - Moved here */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Tax Rules</CardTitle>
+                  <CardDescription>Configure taxes applied to bookings and services.</CardDescription>
+                </div>
+                <Dialog open={isTaxDialogOpen} onOpenChange={setIsTaxDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Tax Rule
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add New Tax Rule</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Tax Name</Label>
+                        <Input 
+                          placeholder="e.g. GST" 
+                          value={newTax.name}
+                          onChange={(e) => setNewTax({...newTax, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Rate</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            value={newTax.rate}
+                            onChange={(e) => setNewTax({...newTax, rate: parseFloat(e.target.value)})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Type</Label>
+                          <Select 
+                            value={newTax.type}
+                            onValueChange={(val) => setNewTax({...newTax, type: val})}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Percentage">Percentage (%)</SelectItem>
+                              <SelectItem value="Fixed">Fixed Amount</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Applied To</Label>
+                        <Select 
+                          value={newTax.appliedTo}
+                          onValueChange={(val) => setNewTax({...newTax, appliedTo: val})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="All">All Transactions</SelectItem>
+                            <SelectItem value="Rooms">Room Bookings Only</SelectItem>
+                            <SelectItem value="Services">Services & Food Only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsTaxDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddTax}>Save Tax Rule</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tax Name</TableHead>
+                      <TableHead>Rate</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Applied To</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {taxes.map((tax) => (
+                      <TableRow key={tax.id}>
+                        <TableCell className="font-medium">{tax.name}</TableCell>
+                        <TableCell>{tax.rate}{tax.type === "Percentage" ? "%" : currency}</TableCell>
+                        <TableCell>{tax.type}</TableCell>
+                        <TableCell>{tax.appliedTo}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteTax(tax.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
@@ -263,49 +397,6 @@ export default function AdminSettings() {
                           <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tax Configuration */}
-          <TabsContent value="taxes" className="mt-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Tax Rules</CardTitle>
-                  <CardDescription>Configure taxes applied to bookings and services.</CardDescription>
-                </div>
-                <Button size="sm" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Tax Rule
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tax Name</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Applied To</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {taxes.map((tax) => (
-                      <TableRow key={tax.id}>
-                        <TableCell className="font-medium">{tax.name}</TableCell>
-                        <TableCell>{tax.rate}{tax.type === "Percentage" ? "%" : currency}</TableCell>
-                        <TableCell>{tax.type}</TableCell>
-                        <TableCell>{tax.appliedTo}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-red-500"><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     ))}
