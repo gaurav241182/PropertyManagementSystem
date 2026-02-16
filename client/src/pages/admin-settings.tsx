@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
@@ -170,6 +170,28 @@ export default function AdminSettings() {
     setFacilities(facilities.map(f => f.id === id ? { ...f, active: !f.active } : f));
   };
 
+  const handleGenerateSalaries = () => {
+    // Generate salary records for current month
+    const currentDate = new Date();
+    const currentMonth = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    // Mock new salary data (in a real app, this would come from the backend or be calculated from staff records)
+    const newSalaries = [
+      { id: Date.now() + 1, name: "John Doe", role: "Manager", month: currentMonth, amount: 2500, status: "Pending", paymentDate: "-" },
+      { id: Date.now() + 2, name: "Jane Smith", role: "Chef", month: currentMonth, amount: 1800, status: "Pending", paymentDate: "-" },
+      { id: Date.now() + 3, name: "Mike Johnson", role: "Housekeeping", month: currentMonth, amount: 1200, status: "Pending", paymentDate: "-" },
+      { id: Date.now() + 4, name: "Emily Davis", role: "Receptionist", month: currentMonth, amount: 1400, status: "Pending", paymentDate: "-" },
+    ];
+
+    // Store in localStorage to simulate persistence across pages
+    localStorage.setItem("generatedSalaries", JSON.stringify(newSalaries));
+
+    toast({
+      title: "Salaries Generated Successfully",
+      description: `Payroll records for ${currentMonth} have been created for all active staff.`,
+    });
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -179,12 +201,13 @@ export default function AdminSettings() {
         </div>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
+            <TabsTrigger value="devtools" className="text-amber-600">Dev Tools</TabsTrigger>
           </TabsList>
 
           {/* General Settings */}
@@ -760,6 +783,41 @@ export default function AdminSettings() {
                       No facilities configured. Add services like Extra Bed, Airport Transfer, etc.
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Dev Tools */}
+          <TabsContent value="devtools" className="mt-6">
+            <Card className="border-amber-200 bg-amber-50/20">
+              <CardHeader>
+                <div className="flex items-center gap-2 text-amber-600">
+                  <Terminal className="h-5 w-5" />
+                  <CardTitle>Developer Tools</CardTitle>
+                </div>
+                <CardDescription>
+                  Tools for simulating scheduled jobs and testing backend processes in this mock environment.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="border rounded-lg p-4 bg-background flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold flex items-center gap-2">
+                        <CalendarRange className="h-4 w-4 text-muted-foreground" />
+                        Trigger Monthly Salary Generation
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Manually runs the scheduled job that normally runs on the 1st of every month. 
+                        Generates pending salary records for all active staff for the current month.
+                      </p>
+                    </div>
+                    <Button onClick={handleGenerateSalaries} className="bg-amber-600 hover:bg-amber-700">
+                      <Play className="mr-2 h-4 w-4" />
+                      Run Job
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
