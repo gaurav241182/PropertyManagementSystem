@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon } from "lucide-react";
+import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon, CalendarX, Lock, Unlock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [rooms, setRooms] = useState([
@@ -20,6 +22,33 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     { id: "202", type: "Deluxe Ocean", status: "Occupied", price: 250, capacity: 2 },
     { id: "301", type: "Executive Suite", status: "Reserved", price: 450, capacity: 4 },
   ]);
+
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [isBlockingRange, setIsBlockingRange] = useState(false);
+
+  // Mock configuration options based on room type
+  const [roomType, setRoomType] = useState("");
+  
+  const roomProperties = {
+    "standard_king": { beds: "1 King Bed", capacity: 2, cots: true, infant: true },
+    "standard_twin": { beds: "2 Twin Beds", capacity: 2, cots: true, infant: true },
+    "deluxe_ocean": { beds: "1 King Bed", capacity: 2, cots: true, infant: true, balcony: true },
+    "executive_suite": { beds: "2 King Beds", capacity: 4, cots: true, infant: true, living_area: true },
+  };
+
+  const handleBlockRoom = () => {
+    // Logic to update room status would go here
+    setBlockDialogOpen(false);
+    // Simulate update
+    const updatedRooms = rooms.map(r => r.id === selectedRoom.id ? { ...r, status: "Blocked" } : r);
+    setRooms(updatedRooms);
+  };
+
+  const handleUnblockRoom = (room: any) => {
+     const updatedRooms = rooms.map(r => r.id === room.id ? { ...r, status: "Available" } : r);
+     setRooms(updatedRooms);
+  }
 
   return (
     <AdminLayout role={role}>
@@ -37,7 +66,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                 Add New Room
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Room</DialogTitle>
                 <CardDescription>Create a new room in the inventory.</CardDescription>
@@ -50,7 +79,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="type">Room Type</Label>
-                    <Select>
+                    <Select onValueChange={(val) => setRoomType(val)}>
                       <SelectTrigger id="type">
                         <SelectValue placeholder="Select Type" />
                       </SelectTrigger>
@@ -64,14 +93,49 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 </div>
 
+                {/* Dynamic Property Details */}
+                {roomType && roomProperties[roomType as keyof typeof roomProperties] && (
+                  <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <BedDouble className="h-4 w-4" />
+                      Room Properties
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Bed Configuration:</span>
+                        <span className="font-medium">{roomProperties[roomType as keyof typeof roomProperties].beds}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Max Capacity:</span>
+                        <span className="font-medium">{roomProperties[roomType as keyof typeof roomProperties].capacity} Persons</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-4 pt-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="cot" defaultChecked={roomProperties[roomType as keyof typeof roomProperties].cots} />
+                        <label htmlFor="cot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          Extra Cot Allowed
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="infant" defaultChecked={roomProperties[roomType as keyof typeof roomProperties].infant} />
+                        <label htmlFor="infant" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                          Infant Friendly
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="price">Base Price ($/Night)</Label>
                     <Input id="price" type="number" placeholder="0.00" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="capacity">Max Capacity</Label>
-                    <Input id="capacity" type="number" placeholder="2" />
+                    <Label htmlFor="capacity">Capacity Override</Label>
+                    <Input id="capacity" type="number" placeholder="Optional" />
                   </div>
                 </div>
 
@@ -91,6 +155,61 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
               <DialogFooter>
                 <Button variant="outline">Cancel</Button>
                 <Button>Create Room</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Block Room Dialog */}
+          <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Manage Room Status: {selectedRoom?.id}</DialogTitle>
+                <CardDescription>Block this room for maintenance or other reasons.</CardDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="flex items-center space-x-2">
+                   <Switch id="range-mode" checked={isBlockingRange} onCheckedChange={setIsBlockingRange} />
+                   <Label htmlFor="range-mode">Block for specific date range</Label>
+                </div>
+
+                {isBlockingRange ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Input type="date" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Input type="date" />
+                    </div>
+                  </div>
+                ) : (
+                   <p className="text-sm text-muted-foreground">
+                     Room will be blocked indefinitely until manually unblocked.
+                   </p>
+                )}
+                
+                <div className="space-y-2">
+                  <Label>Reason</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="maintenance">Maintenance / Repair</SelectItem>
+                      <SelectItem value="cleaning">Deep Cleaning</SelectItem>
+                      <SelectItem value="reserved">Reserved by Owner</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={handleBlockRoom}>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Block Room
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -126,12 +245,23 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                     <TableCell>{room.capacity} Guests</TableCell>
                     <TableCell>${room.price}</TableCell>
                     <TableCell>
-                      <Badge variant={room.status === "Available" ? "outline" : "secondary"}>
+                      <Badge variant={room.status === "Available" ? "outline" : "secondary"} className={room.status === "Blocked" ? "bg-red-100 text-red-800" : ""}>
                         {room.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        {room.status === "Blocked" || room.status === "Maintenance" ? (
+                           <Button variant="ghost" size="sm" onClick={() => handleUnblockRoom(room)} className="text-green-600 hover:text-green-700 hover:bg-green-50">
+                             <Unlock className="h-4 w-4 mr-1" />
+                             Unblock
+                           </Button>
+                        ) : (
+                           <Button variant="ghost" size="sm" onClick={() => { setSelectedRoom(room); setBlockDialogOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50">
+                             <CalendarX className="h-4 w-4 mr-1" />
+                             Block
+                           </Button>
+                        )}
                         <Button variant="ghost" size="icon">
                           <Edit className="h-4 w-4" />
                         </Button>

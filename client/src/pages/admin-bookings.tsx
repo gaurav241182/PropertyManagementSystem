@@ -8,10 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Label } from "@/components/ui/label"; // Imported Label
-import { Filter, RefreshCw, Calendar, User, Phone, Mail, CreditCard, FileText, CheckCircle2 } from "lucide-react";
+import { Label } from "@/components/ui/label"; 
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Filter, 
+  RefreshCw, 
+  Calendar, 
+  User, 
+  Phone, 
+  Mail, 
+  CreditCard, 
+  FileText, 
+  CheckCircle2,
+  Loader2
+} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
+  const { toast } = useToast();
+  const [isSyncing, setIsSyncing] = useState(false);
   const [bookings] = useState([
     { 
       id: "BK-7829", 
@@ -57,6 +72,17 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     },
   ]);
 
+  const handleSync = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast({
+        title: "Synchronization Complete",
+        description: "Inventory and bookings updated from Booking.com, Expedia, and Airbnb.",
+      });
+    }, 2000);
+  };
+
   return (
     <AdminLayout role={role}>
       <div className="space-y-6">
@@ -66,14 +92,91 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             <p className="text-muted-foreground">Manage guest reservations and check-ins.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Sync Platforms
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              {isSyncing ? "Syncing..." : "Sync Platforms"}
             </Button>
-            <Button size="sm">
-              <Calendar className="mr-2 h-4 w-4" />
-              New Reservation
-            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  New Reservation
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Reservation</DialogTitle>
+                  <CardDescription>Manually add a booking for a walk-in or phone reservation.</CardDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Check-in Date</Label>
+                      <Input type="date" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Check-out Date</Label>
+                      <Input type="date" />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Room Type</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Room" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standard">Standard King</SelectItem>
+                          <SelectItem value="deluxe">Deluxe Ocean View</SelectItem>
+                          <SelectItem value="suite">Executive Suite</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Guests</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Count" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 Adult</SelectItem>
+                          <SelectItem value="2">2 Adults</SelectItem>
+                          <SelectItem value="2+1">2 Adults + 1 Child</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Guest Name</Label>
+                    <Input placeholder="Full Name" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input type="tel" placeholder="+1..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input type="email" placeholder="guest@example.com" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Special Requests</Label>
+                    <Textarea placeholder="Notes..." />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline">Cancel</Button>
+                  <Button>Confirm Booking</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
