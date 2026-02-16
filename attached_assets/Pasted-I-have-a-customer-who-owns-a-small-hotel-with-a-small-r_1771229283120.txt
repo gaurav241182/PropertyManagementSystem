@@ -1,0 +1,46 @@
+I have a customer who owns a small hotel with a small restaurent. Currently he is using booking.com to get the bookings and also personnel whatsapp or facebook to get direct booking. Now, he wants to automate this i.e.
+
+We need to build a SAAS application so we can sell this to multiple small hotel vendors.
+Tech stack - ReactJS, Node or next.js, PostGres for DB. 
+
+Module 1-
+1. Build a site with reservation where customer can directly see and book the room based on the available inventory on particular dates. Something similar to booking.com but small scale including payment gateway integration.
+2. Inventory management system for his rooms, so lets say someone is booking from booking.com or someone is using this new website so inventory should auto managed. We should be able to integerate with booking.com API for live inventory.
+Also, customer can come to hotel & do the payments (card/cash) so it should be integerated to our application. Idea is to integerate all payments in our website for complete Pnl including from booking.com.
+Also, manager or owner can create a booking on behalf of customer.
+Check in and checkout record for customer including identity card upload during checkin customer wise.
+Automatic email generation for booking confirmation to customer, recipet/bill send to customer email after checkout.
+Recording feedback from customer.
+
+
+4. Apart from room inventory, we want to build a module to manage expenditure at the hotels and record it via Admin or manger login. So manager, should be able to enter the purchase on daily basis into the system. It will be having category like Grocery and then subcategory like vegetables then item is like Onion and its details like quantity, price, 	total, gstbill image upload (of the bill) etc. something like below. Owner wants the full visibility of the purchases happening in his absence and also wants to track month wise expense variations. 
+
+Sl. No.	Category	Sub Category	Item	Qty/Ltr/Kg	Unit Price	Total Price	GST Bill	Image Upload (pdf/jpg)	Saved	Payment Done	Balance to Pay
+1	Grocery	Vegetables	Onion	 5.00 	 10.00 	 50.00 	Yes/No	-	Yes/No	 -   	 50.00 
+2	Utility	Cleaning	Brush	1.00	25.00	25.00	No	-	Yes/No	 25.00 	 -   
+
+Owner should be able to see full report of these purchases, should approve or can reject, payment relesed update etc. Think like a hotel owner and add here if i missed anything.
+
+5. Another module, staff management with their salaries, advances, etc. This can be done by both Owner and Manager. They can onboard a staff like cook, cleaner etc., joining date, salary, nationatly, upload identity card etc.
+Based on the joining date, salary, advance in between, owner & manager should be able to see pending salaries and once cleared then green etc. Idea is to manage staff and salaries here from end to end. Again, this will go in full and final PnL report. 
+
+6. Another feature is Menu management, facilities management as well (like extra bed, bonefire, special cake, honeymoon special decoration etc.). Manager can create a menu (bf, lunch, dinner) for selected day, weekdays, range etc. including services also, Idea is to publish this menu & services to customer as well with pricing and taxes. Cusomter can order it online using our app or manager can book the order on behalf of customer. Idea is to record all food orders, extrac facilities charges sales in our sytem and charge customer at the checkout time and generate invoice as well. 
+
+7. Now next part are reports, this is very important. All kinds of reports should be available to owners what we have discussed above. Sales & purchase report or other reports. 
+	
+8. Following roles are required:
+	a. Platform admin (Saas Provider)
+    a. Hotel Admin or owner
+		a. Full inventory view with edit, can block rooms, release rooms etc, create rooms with photos etc. Think like a hotel owner and add more.
+		b. Can create different roles like Manager or another admin etc.
+		c. Can see all bookings, cancelled bookings, Payments, revenue, reports etc.
+	b. Supervisor or Manager
+		a. Can onboard staffs, able to add expenses, anything releated to customer & staff and its billing.
+		b. Can see inventory & upcoming bookings.
+	c. Cusotmer (no login) - just search based on booking number etc. Research based on the customer view and advise.	
+
+9. One more feature for owner is to send all the sales invoices should be send to his auditor at the end of the month. This should be auto generated but at the approval of owner. 
+
+
+
+	
