@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban } from "lucide-react";
-import { differenceInYears } from "date-fns";
+import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -34,13 +34,34 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [age, setAge] = useState<number | null>(null);
   const [policeVerification, setPoliceVerification] = useState(false);
   const [relation, setRelation] = useState("");
-  
+  const [nationality, setNationality] = useState("");
+  const [state, setState] = useState("");
+  const [countryCode, setCountryCode] = useState("+1");
+  const [phone, setPhone] = useState("");
+  const [joiningDate, setJoiningDate] = useState("");
+  const [proratedSalary, setProratedSalary] = useState<number | null>(null);
+
   // Salary Components
   const [basicSalary, setBasicSalary] = useState(0);
   const [transport, setTransport] = useState(0);
   const [hra, setHra] = useState(0);
   const [allowance, setAllowance] = useState(0);
   const totalSalary = basicSalary + transport + hra + allowance;
+
+  // Mock Data for States
+  const countries = {
+    "American": ["California", "New York", "Texas", "Florida"],
+    "Canadian": ["Ontario", "Quebec", "British Columbia"],
+    "Indian": ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu"],
+    "British": ["England", "Scotland", "Wales"]
+  };
+
+  const countryCodes = [
+     { code: "+1", label: "US/CA" },
+     { code: "+44", label: "UK" },
+     { code: "+91", label: "IN" },
+     { code: "+61", label: "AU" }
+  ];
 
   useEffect(() => {
     if (dob) {
@@ -51,12 +72,34 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     }
   }, [dob]);
 
+  // Calculate Prorated Salary if joining mid-month
+  useEffect(() => {
+    if (joiningDate && totalSalary > 0) {
+      const join = parseISO(joiningDate);
+      const today = new Date();
+      
+      // If joining in current month
+      if (isSameMonth(join, today)) {
+         const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+         const dayOfJoining = join.getDate();
+         const daysWorked = daysInMonth - dayOfJoining + 1;
+         const dailyRate = totalSalary / daysInMonth;
+         setProratedSalary(Math.round(dailyRate * daysWorked));
+      } else {
+        setProratedSalary(null);
+      }
+    } else {
+      setProratedSalary(null);
+    }
+  }, [joiningDate, totalSalary]);
+
   // Open dialog for editing
   const handleEdit = (employee: any) => {
     setEditingStaff(employee);
     setFirstName(employee.name.split(" ")[0]);
     setLastName(employee.name.split(" ")[1] || "");
     setBasicSalary(employee.salary); // Simplified for mock
+    setJoiningDate(employee.joined);
     setIsDialogOpen(true);
   };
 
@@ -67,6 +110,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setLastName("");
     setBasicSalary(0);
     setDob("");
+    setNationality("");
+    setState("");
+    setJoiningDate("");
     setIsDialogOpen(true);
   };
 
@@ -100,7 +146,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 Onboard Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingStaff ? "Edit Employee Details" : "Onboard New Employee"}</DialogTitle>
               </DialogHeader>
@@ -136,9 +182,19 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                            </SelectContent>
                          </Select>
                       </div>
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                          <Label htmlFor="nationality">Nationality</Label>
-                         <Input id="nationality" placeholder="e.g. American" />
+                         <Select value={nationality} onValueChange={setNationality}>
+                           <SelectTrigger id="nationality">
+                             <SelectValue placeholder="Select Nationality" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="American">American</SelectItem>
+                             <SelectItem value="Canadian">Canadian</SelectItem>
+                             <SelectItem value="Indian">Indian</SelectItem>
+                             <SelectItem value="British">British</SelectItem>
+                           </SelectContent>
+                         </Select>
                       </div>
                     </div>
                   </div>
@@ -159,10 +215,6 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         {age !== null ? `${age} Years` : "-"}
                       </div>
                     </div>
-                     <div className="space-y-2">
-                      <Label htmlFor="idCard">ID Card No. (Optional)</Label>
-                      <Input id="idCard" placeholder="SSN / Passport / ID" />
-                    </div>
                   </div>
                 </div>
 
@@ -171,13 +223,19 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <h3 className="font-medium flex items-center gap-2 text-primary">Contact Details</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
-                      <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="altPhone">Alternate Phone (Optional)</Label>
-                      <Input id="altPhone" type="tel" placeholder="+1 (555) 000-0000" />
+                      <div className="flex gap-2">
+                         <Select value={countryCode} onValueChange={setCountryCode}>
+                           <SelectTrigger className="w-[100px]">
+                             <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {countryCodes.map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                           </SelectContent>
+                         </Select>
+                         <Input id="phone" type="tel" placeholder="000-0000" value={phone} onChange={e => setPhone(e.target.value)} />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email ID</Label>
@@ -185,13 +243,26 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     </div>
                      <div className="space-y-2">
                       <Label htmlFor="state">State / Province</Label>
-                      <Input id="state" placeholder="California" />
+                      <Select value={state} onValueChange={setState} disabled={!nationality}>
+                         <SelectTrigger id="state">
+                           <SelectValue placeholder="Select State" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {nationality && countries[nationality as keyof typeof countries]?.map((s) => (
+                             <SelectItem key={s} value={s}>{s}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input id="city" placeholder="City Name" />
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="address">Permanent Address</Label>
-                    <Textarea id="address" placeholder="House No, Street, City, Zip Code" className="min-h-[60px]" />
+                    <Textarea id="address" placeholder="House No, Street, Landmark, Zip Code" className="min-h-[60px]" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 bg-red-50 p-4 rounded-md border border-red-100">
@@ -249,15 +320,20 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="joinDate">Joining Date</Label>
-                      <Input id="joinDate" type="date" />
+                      <Input 
+                        id="joinDate" 
+                        type="date" 
+                        value={joiningDate} 
+                        onChange={(e) => setJoiningDate(e.target.value)} 
+                      />
                     </div>
                   </div>
 
                   <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
                     <div className="flex justify-between items-center">
-                      <Label className="text-sm font-semibold">Salary Breakdown</Label>
+                      <Label className="text-sm font-semibold">Monthly Salary Breakdown</Label>
                       <Badge variant="outline" className="bg-background font-mono">
-                        Total: ${totalSalary.toFixed(2)}
+                        Total: ${totalSalary.toFixed(2)} / mo
                       </Badge>
                     </div>
                     
@@ -307,6 +383,26 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         />
                       </div>
                     </div>
+                    
+                    {/* Pro-rated Salary Warning */}
+                    {proratedSalary !== null && (
+                      <div className="mt-4 pt-3 border-t border-dashed">
+                         <div className="flex items-center justify-between">
+                            <Label className="text-amber-700 text-sm">Pro-rated Salary (Current Month)</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Auto-calculated:</span>
+                              <Input 
+                                className="h-8 w-24 bg-amber-50 border-amber-200"
+                                value={proratedSalary}
+                                onChange={(e) => setProratedSalary(Number(e.target.value))}
+                              />
+                            </div>
+                         </div>
+                         <p className="text-[10px] text-muted-foreground mt-1">
+                           *Based on joining date. Will be added to pending salaries.
+                         </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -315,10 +411,14 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   
                   <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
+                      <Label htmlFor="idCard">ID Card Number</Label>
+                      <Input id="idCard" placeholder="Enter ID Number" />
+                    </div>
+                     <div className="space-y-2">
                       <Label>ID Proof Document</Label>
                       <Input type="file" />
                     </div>
-                    <div className="flex items-center space-x-2 h-full pt-6">
+                    <div className="col-span-2 flex items-center space-x-2 h-full pt-2">
                       <Checkbox 
                         id="policeVerification" 
                         checked={policeVerification}

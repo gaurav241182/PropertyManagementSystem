@@ -9,13 +9,14 @@ import Login from "@/pages/login";
 import PlatformDashboard from "@/pages/platform-dashboard";
 import PlatformHotels from "@/pages/platform-hotels";
 import PlatformReports from "@/pages/platform-reports";
-import PlatformUsers from "@/pages/platform-users"; // New Import
+import PlatformUsers from "@/pages/platform-users";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
 import AdminRooms from "@/pages/admin-rooms";
 import AdminExpenses from "@/pages/admin-expenses";
 import AdminStaff from "@/pages/admin-staff";
+import AdminSalaries from "@/pages/admin-salaries"; // New Import
 import AdminMenu from "@/pages/admin-menu";
 import AdminReports from "@/pages/admin-reports";
 import AdminSettings from "@/pages/admin-settings";
@@ -26,6 +27,7 @@ const OwnerExpenses = () => <AdminExpenses role="owner" />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
 const OwnerMenu = () => <AdminMenu role="owner" />;
+const OwnerSalaries = () => <AdminSalaries role="owner" />; // New Wrapper
 
 const ManagerStaff = () => <AdminStaff role="manager" />;
 const ManagerExpenses = () => <AdminExpenses role="manager" />;
@@ -42,7 +44,7 @@ function Router() {
       {/* Platform Admin Routes */}
       <Route path="/platform/dashboard" component={PlatformDashboard} />
       <Route path="/platform/hotels" component={PlatformHotels} />
-      <Route path="/platform/users" component={PlatformUsers} /> {/* New Route */}
+      <Route path="/platform/users" component={PlatformUsers} />
       <Route path="/platform/reports" component={PlatformReports} />
       
       {/* Owner Routes (Default Role) */}
@@ -54,6 +56,7 @@ function Router() {
       <Route path="/admin/rooms" component={OwnerRooms} />
       <Route path="/admin/menu" component={OwnerMenu} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/admin/salaries" component={OwnerSalaries} /> // New Route
       
       {/* Manager Routes (Explicit Role) */}
       <Route path="/manager" component={ManagerDashboard} />

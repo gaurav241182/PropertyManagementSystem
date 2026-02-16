@@ -13,7 +13,8 @@ import {
   BedDouble,
   Settings,
   ChevronDown,
-  Building
+  Building,
+  DollarSign // New Icon for Salaries
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,8 +33,9 @@ const ROLE_NAV_ITEMS = {
     { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
+    { href: "/admin/salaries", icon: DollarSign, label: "Salaries" }, // New Item
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
-    { href: "/admin/settings", icon: Settings, label: "Settings" }, // Added Settings
+    { href: "/admin/settings", icon: Settings, label: "Settings" },
   ],
   manager: [
     { href: "/manager", icon: LayoutDashboard, label: "Dashboard" },
