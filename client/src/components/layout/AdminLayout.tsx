@@ -14,7 +14,8 @@ import {
   Settings,
   ChevronDown,
   Building,
-  DollarSign // New Icon for Salaries
+  DollarSign,
+  ShoppingBag // New Icon for Sales
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -33,7 +34,8 @@ const ROLE_NAV_ITEMS = {
     { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
-    { href: "/admin/salaries", icon: DollarSign, label: "Salaries" }, // New Item
+    { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
+    { href: "/admin/sales", icon: ShoppingBag, label: "Sales" }, // New Item
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
   ],
@@ -44,6 +46,7 @@ const ROLE_NAV_ITEMS = {
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
     { href: "/manager/menu", icon: UtensilsCrossed, label: "Menu & Services" },
+    { href: "/manager/sales", icon: ShoppingBag, label: "Sales" }, // Also added for Manager
   ]
 };
 
