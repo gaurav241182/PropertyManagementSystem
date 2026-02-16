@@ -9,11 +9,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2 } from "lucide-react";
+import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2, AlertTriangle } from "lucide-react";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
@@ -25,6 +36,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState<number | null>(null);
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   // Form State
@@ -129,6 +142,19 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
   const activeStaff = staff.filter(s => s.status !== "Inactive");
   const inactiveStaff = staff.filter(s => s.status === "Inactive");
+
+  const confirmDelete = () => {
+    if (staffToDelete) {
+      setStaff(staff.filter(s => s.id !== staffToDelete));
+      toast({ 
+        title: "Staff Deleted", 
+        description: "Employee has been permanently removed.", 
+        variant: "destructive" 
+      });
+      setStaffToDelete(null);
+      setIsDeleteAlertOpen(false);
+    }
+  };
 
   return (
     <AdminLayout role={role}>
@@ -521,8 +547,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <Ban className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
-                          setStaff(staff.filter(s => s.id !== employee.id));
-                          toast({ title: "Staff Deleted", description: "Employee has been permanently removed.", variant: "destructive" });
+                          setStaffToDelete(employee.id);
+                          setIsDeleteAlertOpen(true);
                         }}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -589,8 +615,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                             Activate
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
-                            setStaff(staff.filter(s => s.id !== employee.id));
-                            toast({ title: "Staff Deleted", description: "Employee record removed permanently.", variant: "destructive" });
+                            setStaffToDelete(employee.id);
+                            setIsDeleteAlertOpen(true);
                           }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -604,6 +630,27 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           </Card>
         )}
       </div>
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-destructive mb-2">
+              <AlertTriangle className="h-5 w-5" />
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the staff record
+              and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setStaffToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Permanently Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
