@@ -7,8 +7,9 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import PlatformDashboard from "@/pages/platform-dashboard";
-import PlatformHotels from "@/pages/platform-hotels"; // New Import
-import PlatformReports from "@/pages/platform-reports"; // New Import
+import PlatformHotels from "@/pages/platform-hotels";
+import PlatformReports from "@/pages/platform-reports";
+import PlatformUsers from "@/pages/platform-users"; // New Import
 import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
@@ -39,8 +40,9 @@ function Router() {
       <Route path="/login" component={Login} />
       
       {/* Platform Admin Routes */}
-      <Route path="/platform/dashboard" component={PlatformDashboard} /> {/* Updated path */}
+      <Route path="/platform/dashboard" component={PlatformDashboard} />
       <Route path="/platform/hotels" component={PlatformHotels} />
+      <Route path="/platform/users" component={PlatformUsers} /> {/* New Route */}
       <Route path="/platform/reports" component={PlatformReports} />
       
       {/* Owner Routes (Default Role) */}
