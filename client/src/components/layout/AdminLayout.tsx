@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 const ROLE_NAV_ITEMS = {
   owner: [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/admin/inventory", icon: CalendarDays, label: "Inventory & Bookings" }, // RESTORED for Owner
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
   ],
