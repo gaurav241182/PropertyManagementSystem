@@ -9,23 +9,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText, Upload, Calculator } from "lucide-react";
+import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban } from "lucide-react";
 import { differenceInYears } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
-  const [staff] = useState([
+  const { toast } = useToast();
+  const [staff, setStaff] = useState([
     { id: 1, name: "John Doe", role: "Manager", salary: 2500, status: "Active", joined: "2023-01-15", advance: 0 },
     { id: 2, name: "Jane Smith", role: "Chef", salary: 1800, status: "Active", joined: "2023-03-10", advance: 200 },
     { id: 3, name: "Mike Johnson", role: "Housekeeping", salary: 1200, status: "Active", joined: "2023-06-01", advance: 0 },
-    { id: 4, name: "Emily Davis", role: "Receptionist", salary: 1400, status: "On Leave", joined: "2023-08-20", advance: 0 },
+    { id: 4, name: "Emily Davis", role: "Receptionist", salary: 1400, status: "Inactive", joined: "2023-08-20", advance: 0 },
   ]);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<any>(null);
+
   // Form State
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
   const [age, setAge] = useState<number | null>(null);
   const [policeVerification, setPoliceVerification] = useState(false);
+  const [relation, setRelation] = useState("");
   
   // Salary Components
   const [basicSalary, setBasicSalary] = useState(0);
@@ -43,6 +51,39 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     }
   }, [dob]);
 
+  // Open dialog for editing
+  const handleEdit = (employee: any) => {
+    setEditingStaff(employee);
+    setFirstName(employee.name.split(" ")[0]);
+    setLastName(employee.name.split(" ")[1] || "");
+    setBasicSalary(employee.salary); // Simplified for mock
+    setIsDialogOpen(true);
+  };
+
+  // Open dialog for adding
+  const handleAdd = () => {
+    setEditingStaff(null);
+    setFirstName("");
+    setLastName("");
+    setBasicSalary(0);
+    setDob("");
+    setIsDialogOpen(true);
+  };
+
+  const handleToggleStatus = (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    setStaff(staff.map(s => s.id === id ? { ...s, status: newStatus } : s));
+    
+    toast({
+      title: `Staff ${newStatus === "Active" ? "Activated" : "Deactivated"}`,
+      description: `Employee status has been updated to ${newStatus}.`,
+      variant: newStatus === "Active" ? "default" : "destructive",
+    });
+  };
+
+  const activeStaff = staff.filter(s => s.status !== "Inactive");
+  const inactiveStaff = staff.filter(s => s.status === "Inactive");
+
   return (
     <AdminLayout role={role}>
       <div className="space-y-6">
@@ -52,16 +93,16 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             <p className="text-muted-foreground">Manage employees, salaries, and advances.</p>
           </div>
           
-          <Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={handleAdd}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 Onboard Staff
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Onboard New Employee</DialogTitle>
+                <DialogTitle>{editingStaff ? "Edit Employee Details" : "Onboard New Employee"}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-6 py-4">
                 {/* Personal Info */}
@@ -76,11 +117,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     <div className="grid grid-cols-2 gap-4 flex-1">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" placeholder="John" />
+                        <Input id="firstName" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" placeholder="Doe" />
+                        <Input id="lastName" placeholder="Doe" value={lastName} onChange={e => setLastName(e.target.value)} />
                       </div>
                       <div className="space-y-2">
                          <Label htmlFor="gender">Gender</Label>
@@ -162,6 +203,24 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Input id="emergencyName" className="bg-white" placeholder="Name" />
                      </div>
                      <div className="space-y-2">
+                        <Label htmlFor="emergencyRelation" className="text-red-700">Relation</Label>
+                        <Select value={relation} onValueChange={setRelation}>
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select Relation" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Father">Father</SelectItem>
+                            <SelectItem value="Mother">Mother</SelectItem>
+                            <SelectItem value="Spouse">Spouse</SelectItem>
+                            <SelectItem value="Brother">Brother</SelectItem>
+                            <SelectItem value="Sister">Sister</SelectItem>
+                            <SelectItem value="Children">Children</SelectItem>
+                            <SelectItem value="Guardian">Guardian</SelectItem>
+                            <SelectItem value="Friend">Friend</SelectItem>
+                          </SelectContent>
+                        </Select>
+                     </div>
+                     <div className="space-y-2 col-span-2">
                         <Label htmlFor="emergencyPhone" className="text-red-700">Contact Number</Label>
                         <Input id="emergencyPhone" className="bg-white" type="tel" placeholder="Phone" />
                      </div>
@@ -276,8 +335,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline">Cancel</Button>
-                <Button>Onboard Employee</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button>{editingStaff ? "Update Details" : "Onboard Employee"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -286,10 +345,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         <div className="grid md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Staff</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Active Staff</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold">{activeStaff.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -312,7 +371,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
         <Card>
           <CardHeader>
-            <CardTitle>Employee Directory</CardTitle>
+            <CardTitle>Active Staff Directory</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -328,7 +387,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {staff.map((employee) => (
+                {activeStaff.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -349,26 +408,89 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={employee.status === "Active" ? "default" : "secondary"}>
+                      <Badge className="bg-green-600 hover:bg-green-700">
                         {employee.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" title="View Docs">
-                          <FileText className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" title="Edit Details" onClick={() => handleEdit(employee)}>
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Pay Salary">
-                          <DollarSign className="h-4 w-4 text-green-600" />
+                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleToggleStatus(employee.id, employee.status)}>
+                          <Ban className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
+                {activeStaff.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No active staff members found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
+
+        {/* Deactivated Staff Section */}
+        {inactiveStaff.length > 0 && (
+          <Card className="bg-muted/20 border-dashed">
+            <CardHeader>
+              <CardTitle className="text-muted-foreground flex items-center gap-2">
+                <Ban className="h-4 w-4" />
+                Deactivated / Past Employees
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-muted-foreground">Employee</TableHead>
+                    <TableHead className="text-muted-foreground">Role</TableHead>
+                    <TableHead className="text-muted-foreground">Last Salary</TableHead>
+                    <TableHead className="text-muted-foreground">Joined</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-right text-muted-foreground">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-muted-foreground opacity-75">
+                  {inactiveStaff.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8 grayscale opacity-70">
+                            <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{employee.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{employee.role}</TableCell>
+                      <TableCell>${employee.salary}</TableCell>
+                      <TableCell>{employee.joined}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {employee.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleToggleStatus(employee.id, employee.status)}>
+                            <Power className="h-3 w-3 mr-1" />
+                            Activate
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AdminLayout>
   );
