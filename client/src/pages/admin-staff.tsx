@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText } from "lucide-react";
+import { UserPlus, DollarSign, FileText, Upload, Calculator } from "lucide-react";
+import { differenceInYears } from "date-fns";
 
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [staff] = useState([
@@ -18,6 +19,26 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     { id: 3, name: "Mike Johnson", role: "Housekeeping", salary: 1200, status: "Active", joined: "2023-06-01", advance: 0 },
     { id: 4, name: "Emily Davis", role: "Receptionist", salary: 1400, status: "On Leave", joined: "2023-08-20", advance: 0 },
   ]);
+
+  // Form State
+  const [dob, setDob] = useState("");
+  const [age, setAge] = useState<number | null>(null);
+  
+  // Salary Components
+  const [basicSalary, setBasicSalary] = useState(0);
+  const [transport, setTransport] = useState(0);
+  const [hra, setHra] = useState(0);
+  const [allowance, setAllowance] = useState(0);
+  const totalSalary = basicSalary + transport + hra + allowance;
+
+  useEffect(() => {
+    if (dob) {
+      const calculatedAge = differenceInYears(new Date(), new Date(dob));
+      setAge(calculatedAge);
+    } else {
+      setAge(null);
+    }
+  }, [dob]);
 
   return (
     <AdminLayout role={role}>
@@ -35,56 +56,141 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 Onboard Staff
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Employee</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="John" />
+                {/* Personal Info */}
+                <div className="space-y-4 border-b pb-4">
+                  <h3 className="font-medium flex items-center gap-2">Personal Information</h3>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0">
+                      <Upload className="h-6 w-6 mb-1" />
+                      <span className="text-[10px]">Photo</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 flex-1">
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input id="firstName" placeholder="John" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input id="lastName" placeholder="Doe" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Doe" />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dob">Date of Birth</Label>
+                      <Input 
+                        id="dob" 
+                        type="date" 
+                        value={dob} 
+                        onChange={(e) => setDob(e.target.value)} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Age</Label>
+                      <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm text-muted-foreground">
+                        {age !== null ? `${age} Years` : "-"}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select>
-                    <SelectTrigger id="role">
-                      <SelectValue placeholder="Select Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="chef">Chef</SelectItem>
-                      <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                      <SelectItem value="receptionist">Receptionist</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Role & Salary */}
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">Role & Compensation</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select>
+                        <SelectTrigger id="role">
+                          <SelectValue placeholder="Select Role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="chef">Chef</SelectItem>
+                          <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                          <SelectItem value="receptionist">Receptionist</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="joinDate">Joining Date</Label>
+                      <Input id="joinDate" type="date" />
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-semibold">Salary Breakdown</Label>
+                      <Badge variant="outline" className="bg-background">
+                        Total: ${totalSalary.toFixed(2)}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Basic Pay</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          placeholder="0" 
+                          className="h-8 bg-white"
+                          value={basicSalary || ""}
+                          onChange={(e) => setBasicSalary(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">HRA</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          placeholder="0" 
+                          className="h-8 bg-white"
+                          value={hra || ""}
+                          onChange={(e) => setHra(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Transport</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          placeholder="0" 
+                          className="h-8 bg-white"
+                          value={transport || ""}
+                          onChange={(e) => setTransport(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Other Allowance</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          placeholder="0" 
+                          className="h-8 bg-white"
+                          value={allowance || ""}
+                          onChange={(e) => setAllowance(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="salary">Monthly Salary</Label>
-                    <Input id="salary" type="number" placeholder="0.00" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="joinDate">Joining Date</Label>
-                    <Input id="joinDate" type="date" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
+                <div className="space-y-2 pt-2">
                   <Label>ID Proof Upload</Label>
                   <Input type="file" />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline">Cancel</Button>
-                <Button>Add Staff</Button>
+                <Button>Onboard Employee</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
