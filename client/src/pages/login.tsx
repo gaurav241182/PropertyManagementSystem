@@ -17,7 +17,7 @@ export default function Login() {
     setTimeout(() => {
       setLoading(false);
       if (role === "platform") {
-        setLocation("/platform/hotels");
+        setLocation("/platform/dashboard");
       } else if (role === "owner") {
         setLocation("/admin"); // Redirects to Owner Dashboard
       } else if (role === "manager") {

@@ -7,6 +7,8 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import PlatformDashboard from "@/pages/platform-dashboard";
+import PlatformHotels from "@/pages/platform-hotels"; // New Import
+import PlatformReports from "@/pages/platform-reports"; // New Import
 import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
@@ -17,12 +19,12 @@ import AdminMenu from "@/pages/admin-menu";
 import AdminReports from "@/pages/admin-reports";
 import AdminSettings from "@/pages/admin-settings";
 
-// Wrappers to satisfy wouter's Route component type and avoid prop mismatches
+// Wrappers to satisfy wouter's Route component type
 const OwnerStaff = () => <AdminStaff role="owner" />;
 const OwnerExpenses = () => <AdminExpenses role="owner" />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
-const OwnerMenu = () => <AdminMenu role="owner" />; // Added wrapper for consistency
+const OwnerMenu = () => <AdminMenu role="owner" />;
 
 const ManagerStaff = () => <AdminStaff role="manager" />;
 const ManagerExpenses = () => <AdminExpenses role="manager" />;
@@ -37,7 +39,9 @@ function Router() {
       <Route path="/login" component={Login} />
       
       {/* Platform Admin Routes */}
-      <Route path="/platform/hotels" component={PlatformDashboard} />
+      <Route path="/platform/dashboard" component={PlatformDashboard} /> {/* Updated path */}
+      <Route path="/platform/hotels" component={PlatformHotels} />
+      <Route path="/platform/reports" component={PlatformReports} />
       
       {/* Owner Routes (Default Role) */}
       <Route path="/admin" component={AdminDashboard} />
@@ -46,7 +50,7 @@ function Router() {
       <Route path="/admin/expenses" component={OwnerExpenses} />
       <Route path="/admin/bookings" component={OwnerBookings} />
       <Route path="/admin/rooms" component={OwnerRooms} />
-      <Route path="/admin/menu" component={OwnerMenu} /> {/* Updated to use wrapper */}
+      <Route path="/admin/menu" component={OwnerMenu} />
       <Route path="/admin/settings" component={AdminSettings} />
       
       {/* Manager Routes (Explicit Role) */}
