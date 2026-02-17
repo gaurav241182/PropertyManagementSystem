@@ -8,10 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon, CalendarX, Lock, Unlock } from "lucide-react";
+import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon, CalendarX, Lock, Unlock, Save } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 const DEFAULT_ROOM_TYPES = [
   { id: "standard_king", name: "Standard King", beds: "1 King Bed", capacity: 2, price: 150, cots: true, infant: true },
@@ -21,6 +22,7 @@ const DEFAULT_ROOM_TYPES = [
 ];
 
 export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manager" }) {
+  const { toast } = useToast();
   const [rooms, setRooms] = useState([
     { id: "101", type: "Standard King", status: "Available", price: 150, capacity: 2 },
     { id: "102", type: "Standard King", status: "Occupied", price: 150, capacity: 2 },
@@ -34,6 +36,10 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [isBlockingRange, setIsBlockingRange] = useState(false);
   
+  // Edit Room State
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<any>(null);
+
   // Room Type Configuration State
   const [roomTypes, setRoomTypes] = useState<any[]>(DEFAULT_ROOM_TYPES);
   const [roomType, setRoomType] = useState("");
@@ -58,17 +64,38 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   }, [roomType, roomTypes]);
 
   const handleBlockRoom = () => {
-    // Logic to update room status would go here
     setBlockDialogOpen(false);
-    // Simulate update
     const updatedRooms = rooms.map(r => r.id === selectedRoom.id ? { ...r, status: "Blocked" } : r);
     setRooms(updatedRooms);
+    toast({
+      title: "Room Blocked",
+      description: `Room ${selectedRoom.id} has been blocked.`,
+    });
   };
 
   const handleUnblockRoom = (room: any) => {
      const updatedRooms = rooms.map(r => r.id === room.id ? { ...r, status: "Available" } : r);
      setRooms(updatedRooms);
+     toast({
+      title: "Room Unblocked",
+      description: `Room ${room.id} is now available.`,
+    });
   }
+
+  const openEditDialog = (room: any) => {
+    setEditingRoom({ ...room });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveRoom = () => {
+    const updatedRooms = rooms.map(r => r.id === editingRoom.id ? editingRoom : r);
+    setRooms(updatedRooms);
+    setEditDialogOpen(false);
+    toast({
+      title: "Room Updated",
+      description: `Details for Room ${editingRoom.id} have been saved.`,
+    });
+  };
 
   return (
     <AdminLayout role={role}>
@@ -232,6 +259,87 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Room Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Edit Room Details</DialogTitle>
+                <CardDescription>Update configuration for Room {editingRoom?.id}</CardDescription>
+              </DialogHeader>
+              {editingRoom && (
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Room Number</Label>
+                      <Input value={editingRoom.id} disabled />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select 
+                        value={editingRoom.status} 
+                        onValueChange={(val) => setEditingRoom({...editingRoom, status: val})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Available">Available</SelectItem>
+                          <SelectItem value="Occupied">Occupied</SelectItem>
+                          <SelectItem value="Maintenance">Maintenance</SelectItem>
+                          <SelectItem value="Reserved">Reserved</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Room Type</Label>
+                    <Select 
+                      value={roomTypes.find(rt => rt.name === editingRoom.type)?.id || ""} 
+                      onValueChange={(val) => {
+                         const typeName = roomTypes.find(rt => rt.id === val)?.name;
+                         setEditingRoom({...editingRoom, type: typeName});
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roomTypes.map((rt) => (
+                          <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Price ($/Night)</Label>
+                      <Input 
+                        type="number" 
+                        value={editingRoom.price} 
+                        onChange={(e) => setEditingRoom({...editingRoom, price: parseInt(e.target.value)})} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Capacity</Label>
+                      <Input 
+                        type="number" 
+                        value={editingRoom.capacity} 
+                        onChange={(e) => setEditingRoom({...editingRoom, capacity: parseInt(e.target.value)})} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveRoom}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Card>
@@ -281,9 +389,11 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                              Block
                            </Button>
                         )}
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        {role === "owner" && (
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(room)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
                         </Button>
