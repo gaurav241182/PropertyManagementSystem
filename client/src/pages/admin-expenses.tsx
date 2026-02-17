@@ -127,9 +127,10 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                  </Button>
               </div>
               <div className="overflow-x-auto">
-                <Table>
+                  <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="w-[130px]">Purchase Date</TableHead>
                       <TableHead className="w-[140px]">Category</TableHead>
                       <TableHead className="w-[140px]">Sub-Category</TableHead>
                       <TableHead className="min-w-[200px]">Item Name</TableHead>
@@ -137,12 +138,20 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                       <TableHead className="w-[100px]">Price</TableHead>
                       <TableHead className="w-[100px]">Total</TableHead>
                       <TableHead className="w-[130px]">Status</TableHead>
-                      {role === "owner" && <TableHead className="w-[50px]"></TableHead>}
+                      <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expenses.map((expense) => (
                       <TableRow key={expense.id} className="hover:bg-muted/10">
+                        <TableCell className="p-2">
+                          <Input 
+                            type="date" 
+                            value={expense.date} 
+                            onChange={(e) => updateExpense(expense.id, 'date', e.target.value)}
+                            className="h-8 w-full"
+                          />
+                        </TableCell>
                         <TableCell className="p-2">
                           <Select 
                             value={expense.category} 
@@ -234,8 +243,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        {role === "owner" && (
-                          <TableCell className="p-2 text-center">
+                        <TableCell className="p-2 text-center">
+                          {(role === "owner" || (role === "manager" && expense.status === "Pending")) && (
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -244,8 +253,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                          </TableCell>
-                        )}
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
