@@ -38,7 +38,7 @@ const ROLE_NAV_ITEMS = {
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
-    { href: "/admin/sales", icon: ShoppingBag, label: "Sales" },
+    { href: "/admin/sales", icon: ShoppingBag, label: "Revenue" },
     { href: "/admin/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
     { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
@@ -50,7 +50,7 @@ const ROLE_NAV_ITEMS = {
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
     { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
-    { href: "/manager/sales", icon: ShoppingBag, label: "Sales" },
+    { href: "/manager/sales", icon: ShoppingBag, label: "Revenue" },
   ]
 };
 

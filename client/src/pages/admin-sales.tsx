@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Filter, TrendingUp, UtensilsCrossed, Sparkles, DollarSign, Download, BedDouble } from "lucide-react";
 
@@ -47,11 +48,16 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Sales & Revenue</h2>
+            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Revenue Overview</h2>
             <p className="text-muted-foreground">Comprehensive track of Room, F&B, and Facility revenue.</p>
           </div>
           
           <div className="flex items-center gap-2">
+             <div className="flex gap-2">
+               <Input type="date" className="w-[150px]" />
+               <span className="self-center text-muted-foreground">-</span>
+               <Input type="date" className="w-[150px]" />
+             </div>
              <Select value={period} onValueChange={setPeriod}>
               <SelectTrigger className="w-[180px]">
                 <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -63,6 +69,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
                 <SelectItem value="this_month">This Month</SelectItem>
                 <SelectItem value="last_month">Last Month</SelectItem>
                 <SelectItem value="this_year">This Year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline">

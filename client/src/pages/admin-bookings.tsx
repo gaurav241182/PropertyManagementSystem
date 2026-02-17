@@ -31,10 +31,12 @@ import {
   Edit,
   Users,
   Upload,
-  Eye
+  Eye,
+  Globe
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
@@ -65,7 +67,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       id: "BK-7829", 
       guest: "Alice Smith", 
       email: "alice@example.com",
-      phone: "+1 (555) 123-4567",
+      phoneCountry: "+1",
+      phone: "5551234567",
       room: "304", 
       type: "Deluxe Ocean View",
       checkIn: "2024-02-16", 
@@ -78,14 +81,15 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       advance: 1250,
       taxes: 125,
       accompanyingGuests: [
-        { name: "Bob Smith", age: 34, idType: "Passport", idNumber: "A1234567" }
+        { name: "Bob Smith", dob: "1990-05-15", age: 34, idType: "Passport", idNumber: "A1234567", phoneCountry: "+1", phone: "5559876543", email: "bob@example.com" }
       ]
     },
     { 
       id: "BK-7830", 
       guest: "Robert Jones", 
       email: "robert@example.com",
-      phone: "+1 (555) 987-6543",
+      phoneCountry: "+1",
+      phone: "5559876543",
       room: "102", 
       type: "Garden Villa",
       checkIn: "2024-02-17", 
@@ -103,7 +107,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       id: "BK-7831", 
       guest: "Michael Brown", 
       email: "mike@example.com",
-      phone: "+1 (555) 456-7890",
+      phoneCountry: "+1",
+      phone: "5554567890",
       room: "205", 
       type: "Standard King",
       checkIn: "2024-02-18", 
@@ -143,6 +148,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     roomType: "",
     guests: 1,
     guestName: "",
+    phoneCountry: "+91",
     phone: "",
     email: "",
     notes: "",
@@ -158,6 +164,15 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         description: "Inventory and bookings updated from Booking.com, Expedia, and Airbnb.",
       });
     }, 2000);
+  };
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return "";
+    try {
+      return differenceInYears(new Date(), parseISO(dob));
+    } catch (e) {
+      return "";
+    }
   };
 
   const handleCheckIn = (id: string) => {
@@ -253,7 +268,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   };
 
   const handleAddAccompanyingGuest = (isNewRes: boolean = false) => {
-    const newGuest = { name: "", age: "", idType: "", idNumber: "" };
+    const newGuest = { name: "", dob: "", age: "", idType: "", idNumber: "", phoneCountry: "+91", phone: "", email: "" };
     if (isNewRes) {
       setNewReservation({
         ...newReservation,
@@ -271,10 +286,22 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     if (isNewRes) {
       const updated = [...newReservation.accompanyingGuests];
       updated[index] = { ...updated[index], [field]: value };
+      
+      // Auto calculate age if DOB changes
+      if (field === 'dob') {
+        updated[index].age = calculateAge(value);
+      }
+      
       setNewReservation({ ...newReservation, accompanyingGuests: updated });
     } else {
       const updated = [...viewingBooking.accompanyingGuests];
       updated[index] = { ...updated[index], [field]: value };
+      
+      // Auto calculate age if DOB changes
+      if (field === 'dob') {
+        updated[index].age = calculateAge(value);
+      }
+
       setViewingBooking({ ...viewingBooking, accompanyingGuests: updated });
     }
   };
@@ -326,7 +353,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   New Reservation
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create New Reservation</DialogTitle>
                   <CardDescription>Manually add a booking for a walk-in or phone reservation.</CardDescription>
@@ -381,7 +408,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
                       <Label>Phone</Label>
-                      <Input type="tel" placeholder="+1..." value={newReservation.phone} onChange={(e) => setNewReservation({...newReservation, phone: e.target.value})} />
+                      <div className="flex gap-2">
+                        <Input className="w-20" placeholder="+91" value={newReservation.phoneCountry} onChange={(e) => setNewReservation({...newReservation, phoneCountry: e.target.value})} />
+                        <Input type="tel" placeholder="98765..." value={newReservation.phone} onChange={(e) => setNewReservation({...newReservation, phone: e.target.value})} />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Email</Label>
@@ -402,9 +432,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                     </div>
                     
                     {newReservation.accompanyingGuests && newReservation.accompanyingGuests.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         {newReservation.accompanyingGuests.map((guest: any, idx: number) => (
-                          <div key={idx} className="bg-card p-3 rounded border relative">
+                          <div key={idx} className="bg-card p-4 rounded border relative space-y-3">
                              <Button 
                                variant="ghost" 
                                size="icon" 
@@ -413,15 +443,59 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                              >
                                <Trash2 className="h-3 w-3" />
                              </Button>
-                             <div className="grid grid-cols-2 gap-3 mb-2">
-                               <Input placeholder="Guest Name" className="h-8" value={guest.name} onChange={(e) => updateAccompanyingGuest(idx, 'name', e.target.value, true)} />
-                               <Input placeholder="Age/DOB" className="h-8" value={guest.age} onChange={(e) => updateAccompanyingGuest(idx, 'age', e.target.value, true)} />
-                             </div>
+                             
                              <div className="grid grid-cols-2 gap-3">
-                               <Input placeholder="ID Type (Passport/DL)" className="h-8" value={guest.idType} onChange={(e) => updateAccompanyingGuest(idx, 'idType', e.target.value, true)} />
-                               <Input placeholder="ID Number" className="h-8" value={guest.idNumber} onChange={(e) => updateAccompanyingGuest(idx, 'idNumber', e.target.value, true)} />
+                               <div className="space-y-1">
+                                 <Label className="text-xs">Full Name</Label>
+                                 <Input placeholder="Guest Name" className="h-8" value={guest.name} onChange={(e) => updateAccompanyingGuest(idx, 'name', e.target.value, true)} />
+                               </div>
+                               <div className="space-y-1">
+                                 <Label className="text-xs">Date of Birth</Label>
+                                 <div className="flex gap-2">
+                                    <Input type="date" className="h-8 flex-1" value={guest.dob} onChange={(e) => updateAccompanyingGuest(idx, 'dob', e.target.value, true)} />
+                                    <div className="h-8 w-16 bg-muted flex items-center justify-center text-sm rounded border">
+                                      {guest.age || '-'} y/o
+                                    </div>
+                                 </div>
+                               </div>
                              </div>
-                             <div className="mt-2 flex items-center justify-center border border-dashed rounded py-2 cursor-pointer hover:bg-muted/50">
+
+                             <div className="grid grid-cols-2 gap-3">
+                               <div className="space-y-1">
+                                 <Label className="text-xs">ID Type</Label>
+                                 <Select value={guest.idType} onValueChange={(val) => updateAccompanyingGuest(idx, 'idType', val, true)}>
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Select ID" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+                                    <SelectItem value="Passport">Passport</SelectItem>
+                                    <SelectItem value="Driving License">Driving License</SelectItem>
+                                    <SelectItem value="Voter ID">Voter ID</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                               </div>
+                               <div className="space-y-1">
+                                 <Label className="text-xs">ID Number</Label>
+                                 <Input placeholder="ID Number" className="h-8" value={guest.idNumber} onChange={(e) => updateAccompanyingGuest(idx, 'idNumber', e.target.value, true)} />
+                               </div>
+                             </div>
+
+                             <div className="grid grid-cols-2 gap-3">
+                               <div className="space-y-1">
+                                 <Label className="text-xs">Phone (Optional)</Label>
+                                 <div className="flex gap-2">
+                                  <Input className="w-16 h-8" placeholder="+91" value={guest.phoneCountry} onChange={(e) => updateAccompanyingGuest(idx, 'phoneCountry', e.target.value, true)} />
+                                  <Input type="tel" className="h-8" placeholder="Phone" value={guest.phone} onChange={(e) => updateAccompanyingGuest(idx, 'phone', e.target.value, true)} />
+                                 </div>
+                               </div>
+                               <div className="space-y-1">
+                                 <Label className="text-xs">Email (Optional)</Label>
+                                 <Input type="email" placeholder="Email" className="h-8" value={guest.email} onChange={(e) => updateAccompanyingGuest(idx, 'email', e.target.value, true)} />
+                               </div>
+                             </div>
+
+                             <div className="flex items-center justify-center border border-dashed rounded py-2 cursor-pointer hover:bg-muted/50">
                                <Upload className="h-3 w-3 mr-2 text-muted-foreground" />
                                <span className="text-xs text-muted-foreground">Upload ID Document</span>
                              </div>
@@ -575,7 +649,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
         {/* View/Edit Booking Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex justify-between items-center pr-8">
                 <span>Booking Details - {viewingBooking?.id}</span>
@@ -609,9 +683,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <div className="space-y-1">
                         <Label>Contact Phone</Label>
                         {isEditingMode ? (
-                          <Input value={viewingBooking.phone} onChange={(e) => setViewingBooking({...viewingBooking, phone: e.target.value})} />
+                          <div className="flex gap-2">
+                             <Input className="w-20" value={viewingBooking.phoneCountry} onChange={(e) => setViewingBooking({...viewingBooking, phoneCountry: e.target.value})} />
+                             <Input value={viewingBooking.phone} onChange={(e) => setViewingBooking({...viewingBooking, phone: e.target.value})} />
+                          </div>
                         ) : (
-                          <div className="font-medium">{viewingBooking.phone}</div>
+                          <div className="font-medium">{viewingBooking.phoneCountry} {viewingBooking.phone}</div>
                         )}
                       </div>
                       <div className="space-y-1">
@@ -667,9 +744,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    </div>
                    
                    {(viewingBooking.accompanyingGuests || []).length > 0 ? (
-                     <div className="space-y-3">
+                     <div className="space-y-4">
                        {viewingBooking.accompanyingGuests.map((guest: any, idx: number) => (
-                         <div key={idx} className="bg-card p-3 rounded border relative">
+                         <div key={idx} className="bg-card p-4 rounded border relative space-y-3">
                             {isEditingMode && (
                               <Button 
                                 variant="ghost" 
@@ -680,31 +757,64 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             )}
-                            <div className="grid grid-cols-2 gap-3 mb-2">
-                              {isEditingMode ? (
-                                <>
-                                  <Input placeholder="Guest Name" className="h-8" value={guest.name} onChange={(e) => updateAccompanyingGuest(idx, 'name', e.target.value, false)} />
-                                  <Input placeholder="Age/DOB" className="h-8" value={guest.age} onChange={(e) => updateAccompanyingGuest(idx, 'age', e.target.value, false)} />
-                                </>
-                              ) : (
-                                <>
-                                  <div className="text-sm"><span className="text-muted-foreground text-xs block">Name</span> {guest.name}</div>
-                                  <div className="text-sm"><span className="text-muted-foreground text-xs block">Age/DOB</span> {guest.age || '-'}</div>
-                                </>
-                              )}
-                            </div>
+                            
                             <div className="grid grid-cols-2 gap-3">
-                              {isEditingMode ? (
-                                <>
-                                  <Input placeholder="ID Type" className="h-8" value={guest.idType} onChange={(e) => updateAccompanyingGuest(idx, 'idType', e.target.value, false)} />
-                                  <Input placeholder="ID Number" className="h-8" value={guest.idNumber} onChange={(e) => updateAccompanyingGuest(idx, 'idNumber', e.target.value, false)} />
-                                </>
-                              ) : (
-                                <>
-                                  <div className="text-sm"><span className="text-muted-foreground text-xs block">ID Type</span> {guest.idType || '-'}</div>
-                                  <div className="text-sm"><span className="text-muted-foreground text-xs block">ID Number</span> {guest.idNumber || '-'}</div>
-                                </>
-                              )}
+                              <div className="space-y-1">
+                                <Label className="text-xs">Full Name</Label>
+                                {isEditingMode ? (
+                                  <Input className="h-8" value={guest.name} onChange={(e) => updateAccompanyingGuest(idx, 'name', e.target.value, false)} />
+                                ) : (
+                                  <div className="text-sm font-medium">{guest.name}</div>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Age (Auto from DOB)</Label>
+                                {isEditingMode ? (
+                                  <div className="flex gap-2">
+                                     <Input type="date" className="h-8 flex-1" value={guest.dob} onChange={(e) => updateAccompanyingGuest(idx, 'dob', e.target.value, false)} />
+                                     <div className="h-8 w-16 bg-muted flex items-center justify-center text-sm rounded border">
+                                       {guest.age || '-'}
+                                     </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-sm font-medium">{guest.age || '-'} y/o (DOB: {guest.dob || '-'})</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">ID Details</Label>
+                                {isEditingMode ? (
+                                  <div className="flex gap-2">
+                                    <Select value={guest.idType} onValueChange={(val) => updateAccompanyingGuest(idx, 'idType', val, false)}>
+                                      <SelectTrigger className="h-8 flex-1">
+                                        <SelectValue placeholder="ID Type" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="Aadhar Card">Aadhar Card</SelectItem>
+                                        <SelectItem value="Passport">Passport</SelectItem>
+                                        <SelectItem value="Driving License">Driving License</SelectItem>
+                                        <SelectItem value="Voter ID">Voter ID</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Input className="h-8 flex-1" placeholder="ID Number" value={guest.idNumber} onChange={(e) => updateAccompanyingGuest(idx, 'idNumber', e.target.value, false)} />
+                                  </div>
+                                ) : (
+                                  <div className="text-sm font-medium">{guest.idType}: {guest.idNumber}</div>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Phone (Optional)</Label>
+                                {isEditingMode ? (
+                                  <div className="flex gap-2">
+                                     <Input className="w-16 h-8" placeholder="+91" value={guest.phoneCountry} onChange={(e) => updateAccompanyingGuest(idx, 'phoneCountry', e.target.value, false)} />
+                                     <Input type="tel" className="h-8" value={guest.phone} onChange={(e) => updateAccompanyingGuest(idx, 'phone', e.target.value, false)} />
+                                  </div>
+                                ) : (
+                                  <div className="text-sm font-medium">{guest.phone ? `${guest.phoneCountry || ''} ${guest.phone}` : '-'}</div>
+                                )}
+                              </div>
                             </div>
                          </div>
                        ))}
