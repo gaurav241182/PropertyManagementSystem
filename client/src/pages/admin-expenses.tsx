@@ -70,186 +70,189 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   return (
     <AdminLayout role={role}>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Expenses & Purchases</h2>
-            <p className="text-muted-foreground">Manage daily expenditures in a spreadsheet view.</p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Expenses & Purchases</h2>
+              <p className="text-muted-foreground">Manage daily expenditures in a spreadsheet view.</p>
+            </div>
+            <div className="flex gap-2">
+               <Button onClick={handleSaveChanges}>
+                 <Save className="mr-2 h-4 w-4" /> Save Daily Sheet
+               </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-             <Button variant="outline" onClick={handleAddRow}>
-               <Plus className="mr-2 h-4 w-4" /> Add Row
-             </Button>
-             <Button onClick={handleSaveChanges}>
-               <Save className="mr-2 h-4 w-4" /> Save Changes
-             </Button>
-          </div>
-        </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                <CardTitle>Daily Expense Sheet</CardTitle>
+          <Card>
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                    <CardTitle>Daily Expense Sheet</CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-sm font-medium text-muted-foreground">Record Date:</span>
+                    <Input 
+                      type="date" 
+                      defaultValue={new Date().toISOString().split('T')[0]} 
+                      className="w-40 h-8 bg-background" 
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                   <div className="flex flex-col items-end gap-1">
+                      <span className="text-sm font-medium text-muted-foreground">Daily Receipts</span>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-8">
+                          <Upload className="mr-2 h-3.5 w-3.5" /> Upload Files
+                        </Button>
+                        <span className="text-xs text-muted-foreground">0 files attached</span>
+                      </div>
+                   </div>
+                   <div className="h-10 w-px bg-border hidden md:block"></div>
+                   <div className="flex flex-col items-end">
+                      <span className="text-xs text-muted-foreground uppercase font-bold">Total Amount</span>
+                      <span className="text-2xl font-bold font-serif text-primary">
+                        {expenses.reduce((sum, e) => sum + (e.total || 0), 0).toLocaleString()}
+                      </span>
+                   </div>
+                </div>
               </div>
-              <Badge variant="outline" className="bg-muted">
-                {expenses.length} Entries
-              </Badge>
-            </div>
-            <CardDescription>Edit details directly in the table below.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-[130px]">Expense Date</TableHead>
-                    <TableHead className="w-[130px]">Record Date</TableHead>
-                    <TableHead className="w-[140px]">Category</TableHead>
-                    <TableHead className="w-[140px]">Sub-Category</TableHead>
-                    <TableHead className="min-w-[200px]">Item Name</TableHead>
-                    <TableHead className="w-[80px]">Qty</TableHead>
-                    <TableHead className="w-[100px]">Price</TableHead>
-                    <TableHead className="w-[100px]">Total</TableHead>
-                    <TableHead className="w-[130px]">Status</TableHead>
-                    <TableHead className="w-[100px]">Bill</TableHead>
-                    {role === "owner" && <TableHead className="w-[50px]"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {expenses.map((expense) => (
-                    <TableRow key={expense.id} className="hover:bg-muted/10">
-                      <TableCell className="p-2">
-                        <Input 
-                          type="date" 
-                          value={expense.date} 
-                          onChange={(e) => updateExpense(expense.id, 'date', e.target.value)}
-                          className="h-8 w-full"
-                        />
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Input 
-                          type="date" 
-                          value={expense.recordDate} 
-                          onChange={(e) => updateExpense(expense.id, 'recordDate', e.target.value)}
-                          className="h-8 w-full"
-                        />
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Select 
-                          value={expense.category} 
-                          onValueChange={(val) => {
-                             updateExpense(expense.id, 'category', val);
-                             // Reset subcategory when category changes
-                             updateExpense(expense.id, 'subCategory', CATEGORY_SUBS[val]?.[0] || "");
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.keys(CATEGORY_SUBS).map(cat => (
-                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Select 
-                          value={expense.subCategory} 
-                          onValueChange={(val) => updateExpense(expense.id, 'subCategory', val)}
-                        >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(CATEGORY_SUBS[expense.category] || []).map(sub => (
-                              <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Input 
-                          value={expense.item} 
-                          onChange={(e) => updateExpense(expense.id, 'item', e.target.value)}
-                          className="h-8 w-full font-medium"
-                          placeholder="Item Description"
-                        />
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Input 
-                          value={expense.qty} 
-                          onChange={(e) => updateExpense(expense.id, 'qty', e.target.value)}
-                          className="h-8 w-full"
-                          placeholder="1"
-                        />
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <div className="relative">
-                          <Input 
-                            type="number"
-                            value={expense.price} 
-                            onChange={(e) => updateExpense(expense.id, 'price', e.target.value)}
-                            className="h-8 w-full"
-                            placeholder="0"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <div className="relative">
-                          <Input 
-                            type="number"
-                            value={expense.total} 
-                            onChange={(e) => updateExpense(expense.id, 'total', parseFloat(e.target.value))}
-                            className="h-8 w-full bg-muted/20 font-bold"
-                            placeholder="0"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="p-2">
-                        <Select 
-                          value={expense.status} 
-                          onValueChange={(val) => updateExpense(expense.id, 'status', val)}
-                          disabled={role === "manager"}
-                        >
-                          <SelectTrigger className={`h-8 w-full ${
-                            expense.status === 'Paid' ? 'text-green-600 border-green-200 bg-green-50' : 
-                            expense.status === 'Pending' ? 'text-amber-600 border-amber-200 bg-amber-50' : ''
-                          }`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Paid">Paid</SelectItem>
-                            <SelectItem value="Rejected">Rejected</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="p-2 text-center">
-                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground">
-                           <Upload className="h-4 w-4" />
-                         </Button>
-                      </TableCell>
-                      {role === "owner" && (
-                        <TableCell className="p-2 text-center">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
-                            onClick={() => handleRemoveRow(expense.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      )}
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="p-2 flex justify-end bg-muted/10 border-b">
+                 <Button variant="ghost" size="sm" onClick={handleAddRow} className="text-primary hover:text-primary hover:bg-primary/10">
+                   <Plus className="mr-2 h-4 w-4" /> Add Line Item
+                 </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="w-[140px]">Category</TableHead>
+                      <TableHead className="w-[140px]">Sub-Category</TableHead>
+                      <TableHead className="min-w-[200px]">Item Name</TableHead>
+                      <TableHead className="w-[80px]">Qty</TableHead>
+                      <TableHead className="w-[100px]">Price</TableHead>
+                      <TableHead className="w-[100px]">Total</TableHead>
+                      <TableHead className="w-[130px]">Status</TableHead>
+                      {role === "owner" && <TableHead className="w-[50px]"></TableHead>}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {expenses.map((expense) => (
+                      <TableRow key={expense.id} className="hover:bg-muted/10">
+                        <TableCell className="p-2">
+                          <Select 
+                            value={expense.category} 
+                            onValueChange={(val) => {
+                               updateExpense(expense.id, 'category', val);
+                               // Reset subcategory when category changes
+                               updateExpense(expense.id, 'subCategory', CATEGORY_SUBS[val]?.[0] || "");
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-full">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.keys(CATEGORY_SUBS).map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Select 
+                            value={expense.subCategory} 
+                            onValueChange={(val) => updateExpense(expense.id, 'subCategory', val)}
+                          >
+                            <SelectTrigger className="h-8 w-full">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(CATEGORY_SUBS[expense.category] || []).map(sub => (
+                                <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input 
+                            value={expense.item} 
+                            onChange={(e) => updateExpense(expense.id, 'item', e.target.value)}
+                            className="h-8 w-full font-medium"
+                            placeholder="Item Description"
+                          />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input 
+                            value={expense.qty} 
+                            onChange={(e) => updateExpense(expense.id, 'qty', e.target.value)}
+                            className="h-8 w-full"
+                            placeholder="1"
+                          />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <div className="relative">
+                            <Input 
+                              type="number"
+                              value={expense.price} 
+                              onChange={(e) => updateExpense(expense.id, 'price', e.target.value)}
+                              className="h-8 w-full"
+                              placeholder="0"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <div className="relative">
+                            <Input 
+                              type="number"
+                              value={expense.total} 
+                              onChange={(e) => updateExpense(expense.id, 'total', parseFloat(e.target.value))}
+                              className="h-8 w-full bg-muted/20 font-bold"
+                              placeholder="0"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Select 
+                            value={expense.status} 
+                            onValueChange={(val) => updateExpense(expense.id, 'status', val)}
+                            disabled={role === "manager"}
+                          >
+                            <SelectTrigger className={`h-8 w-full ${
+                              expense.status === 'Paid' ? 'text-green-600 border-green-200 bg-green-50' : 
+                              expense.status === 'Pending' ? 'text-amber-600 border-amber-200 bg-amber-50' : ''
+                            }`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Paid">Paid</SelectItem>
+                              <SelectItem value="Rejected">Rejected</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        {role === "owner" && (
+                          <TableCell className="p-2 text-center">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+                              onClick={() => handleRemoveRow(expense.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
       </div>
     </AdminLayout>
   );
