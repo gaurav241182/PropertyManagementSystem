@@ -621,6 +621,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                               </>
                             ) : null}
                             
+                            {role === "owner" && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500">
@@ -640,6 +641,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                            )}
                          </div>
                       </TableCell>
                     </TableRow>

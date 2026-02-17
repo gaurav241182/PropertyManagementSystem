@@ -106,6 +106,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
             <p className="text-muted-foreground">Add, update, or remove rooms and manage rates.</p>
           </div>
           
+          {role === "owner" && (
           <Dialog>
             <DialogTrigger asChild>
               <Button>
@@ -204,6 +205,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
 
           {/* Block Room Dialog */}
           <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
@@ -394,9 +396,11 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
+                        {role === "owner" && (
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

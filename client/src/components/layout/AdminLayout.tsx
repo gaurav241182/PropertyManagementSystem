@@ -50,7 +50,6 @@ const ROLE_NAV_ITEMS = {
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
     { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
-    { href: "/manager/sales", icon: ShoppingBag, label: "Revenue" },
   ]
 };
 
