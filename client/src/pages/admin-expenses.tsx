@@ -12,18 +12,26 @@ import { useToast } from "@/hooks/use-toast";
 export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
   const [expenses, setExpenses] = useState([
-    { id: 1, date: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5kg", price: 10, total: 50, status: "Pending" },
-    { id: 2, date: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2L", price: 25, total: 50, status: "Paid" },
-    { id: 3, date: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10L", price: 5, total: 50, status: "Paid" },
-    { id: 4, date: "2024-02-15", category: "Maintenance", subCategory: "Plumbing", item: "Pipe Fixing", qty: "1", price: 150, total: 150, status: "Rejected" },
+    { id: 1, date: "2024-02-16", recordDate: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5", price: 10, total: 50, status: "Pending" },
+    { id: 2, date: "2024-02-16", recordDate: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2", price: 25, total: 50, status: "Paid" },
+    { id: 3, date: "2024-02-15", recordDate: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10", price: 5, total: 50, status: "Paid" },
+    { id: 4, date: "2024-02-15", recordDate: "2024-02-15", category: "Maintenance", subCategory: "Plumbing", item: "Pipe Fixing", qty: "1", price: 150, total: 150, status: "Rejected" },
   ]);
+
+  const CATEGORY_SUBS: Record<string, string[]> = {
+    "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
+    "Utility": ["Electricity", "Water", "Internet", "Cleaning", "Gas"],
+    "Maintenance": ["Plumbing", "Electrical", "Carpenter", "Painting", "AC Repair"],
+    "Staff": ["Salary", "Bonus", "Uniform", "Training", "Transport"],
+    "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
+  };
 
   const handleAddRow = () => {
     const newId = Math.max(...expenses.map(e => e.id), 0) + 1;
     const today = new Date().toISOString().split('T')[0];
     setExpenses([
       ...expenses, 
-      { id: newId, date: today, category: "Grocery", subCategory: "", item: "", qty: "1", price: 0, total: 0, status: "Pending" }
+      { id: newId, date: today, recordDate: today, category: "Grocery", subCategory: "Vegetables", item: "", qty: "1", price: 0, total: 0, status: "Pending" }
     ]);
   };
 
@@ -95,7 +103,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-[130px]">Date</TableHead>
+                    <TableHead className="w-[130px]">Expense Date</TableHead>
+                    <TableHead className="w-[130px]">Record Date</TableHead>
                     <TableHead className="w-[140px]">Category</TableHead>
                     <TableHead className="w-[140px]">Sub-Category</TableHead>
                     <TableHead className="min-w-[200px]">Item Name</TableHead>
@@ -104,7 +113,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                     <TableHead className="w-[100px]">Total</TableHead>
                     <TableHead className="w-[130px]">Status</TableHead>
                     <TableHead className="w-[100px]">Bill</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    {role === "owner" && <TableHead className="w-[50px]"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -119,29 +128,46 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                         />
                       </TableCell>
                       <TableCell className="p-2">
+                        <Input 
+                          type="date" 
+                          value={expense.recordDate} 
+                          onChange={(e) => updateExpense(expense.id, 'recordDate', e.target.value)}
+                          className="h-8 w-full"
+                        />
+                      </TableCell>
+                      <TableCell className="p-2">
                         <Select 
                           value={expense.category} 
-                          onValueChange={(val) => updateExpense(expense.id, 'category', val)}
+                          onValueChange={(val) => {
+                             updateExpense(expense.id, 'category', val);
+                             // Reset subcategory when category changes
+                             updateExpense(expense.id, 'subCategory', CATEGORY_SUBS[val]?.[0] || "");
+                          }}
                         >
                           <SelectTrigger className="h-8 w-full">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Grocery">Grocery</SelectItem>
-                            <SelectItem value="Utility">Utility</SelectItem>
-                            <SelectItem value="Maintenance">Maintenance</SelectItem>
-                            <SelectItem value="Staff">Staff</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                            {Object.keys(CATEGORY_SUBS).map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell className="p-2">
-                        <Input 
+                        <Select 
                           value={expense.subCategory} 
-                          onChange={(e) => updateExpense(expense.id, 'subCategory', e.target.value)}
-                          className="h-8 w-full"
-                          placeholder="Sub-cat"
-                        />
+                          onValueChange={(val) => updateExpense(expense.id, 'subCategory', val)}
+                        >
+                          <SelectTrigger className="h-8 w-full">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(CATEGORY_SUBS[expense.category] || []).map(sub => (
+                              <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell className="p-2">
                         <Input 
@@ -161,24 +187,22 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                       </TableCell>
                       <TableCell className="p-2">
                         <div className="relative">
-                          <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">$</span>
                           <Input 
                             type="number"
                             value={expense.price} 
                             onChange={(e) => updateExpense(expense.id, 'price', e.target.value)}
-                            className="h-8 w-full pl-5"
+                            className="h-8 w-full"
                             placeholder="0"
                           />
                         </div>
                       </TableCell>
                       <TableCell className="p-2">
                         <div className="relative">
-                          <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">$</span>
                           <Input 
                             type="number"
                             value={expense.total} 
                             onChange={(e) => updateExpense(expense.id, 'total', parseFloat(e.target.value))}
-                            className="h-8 w-full pl-5 bg-muted/20 font-bold"
+                            className="h-8 w-full bg-muted/20 font-bold"
                             placeholder="0"
                           />
                         </div>
@@ -187,6 +211,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                         <Select 
                           value={expense.status} 
                           onValueChange={(val) => updateExpense(expense.id, 'status', val)}
+                          disabled={role === "manager"}
                         >
                           <SelectTrigger className={`h-8 w-full ${
                             expense.status === 'Paid' ? 'text-green-600 border-green-200 bg-green-50' : 
@@ -206,16 +231,18 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                            <Upload className="h-4 w-4" />
                          </Button>
                       </TableCell>
-                      <TableCell className="p-2 text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
-                          onClick={() => handleRemoveRow(expense.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      {role === "owner" && (
+                        <TableCell className="p-2 text-center">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+                            onClick={() => handleRemoveRow(expense.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
