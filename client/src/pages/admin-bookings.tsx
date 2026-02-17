@@ -76,6 +76,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       status: "Confirmed", 
       amount: 1250,
       source: "Booking.com",
+      bookedDate: "2024-01-15",
       paymentStatus: "Paid",
       charges: [] as any[],
       advance: 1250,
@@ -97,6 +98,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       status: "Check In", 
       amount: 760,
       source: "Direct",
+      bookedDate: "2024-02-17",
       paymentStatus: "Pending",
       charges: [] as any[],
       advance: 200,
@@ -116,6 +118,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       status: "Confirmed", 
       amount: 600,
       source: "Expedia",
+      bookedDate: "2024-02-15",
       paymentStatus: "Paid",
       charges: [] as any[],
       advance: 600,
@@ -816,12 +819,35 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                 )}
                               </div>
                             </div>
+
+                            {isEditingMode && (
+                             <div className="flex items-center justify-center border border-dashed rounded py-2 cursor-pointer hover:bg-muted/50 mt-2">
+                               <Upload className="h-3 w-3 mr-2 text-muted-foreground" />
+                               <span className="text-xs text-muted-foreground">Upload ID Document</span>
+                             </div>
+                            )}
                          </div>
                        ))}
                      </div>
                    ) : (
                      <p className="text-sm text-muted-foreground italic">No accompanying guests listed.</p>
                    )}
+                </div>
+
+                {/* Booking Meta Info */}
+                <div className="bg-muted/10 p-3 rounded text-xs text-muted-foreground grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="font-medium">Booking ID:</span> {viewingBooking.id}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-medium">Booked On:</span> {viewingBooking.bookedDate || "2024-01-15"} 
+                  </div>
+                  <div>
+                    <span className="font-medium">Duration:</span> {Math.ceil((new Date(viewingBooking.checkOut).getTime() - new Date(viewingBooking.checkIn).getTime()) / (1000 * 3600 * 24))} Nights
+                  </div>
+                  <div className="text-right">
+                    <span className="font-medium">Source:</span> {viewingBooking.source}
+                  </div>
                 </div>
 
               </div>
