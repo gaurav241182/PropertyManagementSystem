@@ -37,6 +37,7 @@ const ROLE_NAV_ITEMS = {
     { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
+    { href: "/admin/expenses", icon: Receipt, label: "Expenses & Purchases" },
     { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
     { href: "/admin/sales", icon: ShoppingBag, label: "Revenue" },
     { href: "/admin/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
