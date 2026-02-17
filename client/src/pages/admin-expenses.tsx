@@ -11,12 +11,22 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
+  // Mock data with receipt info
   const [expenses, setExpenses] = useState([
-    { id: 1, date: "2024-02-16", recordDate: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5", price: 10, total: 50, status: "Pending" },
-    { id: 2, date: "2024-02-16", recordDate: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2", price: 25, total: 50, status: "Paid" },
-    { id: 3, date: "2024-02-15", recordDate: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10", price: 5, total: 50, status: "Paid" },
-    { id: 4, date: "2024-02-15", recordDate: "2024-02-15", category: "Maintenance", subCategory: "Plumbing", item: "Pipe Fixing", qty: "1", price: 150, total: 150, status: "Rejected" },
+    { id: 1, date: "2024-02-16", recordDate: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5", price: 10, total: 50, status: "Pending", hasReceipt: true },
+    { id: 2, date: "2024-02-16", recordDate: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2", price: 25, total: 50, status: "Paid", hasReceipt: true },
+    { id: 3, date: "2024-02-15", recordDate: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10", price: 5, total: 50, status: "Paid", hasReceipt: false },
+    { id: 4, date: "2024-02-15", recordDate: "2024-02-15", category: "Maintenance", subCategory: "Plumbing", item: "Pipe Fixing", qty: "1", price: 150, total: 150, status: "Rejected", hasReceipt: true },
   ]);
+
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Filter expenses based on role and view
+  const visibleExpenses = role === "owner" 
+    ? expenses // Owner sees all
+    : expenses.filter(e => e.recordDate === filterDate); // Manager sees daily sheet
+
+  const totalAmount = visibleExpenses.reduce((sum, e) => sum + (e.total || 0), 0);
 
   const CATEGORY_SUBS: Record<string, string[]> = {
     "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
@@ -28,10 +38,11 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
 
   const handleAddRow = () => {
     const newId = Math.max(...expenses.map(e => e.id), 0) + 1;
-    const today = new Date().toISOString().split('T')[0];
+    const dateToUse = role === "owner" ? new Date().toISOString().split('T')[0] : filterDate;
+    
     setExpenses([
       ...expenses, 
-      { id: newId, date: today, recordDate: today, category: "Grocery", subCategory: "Vegetables", item: "", qty: "1", price: 0, total: 0, status: "Pending" }
+      { id: newId, date: dateToUse, recordDate: dateToUse, category: "Grocery", subCategory: "Vegetables", item: "", qty: "1", price: 0, total: 0, status: "Pending", hasReceipt: false }
     ]);
   };
 
