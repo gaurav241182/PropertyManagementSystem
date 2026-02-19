@@ -513,6 +513,9 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
           </TabsContent>
+          
+          {/* Invoice & Tax Settings */}
+          <TabsContent value="invoice" className="mt-6 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Invoice Configuration</CardTitle>
