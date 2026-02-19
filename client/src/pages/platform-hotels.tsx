@@ -37,12 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function PlatformHotels() {
-  const [hotels, setHotels] = useState([
-    { id: 1, name: "Grand Luxe Hotel", branches: 3, location: "New York, NY", owner: "John Smith", plan: "Enterprise", status: "Active", revenue: "$12,450" },
-    { id: 2, name: "Seaside Resort", branches: 1, location: "Miami, FL", owner: "Sarah Connor", plan: "Professional", status: "Active", revenue: "$8,200" },
-    { id: 3, name: "Mountain View Lodge", branches: 2, location: "Aspen, CO", owner: "Mike Ross", plan: "Starter", status: "Suspended", revenue: "$0" },
-    { id: 4, name: "City Center Inn", branches: 5, location: "Chicago, IL", owner: "Jessica Pearson", plan: "Enterprise", status: "Active", revenue: "$18,900" },
-  ]);
+  const [hotels, setHotels] = useState<any[]>([]);
 
   const [branches, setBranches] = useState([{ name: "", city: "", address: "" }]);
 
@@ -264,81 +259,88 @@ export default function PlatformHotels() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Hotel Name</TableHead>
-                  <TableHead>Branches</TableHead>
-                  <TableHead>Main Location</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Revenue (MTD)</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {hotels.map((hotel) => (
-                  <TableRow key={hotel.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                          {hotel.name.substring(0, 2)}
-                        </div>
-                        {hotel.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="gap-1">
-                        <GitBranch className="h-3 w-3" />
-                        {hotel.branches}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {hotel.location}
-                      </div>
-                    </TableCell>
-                    <TableCell>{hotel.owner}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="capitalize">{hotel.plan}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={hotel.status === "Active" ? "default" : "destructive"} className={hotel.status === "Active" ? "bg-green-600 hover:bg-green-700" : ""}>
-                        {hotel.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{hotel.revenue}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Login as Owner
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <GitBranch className="mr-2 h-4 w-4" />
-                            Manage Branches
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <Power className="mr-2 h-4 w-4" />
-                            Suspend Account
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            {hotels.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Building2 className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-sm text-muted-foreground">No hotels registered yet. Click 'Onboard New Hotel' to add your first hotel.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Hotel Name</TableHead>
+                    <TableHead>Branches</TableHead>
+                    <TableHead>Main Location</TableHead>
+                    <TableHead>Owner</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Revenue (MTD)</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {hotels.map((hotel) => (
+                    <TableRow key={hotel.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                            {hotel.name.substring(0, 2)}
+                          </div>
+                          {hotel.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="gap-1">
+                          <GitBranch className="h-3 w-3" />
+                          {hotel.branches}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {hotel.location}
+                        </div>
+                      </TableCell>
+                      <TableCell>{hotel.owner}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">{hotel.plan}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={hotel.status === "Active" ? "default" : "destructive"} className={hotel.status === "Active" ? "bg-green-600 hover:bg-green-700" : ""}>
+                          {hotel.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{hotel.revenue}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Login as Owner
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <GitBranch className="mr-2 h-4 w-4" />
+                              Manage Branches
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              <Power className="mr-2 h-4 w-4" />
+                              Suspend Account
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

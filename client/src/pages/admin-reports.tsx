@@ -1,36 +1,83 @@
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, CalendarIcon } from "lucide-react";
+import { Download, CalendarIcon, Loader2 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import type { Booking, Expense, Order } from "@shared/schema";
 
 export default function AdminReports() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [reportPeriod, setReportPeriod] = useState("month");
 
-  const revenueData = [
-    { name: "Jan", rooms: 4000, food: 2400 },
-    { name: "Feb", rooms: 3000, food: 1398 },
-    { name: "Mar", rooms: 2000, food: 9800 },
-    { name: "Apr", rooms: 2780, food: 3908 },
-    { name: "May", rooms: 1890, food: 4800 },
-    { name: "Jun", rooms: 2390, food: 3800 },
-  ];
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({ queryKey: ['/api/expenses'] });
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({ queryKey: ['/api/orders'] });
 
-  const expenseData = [
-    { name: "Salaries", value: 400 },
-    { name: "Grocery", value: 300 },
-    { name: "Utilities", value: 300 },
-    { name: "Maintenance", value: 200 },
-  ];
+  const isLoading = bookingsLoading || expensesLoading || ordersLoading;
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+  const revenueData = useMemo(() => {
+    const monthMap: Record<string, { rooms: number; food: number }> = {};
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    for (const b of bookings) {
+      const d = new Date(b.checkIn);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!monthMap[key]) monthMap[key] = { rooms: 0, food: 0 };
+      monthMap[key].rooms += parseFloat(b.totalAmount as string) || 0;
+    }
+
+    const fulfilledOrders = orders.filter((o) => o.status === "Fulfilled");
+    for (const o of fulfilledOrders) {
+      const d = new Date(String(o.createdAt));
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!monthMap[key]) monthMap[key] = { rooms: 0, food: 0 };
+      monthMap[key].food += parseFloat(o.totalAmount as string) || 0;
+    }
+
+    const sorted = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b));
+    return sorted.map(([key, val]) => {
+      const month = parseInt(key.split("-")[1]);
+      return { name: monthNames[month], rooms: val.rooms, food: val.food };
+    });
+  }, [bookings, orders]);
+
+  const expenseData = useMemo(() => {
+    const catMap: Record<string, number> = {};
+    for (const e of expenses) {
+      const cat = e.category || "Other";
+      catMap[cat] = (catMap[cat] || 0) + (parseFloat(e.total as string) || 0);
+    }
+    return Object.entries(catMap).map(([name, value]) => ({ name, value }));
+  }, [expenses]);
+
+  const { totalRevenue, totalExpenses, netProfit } = useMemo(() => {
+    const rev = bookings.reduce((sum, b) => sum + (parseFloat(b.totalAmount as string) || 0), 0)
+      + orders.filter((o) => o.status === "Fulfilled").reduce((sum, o) => sum + (parseFloat(o.totalAmount as string) || 0), 0);
+    const exp = expenses.reduce((sum, e) => sum + (parseFloat(e.total as string) || 0), 0);
+    return { totalRevenue: rev, totalExpenses: exp, netProfit: rev - exp };
+  }, [bookings, expenses, orders]);
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A855F7', '#EC4899', '#F97316', '#06B6D4'];
+
+  const formatCurrency = (val: number) =>
+    `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -138,17 +185,17 @@ export default function AdminReports() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center border-b pb-2">
+              <div className="flex justify-between items-center border-b pb-2" data-testid="text-total-revenue">
                 <span className="font-medium">Total Revenue</span>
-                <span className="font-bold text-green-600">$45,231.89</span>
+                <span className="font-bold text-green-600">{formatCurrency(totalRevenue)}</span>
               </div>
-              <div className="flex justify-between items-center border-b pb-2">
+              <div className="flex justify-between items-center border-b pb-2" data-testid="text-total-expenses">
                 <span className="font-medium">Total Expenses</span>
-                <span className="font-bold text-red-600">$12,450.00</span>
+                <span className="font-bold text-red-600">{formatCurrency(totalExpenses)}</span>
               </div>
-              <div className="flex justify-between items-center pt-2">
+              <div className="flex justify-between items-center pt-2" data-testid="text-net-profit">
                 <span className="font-bold text-lg">Net Profit</span>
-                <span className="font-bold text-lg text-primary">$32,781.89</span>
+                <span className="font-bold text-lg text-primary">{formatCurrency(netProfit)}</span>
               </div>
             </div>
           </CardContent>

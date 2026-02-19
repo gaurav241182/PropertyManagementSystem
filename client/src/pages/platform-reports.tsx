@@ -1,27 +1,12 @@
 import PlatformLayout from "@/components/layout/PlatformLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, AreaChart, Area, CartesianGrid } from "recharts";
+import { Download, BarChart3 } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from "recharts";
 
 export default function PlatformReports() {
-  const mrrData = [
-    { name: "Jan", amount: 65000 },
-    { name: "Feb", amount: 68000 },
-    { name: "Mar", amount: 72000 },
-    { name: "Apr", amount: 75000 },
-    { name: "May", amount: 78500 },
-    { name: "Jun", amount: 84250 },
-  ];
-
-  const churnData = [
-    { name: "Jan", rate: 2.1 },
-    { name: "Feb", rate: 1.8 },
-    { name: "Mar", rate: 1.5 },
-    { name: "Apr", rate: 1.2 },
-    { name: "May", rate: 1.4 },
-    { name: "Jun", rate: 0.9 },
-  ];
+  const mrrData: any[] = [];
+  const churnData: any[] = [];
 
   return (
     <PlatformLayout>
@@ -37,6 +22,11 @@ export default function PlatformReports() {
           </Button>
         </div>
 
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <BarChart3 className="h-10 w-10 text-muted-foreground/50 mb-3" />
+          <p className="text-sm text-muted-foreground">No data available yet. Reports will populate as hotels are onboarded.</p>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="col-span-2">
             <CardHeader>
@@ -45,24 +35,28 @@ export default function PlatformReports() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mrrData}>
-                    <defs>
-                      <linearGradient id="colorMrr" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <Tooltip 
-                      formatter={(value) => [`$${value}`, "MRR"]}
-                      contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Area type="monotone" dataKey="amount" stroke="#8884d8" fillOpacity={1} fill="url(#colorMrr)" strokeWidth={3} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {mrrData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">No revenue data available.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={mrrData}>
+                      <defs>
+                        <linearGradient id="colorMrr" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <Tooltip 
+                        formatter={(value) => [`$${value}`, "MRR"]}
+                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Area type="monotone" dataKey="amount" stroke="#8884d8" fillOpacity={1} fill="url(#colorMrr)" strokeWidth={3} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -74,14 +68,18 @@ export default function PlatformReports() {
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={churnData}>
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="rate" fill="#ff8042" radius={[4, 4, 0, 0]} name="Churn Rate %" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {churnData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">No churn data available.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={churnData}>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="rate" fill="#ff8042" radius={[4, 4, 0, 0]} name="Churn Rate %" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -95,26 +93,26 @@ export default function PlatformReports() {
                <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Starter ($49/mo)</span>
-                  <span className="text-muted-foreground">45% (64 Hotels)</span>
+                  <span className="text-muted-foreground">0% (0 Hotels)</span>
                 </div>
                 <div className="w-full bg-secondary/20 rounded-full h-2">
-                  <div className="bg-secondary h-2 rounded-full" style={{ width: '45%' }}></div>
+                  <div className="bg-secondary h-2 rounded-full" style={{ width: '0%' }}></div>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Professional ($149/mo)</span>
-                  <span className="text-muted-foreground">35% (50 Hotels)</span>
+                  <span className="text-muted-foreground">0% (0 Hotels)</span>
                 </div>
                 <div className="w-full bg-primary/20 rounded-full h-2">
-                  <div className="bg-primary h-2 rounded-full" style={{ width: '35%' }}></div>
+                  <div className="bg-primary h-2 rounded-full" style={{ width: '0%' }}></div>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Enterprise ($499/mo)</span>
-                  <span className="text-muted-foreground">20% (28 Hotels)</span>
+                  <span className="text-muted-foreground">0% (0 Hotels)</span>
                 </div>
                 <div className="w-full bg-purple-200 rounded-full h-2">
-                  <div className="bg-purple-600 h-2 rounded-full" style={{ width: '20%' }}></div>
+                  <div className="bg-purple-600 h-2 rounded-full" style={{ width: '0%' }}></div>
                 </div>
                </div>
             </CardContent>

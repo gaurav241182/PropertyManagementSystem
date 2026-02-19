@@ -4,38 +4,69 @@ import {
   Users, 
   Receipt, 
   CalendarCheck, 
-  ArrowUpRight, 
-  Clock,
-  CheckCircle2,
-  AlertCircle
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Booking, Staff, Expense } from "@shared/schema";
 
 export default function ManagerDashboard() {
+  const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
+  const { data: staffList, isLoading: staffLoading } = useQuery<Staff[]>({ queryKey: ['/api/staff'] });
+  const { data: expensesList, isLoading: expensesLoading } = useQuery<Expense[]>({ queryKey: ['/api/expenses'] });
+
+  const isLoading = bookingsLoading || staffLoading || expensesLoading;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const todayCheckIns = bookings
+    ? bookings.filter(b => b.checkIn === today && (b.status === "confirmed" || b.status === "checked_in")).length
+    : 0;
+
+  const activeStaffCount = staffList
+    ? staffList.filter(s => s.status === "active").length
+    : 0;
+
+  const pendingExpensesTotal = expensesList
+    ? expensesList
+        .filter(e => e.status === "Pending")
+        .reduce((sum, e) => sum + parseFloat(e.total as string || "0"), 0)
+    : 0;
+
   const stats = [
     {
       title: "Today's Check-ins",
-      value: "8",
-      change: "3 Pending",
+      value: String(todayCheckIns),
+      change: `${todayCheckIns} today`,
       icon: CalendarCheck,
       color: "text-blue-600",
     },
     {
       title: "Active Staff",
-      value: "12",
-      change: "All Present",
+      value: String(activeStaffCount),
+      change: activeStaffCount > 0 ? "Currently active" : "No active staff",
       icon: Users,
       color: "text-green-600",
     },
     {
       title: "Pending Expenses",
-      value: "$450.00",
-      change: "Needs Approval",
+      value: `$${pendingExpensesTotal.toFixed(2)}`,
+      change: pendingExpensesTotal > 0 ? "Needs Approval" : "No pending",
       icon: Receipt,
       color: "text-amber-600",
     },
   ];
+
+  if (isLoading) {
+    return (
+      <AdminLayout role="manager">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loading-spinner" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout role="manager">
@@ -55,7 +86,7 @@ export default function ManagerDashboard() {
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-2xl font-bold" data-testid={`stat-value-${index}`}>{stat.value}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stat.change}
                 </p>
@@ -93,24 +124,17 @@ export default function ManagerDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-2 rounded bg-muted/50">
                   <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="text-sm font-medium">Morning Shift</span>
+                    <div className={`h-2 w-2 rounded-full ${activeStaffCount > 0 ? "bg-green-500" : "bg-slate-300"}`} />
+                    <span className="text-sm font-medium">Active Staff</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">6/6 Staff</span>
+                  <span className="text-xs text-muted-foreground" data-testid="active-staff-count">{activeStaffCount} members</span>
                 </div>
                 <div className="flex items-center justify-between p-2 rounded bg-muted/50">
                   <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-sm font-medium">Evening Shift</span>
+                    <div className="h-2 w-2 rounded-full bg-blue-500" />
+                    <span className="text-sm font-medium">Total Staff</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">Starts in 2h</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-slate-300" />
-                    <span className="text-sm font-medium">Night Shift</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">--</span>
+                  <span className="text-xs text-muted-foreground" data-testid="total-staff-count">{staffList?.length ?? 0} members</span>
                 </div>
               </div>
             </CardContent>

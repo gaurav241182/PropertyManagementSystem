@@ -1,55 +1,78 @@
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import type { Booking, Room, Expense, Order } from "@shared/schema";
 import { 
   Users, 
   CreditCard, 
   CalendarCheck, 
   TrendingUp, 
-  ArrowUpRight, 
-  ArrowDownRight,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
+  Wrench,
+  ShoppingCart
 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
+  const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({ queryKey: ['/api/rooms'] });
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({ queryKey: ['/api/expenses'] });
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({ queryKey: ['/api/orders'] });
+
+  const isLoading = bookingsLoading || roomsLoading || expensesLoading || ordersLoading;
+
+  const bookingRevenue = bookings.reduce((sum, b) => sum + parseFloat(b.totalAmount || "0"), 0);
+  const orderRevenue = orders
+    .filter(o => o.status === "Fulfilled")
+    .reduce((sum, o) => sum + parseFloat(o.totalAmount || "0"), 0);
+  const totalRevenue = bookingRevenue + orderRevenue;
+  const totalBookings = bookings.length;
+  const activeGuests = bookings.filter(b => b.status === "checked_in").length;
+  const occupiedRooms = rooms.filter(r => r.status === "occupied").length;
+  const occupancyRate = rooms.length > 0 ? Math.round((occupiedRooms / rooms.length) * 100) : 0;
+
+  const pendingExpenses = expenses.filter(e => e.status === "Pending").length;
+  const maintenanceRooms = rooms.filter(r => r.status === "maintenance").length;
+  const pendingOrders = orders.filter(o => o.status === "Pending").length;
+  const hasActionItems = pendingExpenses > 0 || maintenanceRooms > 0 || pendingOrders > 0;
+
+  const recentBookings = [...bookings]
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 5);
+
   const stats = [
     {
       title: "Total Revenue",
-      value: "$45,231.89",
-      change: "+20.1% from last month",
-      trend: "up",
+      value: `$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: CreditCard,
     },
     {
       title: "Bookings",
-      value: "+2350",
-      change: "+180.1% from last month",
-      trend: "up",
+      value: String(totalBookings),
       icon: CalendarCheck,
     },
     {
       title: "Active Guests",
-      value: "124",
-      change: "+19% from last month",
-      trend: "up",
+      value: String(activeGuests),
       icon: Users,
     },
     {
       title: "Occupancy Rate",
-      value: "84%",
-      change: "-4% from last month",
-      trend: "down",
+      value: `${occupancyRate}%`,
       icon: TrendingUp,
     },
   ];
 
-  const recentBookings = [
-    { id: "BK-7829", guest: "Alice Smith", room: "Deluxe Ocean View (304)", dates: "Feb 16 - Feb 20", status: "Confirmed", amount: "$1,250" },
-    { id: "BK-7830", guest: "Robert Jones", room: "Garden Villa (102)", dates: "Feb 17 - Feb 19", status: "Pending", amount: "$760" },
-    { id: "BK-7831", guest: "Michael Brown", room: "Standard King (205)", dates: "Feb 18 - Feb 22", status: "Confirmed", amount: "$600" },
-    { id: "BK-7832", guest: "Sarah Wilson", room: "Executive Suite (401)", dates: "Feb 20 - Feb 25", status: "Checked In", amount: "$2,250" },
-    { id: "BK-7833", guest: "James Davis", room: "Deluxe Ocean View (305)", dates: "Feb 21 - Feb 23", status: "Confirmed", amount: "$500" },
-  ];
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -61,7 +84,7 @@ export default function AdminDashboard() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat, index) => (
-            <Card key={index} className="shadow-sm">
+            <Card key={index} className="shadow-sm" data-testid={`stat-card-${index}`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
@@ -69,17 +92,8 @@ export default function AdminDashboard() {
                 <stat.icon className="h-4 w-4 text-secondary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <div className="flex items-center text-xs text-muted-foreground mt-1">
-                  {stat.trend === "up" ? (
-                    <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="mr-1 h-3 w-3 text-red-500" />
-                  )}
-                  <span className={stat.trend === "up" ? "text-green-500" : "text-red-500"}>
-                    {stat.change}
-                  </span>
-                </div>
+                <div className="text-2xl font-bold" data-testid={`stat-value-${index}`}>{stat.value}</div>
+                <p className="text-xs text-muted-foreground mt-1">No prior data</p>
               </CardContent>
             </Card>
           ))}
@@ -91,20 +105,24 @@ export default function AdminDashboard() {
               <CardTitle>Recent Bookings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentBookings.map((booking) => (
-                  <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">{booking.guest}</p>
-                      <p className="text-xs text-muted-foreground">{booking.room}</p>
+              {recentBookings.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-bookings">No bookings yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentBookings.map((booking) => (
+                    <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0" data-testid={`row-booking-${booking.id}`}>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium leading-none" data-testid={`text-guest-${booking.id}`}>{booking.guestName} {booking.guestLastName}</p>
+                        <p className="text-xs text-muted-foreground">{booking.bookingId} · {booking.checkIn} to {booking.checkOut}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium" data-testid={`text-amount-${booking.id}`}>${parseFloat(booking.totalAmount || "0").toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-muted-foreground">{booking.status}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{booking.amount}</p>
-                      <p className="text-xs text-muted-foreground">{booking.status}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
           
@@ -113,31 +131,41 @@ export default function AdminDashboard() {
               <CardTitle>Action Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <Clock className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-amber-900">Pending Approvals</h4>
-                    <p className="text-xs text-amber-700 mt-1">3 Expense reports need your approval.</p>
-                  </div>
+              {!hasActionItems ? (
+                <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-actions">No pending items</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingExpenses > 0 && (
+                    <div className="flex items-start gap-4 p-3 bg-amber-50 rounded-lg border border-amber-100" data-testid="action-pending-expenses">
+                      <Clock className="h-5 w-5 text-amber-600 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-amber-900">Pending Approvals</h4>
+                        <p className="text-xs text-amber-700 mt-1">{pendingExpenses} expense report{pendingExpenses !== 1 ? "s" : ""} need{pendingExpenses === 1 ? "s" : ""} your approval.</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {maintenanceRooms > 0 && (
+                    <div className="flex items-start gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100" data-testid="action-maintenance-rooms">
+                      <Wrench className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-blue-900">Room Maintenance</h4>
+                        <p className="text-xs text-blue-700 mt-1">{maintenanceRooms} room{maintenanceRooms !== 1 ? "s" : ""} require{maintenanceRooms === 1 ? "s" : ""} maintenance.</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {pendingOrders > 0 && (
+                    <div className="flex items-start gap-4 p-3 bg-green-50 rounded-lg border border-green-100" data-testid="action-pending-orders">
+                      <ShoppingCart className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-green-900">Pending Orders</h4>
+                        <p className="text-xs text-green-700 mt-1">{pendingOrders} order{pendingOrders !== 1 ? "s" : ""} pending fulfillment.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="flex items-start gap-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-blue-900">Room Inspection</h4>
-                    <p className="text-xs text-blue-700 mt-1">Room 304 reported maintenance issue.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 bg-green-50 rounded-lg border border-green-100">
-                  <Users className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-green-900">Staff Onboarding</h4>
-                    <p className="text-xs text-green-700 mt-1">New chef joining tomorrow.</p>
-                  </div>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

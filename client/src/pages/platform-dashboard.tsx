@@ -5,8 +5,6 @@ import {
   Building2, 
   Users, 
   CreditCard, 
-  ArrowUpRight, 
-  ArrowDownRight,
   Activity,
   Plus
 } from "lucide-react";
@@ -16,33 +14,29 @@ export default function PlatformDashboard() {
   const stats = [
     {
       title: "Total Hotels",
-      value: "142",
-      change: "+12 this month",
-      trend: "up",
+      value: "0",
+      change: "—",
       icon: Building2,
       color: "text-blue-600",
     },
     {
       title: "Active Branches",
-      value: "356",
-      change: "+28 this month",
-      trend: "up",
+      value: "0",
+      change: "—",
       icon: Activity,
       color: "text-purple-600",
     },
     {
       title: "Total Users",
-      value: "2,450",
-      change: "+180 this month",
-      trend: "up",
+      value: "0",
+      change: "—",
       icon: Users,
       color: "text-green-600",
     },
     {
       title: "Monthly Revenue (MRR)",
-      value: "$84,250",
-      change: "+8.2% from last month",
-      trend: "up",
+      value: "$0",
+      change: "—",
       icon: CreditCard,
       color: "text-amber-600",
     },
@@ -76,14 +70,7 @@ export default function PlatformDashboard() {
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
-                  {stat.trend === "up" ? (
-                    <ArrowUpRight className="mr-1 h-3 w-3 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="mr-1 h-3 w-3 text-red-500" />
-                  )}
-                  <span className={stat.trend === "up" ? "text-green-500" : "text-red-500"}>
-                    {stat.change}
-                  </span>
+                  <span>{stat.change}</span>
                 </div>
               </CardContent>
             </Card>
@@ -97,29 +84,9 @@ export default function PlatformDashboard() {
               <CardDescription>Latest properties added to the platform.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { name: "Grand Luxe Hotel", location: "New York, NY", plan: "Enterprise", date: "2 hours ago" },
-                  { name: "Seaside Resort", location: "Miami, FL", plan: "Professional", date: "5 hours ago" },
-                  { name: "Mountain View Lodge", location: "Aspen, CO", plan: "Starter", date: "1 day ago" },
-                  { name: "City Center Inn", location: "Chicago, IL", plan: "Professional", date: "2 days ago" },
-                ].map((hotel, i) => (
-                  <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        {hotel.name.substring(0, 2)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{hotel.name}</p>
-                        <p className="text-xs text-muted-foreground">{hotel.location}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium bg-secondary/10 text-secondary-foreground px-2 py-1 rounded-full inline-block mb-1">{hotel.plan}</p>
-                      <p className="text-xs text-muted-foreground">{hotel.date}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Building2 className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="text-sm text-muted-foreground">No hotels onboarded yet. Use the 'Onboard New Hotel' button to get started.</p>
               </div>
             </CardContent>
           </Card>

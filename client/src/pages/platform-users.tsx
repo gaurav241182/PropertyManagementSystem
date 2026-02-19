@@ -28,13 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function PlatformUsers() {
-  const [users, setUsers] = useState([
-    { id: 1, name: "John Smith", email: "john@grandluxe.com", role: "Owner", hotel: "Grand Luxe Hotel", status: "Active", lastLogin: "2 hours ago" },
-    { id: 2, name: "Sarah Connor", email: "sarah@seaside.com", role: "Owner", hotel: "Seaside Resort", status: "Active", lastLogin: "5 hours ago" },
-    { id: 3, name: "Mike Ross", email: "mike@lodge.com", role: "Manager", hotel: "Mountain Lodge", status: "Inactive", lastLogin: "2 days ago" },
-    { id: 4, name: "Jessica Pearson", email: "jessica@cityinn.com", role: "Owner", hotel: "City Center Inn", status: "Active", lastLogin: "1 day ago" },
-    { id: 5, name: "Admin User", email: "admin@platform.com", role: "Super Admin", hotel: "Platform", status: "Active", lastLogin: "Just now" },
-  ]);
+  const [users, setUsers] = useState<any[]>([]);
 
   return (
     <PlatformLayout>
@@ -138,73 +132,80 @@ export default function PlatformUsers() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Hotel / Organization</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                          {user.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{user.name}</span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Mail className="h-3 w-3" /> {user.email}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{user.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                        <Building className="h-3 w-3" />
-                        {user.hotel}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.status === "Active" ? "default" : "secondary"} className={user.status === "Active" ? "bg-green-600 hover:bg-green-700" : ""}>
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Account Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>
-                            <Lock className="mr-2 h-4 w-4" />
-                            Reset Password
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <ShieldAlert className="mr-2 h-4 w-4" />
-                            Deactivate User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            {users.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-sm text-muted-foreground">No users registered yet. Click 'Create New User' to add the first user.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Hotel / Organization</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Login</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                            {user.name.split(' ').map((n: string) => n[0]).join('')}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{user.name}</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-3 w-3" /> {user.email}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{user.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                          <Building className="h-3 w-3" />
+                          {user.hotel}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.status === "Active" ? "default" : "secondary"} className={user.status === "Active" ? "bg-green-600 hover:bg-green-700" : ""}>
+                          {user.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{user.lastLogin}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Account Actions</DropdownMenuLabel>
+                            <DropdownMenuItem>
+                              <Lock className="mr-2 h-4 w-4" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              <ShieldAlert className="mr-2 h-4 w-4" />
+                              Deactivate User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
