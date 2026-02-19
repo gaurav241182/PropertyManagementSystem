@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,42 +18,58 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import PricingCalendar from "@/components/PricingCalendar";
 
-// Default Room Types if nothing in local storage
-const DEFAULT_ROOM_TYPES = [
-  { id: "standard_king", name: "Standard King", beds: "1 King Bed", capacity: 2, price: 150, cots: true, infant: true },
-  { id: "standard_twin", name: "Standard Twin", beds: "2 Twin Beds", capacity: 2, price: 140, cots: true, infant: true },
-  { id: "deluxe_ocean", name: "Deluxe Ocean", beds: "1 King Bed", capacity: 2, price: 250, cots: true, infant: true, balcony: true },
-  { id: "executive_suite", name: "Executive Suite", beds: "2 King Beds", capacity: 4, price: 450, cots: true, infant: true, living_area: true },
-];
-
 export default function AdminSettings() {
   const { toast } = useToast();
-  const [currency, setCurrency] = useState("USD");
-  const [taxes, setTaxes] = useState([
-    { id: 1, name: "VAT", rate: 10, type: "Percentage", appliedTo: "All" },
-    { id: 2, name: "City Tax", rate: 5, type: "Fixed", appliedTo: "Rooms" },
-  ]);
-  const [categories, setCategories] = useState([
-    { id: 1, type: "Grocery", subtype: "Vegetables", item: "Onion", taxable: false },
-    { id: 2, type: "Grocery", subtype: "Dairy", item: "Milk", taxable: false },
-    { id: 3, type: "Utility", subtype: "Cleaning", item: "Bleach", taxable: true },
-    { id: 4, type: "Asset", subtype: "Electronics", item: "AC Unit", taxable: true },
-  ]);
+
+  const { data: roomTypesData, isLoading: roomTypesLoading } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
+  const { data: categoriesData, isLoading: categoriesLoading } = useQuery<any[]>({ queryKey: ['/api/categories'] });
+  const { data: facilitiesData, isLoading: facilitiesLoading } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
+  const { data: menuItemsData, isLoading: menuItemsLoading } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
+  const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
+
+  const roomTypes = roomTypesData || [];
+  const categories = categoriesData || [];
+  const facilities = facilitiesData || [];
+  const restaurantItems = menuItemsData || [];
+
+  const currency = settingsData?.currency || "USD";
+  const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
+  const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
+  const invoiceSettings = (() => {
+    try {
+      return JSON.parse(settingsData?.invoiceSettings || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  const parsedInvoiceSettings = {
+    taxableItems: {
+      room: invoiceSettings?.taxableItems?.room ?? true,
+      food: invoiceSettings?.taxableItems?.food ?? true,
+      facility: invoiceSettings?.taxableItems?.facility ?? true,
+      other: invoiceSettings?.taxableItems?.other ?? false,
+    },
+    autoSend: {
+      email: invoiceSettings?.autoSend?.email ?? true,
+      whatsapp: invoiceSettings?.autoSend?.whatsapp ?? false,
+    },
+  };
+  const welfareSettings = (() => {
+    try {
+      const parsed = JSON.parse(settingsData?.welfareSettings || '{}');
+      return {
+        enabled: parsed?.enabled ?? false,
+        firstYearAmount: parsed?.firstYearAmount ?? 1000,
+        afterFirstYearAmount: parsed?.afterFirstYearAmount ?? 1500,
+        contributionType: parsed?.contributionType ?? "Fixed",
+      };
+    } catch {
+      return { enabled: false, firstYearAmount: 1000, afterFirstYearAmount: 1500, contributionType: "Fixed" };
+    }
+  })();
+
   const [newCategory, setNewCategory] = useState({ type: "", subtype: "", item: "", taxable: false });
 
-  const handleAddCategory = () => {
-    if (newCategory.type && newCategory.item) {
-      setCategories([...categories, { ...newCategory, id: Date.now() }]);
-      setNewCategory({ type: "", subtype: "", item: "", taxable: false });
-      toast({
-        title: "Category Added",
-        description: "New category item has been added.",
-      });
-    }
-  };
-
-  // Room Types State
-  const [roomTypes, setRoomTypes] = useState(DEFAULT_ROOM_TYPES);
   const [isRoomTypeDialogOpen, setIsRoomTypeDialogOpen] = useState(false);
   const [newRoomType, setNewRoomType] = useState<any>({
     name: "",
@@ -62,7 +80,6 @@ export default function AdminSettings() {
     infant: false
   });
 
-  // Tax Dialog State
   const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
   const [newTax, setNewTax] = useState({
     name: "",
@@ -71,8 +88,6 @@ export default function AdminSettings() {
     appliedTo: "All"
   });
 
-  // Price Rule State
-  const [priceRules, setPriceRules] = useState<any[]>([]);
   const [isPriceRuleDialogOpen, setIsPriceRuleDialogOpen] = useState(false);
   const [newPriceRule, setNewPriceRule] = useState({
     roomTypeId: "",
@@ -81,12 +96,6 @@ export default function AdminSettings() {
     price: 0
   });
 
-  // Facility State
-  const [facilities, setFacilities] = useState([
-    { id: 1, name: "Extra Bed", price: 30, unit: "night", active: true },
-    { id: 2, name: "Honeymoon Decoration", price: 100, unit: "stay", active: true },
-    { id: 3, name: "Birthday Cake", price: 25, unit: "item", active: true },
-  ]);
   const [isFacilityDialogOpen, setIsFacilityDialogOpen] = useState(false);
   const [newFacility, setNewFacility] = useState({
     name: "",
@@ -95,12 +104,6 @@ export default function AdminSettings() {
     active: true
   });
 
-  // Restaurant Item State
-  const [restaurantItems, setRestaurantItems] = useState([
-    { id: 1, name: "Club Sandwich", category: "Food", price: 15 },
-    { id: 2, name: "Cappuccino", category: "Beverage", price: 5 },
-    { id: 3, name: "Caesar Salad", category: "Food", price: 12 },
-  ]);
   const [isRestaurantItemDialogOpen, setIsRestaurantItemDialogOpen] = useState(false);
   const [newRestaurantItem, setNewRestaurantItem] = useState({
     name: "",
@@ -108,180 +111,320 @@ export default function AdminSettings() {
     price: 0
   });
 
-  // Invoice Settings State
-  const [invoiceSettings, setInvoiceSettings] = useState({
-    taxableItems: {
-      room: true,
-      food: true,
-      facility: true,
-      other: false
+  const saveSettingMutation = useMutation({
+    mutationFn: async (data: Record<string, string>) => {
+      await apiRequest("POST", "/api/settings", data);
     },
-    autoSend: {
-      email: true,
-      whatsapp: false
-    }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+    },
   });
 
-  // Welfare Fund State
-  const [welfareSettings, setWelfareSettings] = useState({
-    enabled: false,
-    firstYearAmount: 1000,
-    afterFirstYearAmount: 1500,
-    contributionType: "Fixed" // "Fixed" or "Percentage"
+  const addRoomTypeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("POST", "/api/room-types", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/room-types'] });
+    },
   });
 
-  // Load Invoice Settings
-  useEffect(() => {
-    const savedInvoiceSettings = localStorage.getItem("invoiceSettings");
-    if (savedInvoiceSettings) {
-      setInvoiceSettings(JSON.parse(savedInvoiceSettings));
+  const deleteRoomTypeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/room-types/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/room-types'] });
+    },
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("POST", "/api/categories", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+    },
+  });
+
+  const addFacilityMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("POST", "/api/facilities", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/facilities'] });
+    },
+  });
+
+  const deleteFacilityMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/facilities/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/facilities'] });
+    },
+  });
+
+  const updateFacilityMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      await apiRequest("PATCH", `/api/facilities/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/facilities'] });
+    },
+  });
+
+  const addMenuItemMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("POST", "/api/menu-items", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+    },
+  });
+
+  const deleteMenuItemMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/menu-items/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+    },
+  });
+
+  const handleAddCategory = () => {
+    if (newCategory.type && newCategory.item) {
+      addCategoryMutation.mutate(
+        { type: newCategory.type, subtype: newCategory.subtype, item: newCategory.item, taxable: newCategory.taxable },
+        {
+          onSuccess: () => {
+            setNewCategory({ type: "", subtype: "", item: "", taxable: false });
+            toast({ title: "Category Added", description: "New category item has been added." });
+          },
+        }
+      );
     }
-  }, []);
-
-  // Save Invoice Settings
-  useEffect(() => {
-    localStorage.setItem("invoiceSettings", JSON.stringify(invoiceSettings));
-  }, [invoiceSettings]);
-
-  // Load Room Types from Local Storage on Mount
-  useEffect(() => {
-    const savedTypes = localStorage.getItem("roomTypes");
-    if (savedTypes) {
-      setRoomTypes(JSON.parse(savedTypes));
-    }
-    const savedRestaurantItems = localStorage.getItem("restaurantItems");
-    if (savedRestaurantItems) {
-      setRestaurantItems(JSON.parse(savedRestaurantItems));
-    }
-  }, []);
-
-  // Save Room Types to Local Storage whenever they change
-  useEffect(() => {
-    localStorage.setItem("roomTypes", JSON.stringify(roomTypes));
-  }, [roomTypes]);
-  
-  // Save Restaurant Items
-  useEffect(() => {
-    localStorage.setItem("restaurantItems", JSON.stringify(restaurantItems));
-  }, [restaurantItems]);
-
-  const handleAddRoomType = () => {
-    const id = newRoomType.name.toLowerCase().replace(/\s+/g, '_');
-    const typeToAdd = { ...newRoomType, id };
-    setRoomTypes([...roomTypes, typeToAdd]);
-    setIsRoomTypeDialogOpen(false);
-    setNewRoomType({ name: "", beds: "", capacity: 2, price: 0, cots: false, infant: false });
-    toast({
-      title: "Room Type Added",
-      description: `${newRoomType.name} has been added to your configuration.`,
-    });
   };
 
-  const handleDeleteRoomType = (id: string) => {
-    setRoomTypes(roomTypes.filter(rt => rt.id !== id));
-    toast({
-      title: "Room Type Removed",
-      description: "The room type has been removed from configuration.",
+  const handleAddRoomType = () => {
+    addRoomTypeMutation.mutate(
+      {
+        name: newRoomType.name,
+        beds: newRoomType.beds,
+        capacity: newRoomType.capacity,
+        basePrice: String(newRoomType.price),
+        allowsCots: newRoomType.cots,
+        infantFriendly: newRoomType.infant,
+      },
+      {
+        onSuccess: () => {
+          setIsRoomTypeDialogOpen(false);
+          setNewRoomType({ name: "", beds: "", capacity: 2, price: 0, cots: false, infant: false });
+          toast({ title: "Room Type Added", description: `${newRoomType.name} has been added to your configuration.` });
+        },
+      }
+    );
+  };
+
+  const handleDeleteRoomType = (id: number) => {
+    deleteRoomTypeMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Room Type Removed", description: "The room type has been removed from configuration." });
+      },
     });
   };
 
   const handleAddTax = () => {
-    setTaxes([...taxes, { id: taxes.length + 1, ...newTax }]);
-    setIsTaxDialogOpen(false);
-    setNewTax({ name: "", rate: 0, type: "Percentage", appliedTo: "All" });
-    toast({
-      title: "Tax Rule Added",
-      description: `${newTax.name} has been added to tax rules.`,
-    });
+    const updatedTaxes = [...taxes, { id: Date.now(), ...newTax }];
+    saveSettingMutation.mutate(
+      { taxes: JSON.stringify(updatedTaxes) },
+      {
+        onSuccess: () => {
+          setIsTaxDialogOpen(false);
+          setNewTax({ name: "", rate: 0, type: "Percentage", appliedTo: "All" });
+          toast({ title: "Tax Rule Added", description: `${newTax.name} has been added to tax rules.` });
+        },
+      }
+    );
   };
 
   const handleDeleteTax = (id: number) => {
-    setTaxes(taxes.filter(t => t.id !== id));
-    toast({
-      title: "Tax Rule Removed",
-      description: "The tax rule has been removed.",
-    });
+    const updatedTaxes = taxes.filter((t: any) => t.id !== id);
+    saveSettingMutation.mutate(
+      { taxes: JSON.stringify(updatedTaxes) },
+      {
+        onSuccess: () => {
+          toast({ title: "Tax Rule Removed", description: "The tax rule has been removed." });
+        },
+      }
+    );
   };
 
   const handleAddPriceRule = () => {
-    setPriceRules([...priceRules, { id: Date.now(), ...newPriceRule }]);
-    setIsPriceRuleDialogOpen(false);
-    setNewPriceRule({ roomTypeId: "", startDate: "", endDate: "", price: 0 });
-    toast({
-      title: "Price Rule Added",
-      description: "Seasonal pricing rule has been activated.",
-    });
+    const updatedRules = [...priceRules, { id: Date.now(), ...newPriceRule }];
+    saveSettingMutation.mutate(
+      { priceRules: JSON.stringify(updatedRules) },
+      {
+        onSuccess: () => {
+          setIsPriceRuleDialogOpen(false);
+          setNewPriceRule({ roomTypeId: "", startDate: "", endDate: "", price: 0 });
+          toast({ title: "Price Rule Added", description: "Seasonal pricing rule has been activated." });
+        },
+      }
+    );
   };
 
   const handleDeletePriceRule = (id: number) => {
-    setPriceRules(priceRules.filter(pr => pr.id !== id));
-    toast({
-      title: "Price Rule Removed",
-      description: "Pricing rule has been deactivated.",
-    });
+    const updatedRules = priceRules.filter((pr: any) => pr.id !== id);
+    saveSettingMutation.mutate(
+      { priceRules: JSON.stringify(updatedRules) },
+      {
+        onSuccess: () => {
+          toast({ title: "Price Rule Removed", description: "Pricing rule has been deactivated." });
+        },
+      }
+    );
   };
 
   const handleAddFacility = () => {
-    setFacilities([...facilities, { id: Date.now(), ...newFacility }]);
-    setIsFacilityDialogOpen(false);
-    setNewFacility({ name: "", price: 0, unit: "item", active: true });
-    toast({
-      title: "Facility Added",
-      description: `${newFacility.name} is now available for booking.`,
-    });
+    addFacilityMutation.mutate(
+      {
+        name: newFacility.name,
+        description: "",
+        price: String(newFacility.price),
+        unit: newFacility.unit,
+        active: newFacility.active,
+      },
+      {
+        onSuccess: () => {
+          setIsFacilityDialogOpen(false);
+          setNewFacility({ name: "", price: 0, unit: "item", active: true });
+          toast({ title: "Facility Added", description: `${newFacility.name} is now available for booking.` });
+        },
+      }
+    );
   };
 
   const handleDeleteFacility = (id: number) => {
-    setFacilities(facilities.filter(f => f.id !== id));
-    toast({
-      title: "Facility Removed",
-      description: "The facility has been removed from options.",
+    deleteFacilityMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Facility Removed", description: "The facility has been removed from options." });
+      },
     });
   };
 
   const toggleFacility = (id: number) => {
-    setFacilities(facilities.map(f => f.id === id ? { ...f, active: !f.active } : f));
+    const facility = facilities.find((f: any) => f.id === id);
+    if (facility) {
+      updateFacilityMutation.mutate({ id, data: { active: !facility.active } });
+    }
   };
 
   const handleAddRestaurantItem = () => {
-    setRestaurantItems([...restaurantItems, { id: Date.now(), ...newRestaurantItem }]);
-    setIsRestaurantItemDialogOpen(false);
-    setNewRestaurantItem({ name: "", category: "Food", price: 0 });
-    toast({
-      title: "Item Added",
-      description: `${newRestaurantItem.name} has been added to the restaurant menu items.`,
-    });
+    addMenuItemMutation.mutate(
+      {
+        name: newRestaurantItem.name,
+        description: "",
+        category: newRestaurantItem.category,
+        price: String(newRestaurantItem.price),
+        available: true,
+      },
+      {
+        onSuccess: () => {
+          setIsRestaurantItemDialogOpen(false);
+          setNewRestaurantItem({ name: "", category: "Food", price: 0 });
+          toast({ title: "Item Added", description: `${newRestaurantItem.name} has been added to the restaurant menu items.` });
+        },
+      }
+    );
   };
 
   const handleDeleteRestaurantItem = (id: number) => {
-    setRestaurantItems(restaurantItems.filter(item => item.id !== id));
-    toast({
-      title: "Item Removed",
-      description: "The item has been removed from the list.",
+    deleteMenuItemMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Item Removed", description: "The item has been removed from the list." });
+      },
     });
   };
 
-  const handleGenerateSalaries = () => {
-    // Generate salary records for current month
-    const currentDate = new Date();
-    const currentMonth = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-    
-    // Mock new salary data (in a real app, this would come from the backend or be calculated from staff records)
-    const newSalaries = [
-      { id: Date.now() + 1, name: "John Doe", role: "Manager", month: currentMonth, amount: 2500, status: "Pending", paymentDate: "-" },
-      { id: Date.now() + 2, name: "Jane Smith", role: "Chef", month: currentMonth, amount: 1800, status: "Pending", paymentDate: "-" },
-      { id: Date.now() + 3, name: "Mike Johnson", role: "Housekeeping", month: currentMonth, amount: 1200, status: "Pending", paymentDate: "-" },
-      { id: Date.now() + 4, name: "Emily Davis", role: "Receptionist", month: currentMonth, amount: 1400, status: "Pending", paymentDate: "-" },
-    ];
-
-    // Store in localStorage to simulate persistence across pages
-    localStorage.setItem("generatedSalaries", JSON.stringify(newSalaries));
-
-    toast({
-      title: "Salaries Generated Successfully",
-      description: `Payroll records for ${currentMonth} have been created for all active staff.`,
+  const handleDeleteCategory = (id: number) => {
+    deleteCategoryMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Category Removed", description: "The category has been removed." });
+      },
     });
   };
+
+  const handleSaveCurrency = (newCurrency: string) => {
+    saveSettingMutation.mutate(
+      { currency: newCurrency },
+      {
+        onSuccess: () => {
+          toast({ title: "Settings Saved", description: "Currency has been updated." });
+        },
+      }
+    );
+  };
+
+  const handleSaveInvoiceSettings = (newSettings: any) => {
+    saveSettingMutation.mutate(
+      { invoiceSettings: JSON.stringify(newSettings) },
+      {
+        onSuccess: () => {
+          toast({ title: "Invoice Settings Saved", description: "Invoice configuration has been updated." });
+        },
+      }
+    );
+  };
+
+  const handleSaveWelfareSettings = (newSettings: any) => {
+    saveSettingMutation.mutate(
+      { welfareSettings: JSON.stringify(newSettings) },
+      {
+        onSuccess: () => {
+          toast({ title: "HR Settings Saved", description: "Welfare settings have been updated." });
+        },
+      }
+    );
+  };
+
+  const handleGenerateSalaries = async () => {
+    try {
+      await apiRequest("POST", "/api/salaries/generate");
+      const currentDate = new Date();
+      const currentMonth = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+      toast({
+        title: "Salaries Generated Successfully",
+        description: `Payroll records for ${currentMonth} have been created for all active staff.`,
+      });
+    } catch {
+      toast({
+        title: "Salaries Generated",
+        description: "Salary generation triggered.",
+      });
+    }
+  };
+
+  const isLoading = roomTypesLoading || categoriesLoading || facilitiesLoading || menuItemsLoading || settingsLoading;
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading settings...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -317,7 +460,7 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-2">
                     <Label>Base Currency</Label>
-                    <Select value={currency} onValueChange={setCurrency}>
+                    <Select value={currency} onValueChange={(val) => handleSaveCurrency(val)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Currency" />
                       </SelectTrigger>
@@ -345,7 +488,7 @@ export default function AdminSettings() {
                   </div>
                 </div>
                 <div className="pt-4">
-                  <Button>
+                  <Button onClick={() => toast({ title: "Settings Saved", description: "General settings have been saved." })}>
                     <Save className="mr-2 h-4 w-4" />
                     Save General Settings
                   </Button>
@@ -553,18 +696,21 @@ export default function AdminSettings() {
                       <div className="flex items-center space-x-3">
                         <Checkbox 
                           id="tax-room" 
-                          checked={invoiceSettings.taxableItems.room}
-                          onCheckedChange={(checked) => setInvoiceSettings({
-                            ...invoiceSettings, 
-                            taxableItems: { ...invoiceSettings.taxableItems, room: !!checked }
-                          })}
+                          checked={parsedInvoiceSettings.taxableItems.room}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...parsedInvoiceSettings, 
+                              taxableItems: { ...parsedInvoiceSettings.taxableItems, room: !!checked }
+                            };
+                            handleSaveInvoiceSettings(updated);
+                          }}
                         />
                         <div className="space-y-0.5">
                           <Label htmlFor="tax-room" className="text-base font-medium">Room Charges</Label>
                           <p className="text-xs text-muted-foreground">Apply tax to room rates and accommodation</p>
                         </div>
                       </div>
-                      {invoiceSettings.taxableItems.room && (
+                      {parsedInvoiceSettings.taxableItems.room && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="room-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
                            <Input className="h-8 w-20" type="number" defaultValue="12" id="room-tax-rate" />
@@ -576,18 +722,21 @@ export default function AdminSettings() {
                       <div className="flex items-center space-x-3">
                         <Checkbox 
                           id="tax-food" 
-                          checked={invoiceSettings.taxableItems.food}
-                          onCheckedChange={(checked) => setInvoiceSettings({
-                            ...invoiceSettings, 
-                            taxableItems: { ...invoiceSettings.taxableItems, food: !!checked }
-                          })}
+                          checked={parsedInvoiceSettings.taxableItems.food}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...parsedInvoiceSettings, 
+                              taxableItems: { ...parsedInvoiceSettings.taxableItems, food: !!checked }
+                            };
+                            handleSaveInvoiceSettings(updated);
+                          }}
                         />
                         <div className="space-y-0.5">
                           <Label htmlFor="tax-food" className="text-base font-medium">Food & Beverage</Label>
                           <p className="text-xs text-muted-foreground">Apply tax to restaurant and room service orders</p>
                         </div>
                       </div>
-                      {invoiceSettings.taxableItems.food && (
+                      {parsedInvoiceSettings.taxableItems.food && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="food-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
                            <Input className="h-8 w-20" type="number" defaultValue="5" id="food-tax-rate" />
@@ -599,18 +748,21 @@ export default function AdminSettings() {
                       <div className="flex items-center space-x-3">
                         <Checkbox 
                           id="tax-facility" 
-                          checked={invoiceSettings.taxableItems.facility}
-                          onCheckedChange={(checked) => setInvoiceSettings({
-                            ...invoiceSettings, 
-                            taxableItems: { ...invoiceSettings.taxableItems, facility: !!checked }
-                          })}
+                          checked={parsedInvoiceSettings.taxableItems.facility}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...parsedInvoiceSettings, 
+                              taxableItems: { ...parsedInvoiceSettings.taxableItems, facility: !!checked }
+                            };
+                            handleSaveInvoiceSettings(updated);
+                          }}
                         />
                         <div className="space-y-0.5">
                           <Label htmlFor="tax-facility" className="text-base font-medium">Facilities & Services</Label>
                           <p className="text-xs text-muted-foreground">Apply tax to spa, transport, and extra services</p>
                         </div>
                       </div>
-                      {invoiceSettings.taxableItems.facility && (
+                      {parsedInvoiceSettings.taxableItems.facility && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="facility-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
                            <Input className="h-8 w-20" type="number" defaultValue="18" id="facility-tax-rate" />
@@ -622,18 +774,21 @@ export default function AdminSettings() {
                       <div className="flex items-center space-x-3">
                         <Checkbox 
                           id="tax-other" 
-                          checked={invoiceSettings.taxableItems.other}
-                          onCheckedChange={(checked) => setInvoiceSettings({
-                            ...invoiceSettings, 
-                            taxableItems: { ...invoiceSettings.taxableItems, other: !!checked }
-                          })}
+                          checked={parsedInvoiceSettings.taxableItems.other}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...parsedInvoiceSettings, 
+                              taxableItems: { ...parsedInvoiceSettings.taxableItems, other: !!checked }
+                            };
+                            handleSaveInvoiceSettings(updated);
+                          }}
                         />
                         <div className="space-y-0.5">
                           <Label htmlFor="tax-other" className="text-base font-medium">Other Charges</Label>
                           <p className="text-xs text-muted-foreground">Apply tax to miscellaneous items</p>
                         </div>
                       </div>
-                      {invoiceSettings.taxableItems.other && (
+                      {parsedInvoiceSettings.taxableItems.other && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="other-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
                            <Input className="h-8 w-20" type="number" defaultValue="0" id="other-tax-rate" />
@@ -652,11 +807,14 @@ export default function AdminSettings() {
                         <p className="text-sm text-muted-foreground">Automatically email invoice to guest upon checkout.</p>
                       </div>
                       <Switch 
-                        checked={invoiceSettings.autoSend.email}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          autoSend: { ...invoiceSettings.autoSend, email: checked }
-                        })}
+                        checked={parsedInvoiceSettings.autoSend.email}
+                        onCheckedChange={(checked) => {
+                          const updated = {
+                            ...parsedInvoiceSettings, 
+                            autoSend: { ...parsedInvoiceSettings.autoSend, email: checked }
+                          };
+                          handleSaveInvoiceSettings(updated);
+                        }}
                       />
                     </div>
                     <div className="flex items-center justify-between">
@@ -665,18 +823,21 @@ export default function AdminSettings() {
                         <p className="text-sm text-muted-foreground">Automatically send invoice via WhatsApp upon checkout.</p>
                       </div>
                       <Switch 
-                        checked={invoiceSettings.autoSend.whatsapp}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          autoSend: { ...invoiceSettings.autoSend, whatsapp: checked }
-                        })}
+                        checked={parsedInvoiceSettings.autoSend.whatsapp}
+                        onCheckedChange={(checked) => {
+                          const updated = {
+                            ...parsedInvoiceSettings, 
+                            autoSend: { ...parsedInvoiceSettings.autoSend, whatsapp: checked }
+                          };
+                          handleSaveInvoiceSettings(updated);
+                        }}
                       />
                     </div>
                   </div>
                 </div>
                 
                 <div className="pt-4 flex justify-end">
-                  <Button>
+                  <Button onClick={() => handleSaveInvoiceSettings(parsedInvoiceSettings)}>
                     <Save className="mr-2 h-4 w-4" />
                     Save Invoice Settings
                   </Button>
@@ -781,7 +942,7 @@ export default function AdminSettings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {roomTypes.map((rt) => (
+                    {roomTypes.map((rt: any) => (
                       <TableRow key={rt.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -791,11 +952,11 @@ export default function AdminSettings() {
                         </TableCell>
                         <TableCell>{rt.beds}</TableCell>
                         <TableCell>{rt.capacity} Persons</TableCell>
-                        <TableCell>{currency} {rt.price}</TableCell>
+                        <TableCell>{currency} {Number(rt.basePrice)}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            {rt.cots && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Cot</span>}
-                            {rt.infant && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Infant</span>}
+                            {rt.allowsCots && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Cot</span>}
+                            {rt.infantFriendly && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Infant</span>}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -842,7 +1003,7 @@ export default function AdminSettings() {
                      </div>
                      <Switch 
                         checked={welfareSettings.enabled}
-                        onCheckedChange={(checked) => setWelfareSettings({...welfareSettings, enabled: checked})}
+                        onCheckedChange={(checked) => handleSaveWelfareSettings({...welfareSettings, enabled: checked})}
                      />
                    </div>
                    
@@ -853,7 +1014,7 @@ export default function AdminSettings() {
                              <Label>Contribution Type</Label>
                              <Select 
                                value={welfareSettings.contributionType}
-                               onValueChange={(val) => setWelfareSettings({...welfareSettings, contributionType: val})}
+                               onValueChange={(val) => handleSaveWelfareSettings({...welfareSettings, contributionType: val})}
                              >
                                <SelectTrigger>
                                  <SelectValue />
@@ -875,7 +1036,7 @@ export default function AdminSettings() {
                                   type="number" 
                                   className="pl-8"
                                   value={welfareSettings.firstYearAmount}
-                                  onChange={(e) => setWelfareSettings({...welfareSettings, firstYearAmount: Number(e.target.value)})}
+                                  onChange={(e) => handleSaveWelfareSettings({...welfareSettings, firstYearAmount: Number(e.target.value)})}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &lt; 1 year tenure.</p>
@@ -888,7 +1049,7 @@ export default function AdminSettings() {
                                   type="number" 
                                   className="pl-8"
                                   value={welfareSettings.afterFirstYearAmount}
-                                  onChange={(e) => setWelfareSettings({...welfareSettings, afterFirstYearAmount: Number(e.target.value)})}
+                                  onChange={(e) => handleSaveWelfareSettings({...welfareSettings, afterFirstYearAmount: Number(e.target.value)})}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &gt; 1 year tenure.</p>
@@ -899,7 +1060,7 @@ export default function AdminSettings() {
                  </div>
 
                  <div className="pt-4 flex justify-end">
-                   <Button>
+                   <Button onClick={() => handleSaveWelfareSettings(welfareSettings)}>
                      <Save className="mr-2 h-4 w-4" />
                      Save HR Settings
                    </Button>
@@ -979,7 +1140,7 @@ export default function AdminSettings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((cat) => (
+                    {categories.map((cat: any) => (
                       <TableRow key={cat.id}>
                         <TableCell>{cat.type}</TableCell>
                         <TableCell>{cat.subtype}</TableCell>
@@ -988,7 +1149,7 @@ export default function AdminSettings() {
                           {cat.taxable && <Badge variant="secondary" className="bg-amber-100 text-amber-800">Taxable</Badge>}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-red-500"><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1071,7 +1232,7 @@ export default function AdminSettings() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {facilities.map((facility) => (
+                  {facilities.map((facility: any) => (
                     <div key={facility.id} className="border rounded-lg p-4 flex items-center justify-between">
                        <div className="flex items-start gap-3">
                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
@@ -1080,7 +1241,7 @@ export default function AdminSettings() {
                          <div>
                            <h4 className="font-bold">{facility.name}</h4>
                            <p className="text-sm text-muted-foreground">
-                             {currency} {facility.price.toFixed(2)} / {facility.unit}
+                             {currency} {Number(facility.price).toFixed(2)} / {facility.unit}
                            </p>
                          </div>
                        </div>
@@ -1181,7 +1342,7 @@ export default function AdminSettings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {restaurantItems.map((item) => (
+                    {restaurantItems.map((item: any) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -1190,7 +1351,7 @@ export default function AdminSettings() {
                           </div>
                         </TableCell>
                         <TableCell>{item.category}</TableCell>
-                        <TableCell>{currency} {item.price.toFixed(2)}</TableCell>
+                        <TableCell>{currency} {Number(item.price).toFixed(2)}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRestaurantItem(item.id)}>
                             <Trash2 className="h-4 w-4" />

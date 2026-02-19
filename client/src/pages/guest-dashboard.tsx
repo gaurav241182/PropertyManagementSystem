@@ -1,19 +1,46 @@
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import GuestLayout from "@/components/layout/GuestLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, MapPin, Phone, Clock, Wifi, Coffee, Utensils, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, MapPin, Phone, Clock, Wifi, Coffee, Utensils, ChevronRight, LogOut } from "lucide-react";
 import { Link } from "wouter";
 
 export default function GuestDashboard() {
-  // Mock Guest Data (would come from session/API)
-  const guest = {
-    name: "John Doe",
-    bookingId: "BK-12345",
-    room: "101",
-    checkIn: "Feb 19, 2026",
-    checkOut: "Feb 22, 2026",
-    nights: 3,
-    guests: 2
+  const [, setLocation] = useLocation();
+  const bookingId = sessionStorage.getItem("guestBookingId");
+  const guestName = sessionStorage.getItem("guestName") || "Guest";
+
+  if (!bookingId) {
+    setLocation("/guest/login");
+    return null;
+  }
+
+  const { data: booking, isLoading: bookingLoading } = useQuery<any>({
+    queryKey: ['/api/bookings', bookingId],
+    enabled: !!bookingId,
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<any[]>({
+    queryKey: ['/api/guest', bookingId, 'orders'],
+    enabled: !!bookingId,
+  });
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("guestBookingId");
+    sessionStorage.removeItem("guestName");
+    sessionStorage.removeItem("guestRoomNumber");
+    sessionStorage.removeItem("guestCheckIn");
+    sessionStorage.removeItem("guestCheckOut");
+    sessionStorage.removeItem("guestStatus");
+    setLocation("/guest/login");
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
   const hotelDetails = {
@@ -29,42 +56,53 @@ export default function GuestDashboard() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-primary">Hello, {guest.name}</h1>
+            <h1 className="text-3xl font-serif font-bold text-primary">Hello, {booking?.guestName || guestName}</h1>
             <p className="text-muted-foreground">Welcome to your dashboard. How can we help you today?</p>
           </div>
-          <Link href="/guest/menu">
-            <Button className="w-full md:w-auto bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all">
-              <Utensils className="mr-2 h-4 w-4" /> Order Room Service
+          <div className="flex gap-2 w-full md:w-auto">
+            <Link href="/guest/menu">
+              <Button className="flex-1 md:flex-none bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all">
+                <Utensils className="mr-2 h-4 w-4" /> Order Room Service
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={handleLogout} data-testid="button-logout">
+              <LogOut className="mr-2 h-4 w-4" /> Logout
             </Button>
-          </Link>
+          </div>
         </div>
 
-        {/* Booking Status Card */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-muted-foreground">Room Number</span>
-                <p className="text-2xl font-serif font-bold text-primary">{guest.room}</p>
+        {bookingLoading ? (
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-6">
+              <p className="text-muted-foreground">Loading booking details...</p>
+            </CardContent>
+          </Card>
+        ) : booking ? (
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="space-y-1">
+                  <span className="text-xs uppercase font-bold text-muted-foreground">Room Number</span>
+                  <p className="text-2xl font-serif font-bold text-primary" data-testid="text-room-number">{booking.roomNumber || sessionStorage.getItem("guestRoomNumber") || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs uppercase font-bold text-muted-foreground">Booking ID</span>
+                  <p className="text-lg font-medium" data-testid="text-booking-id">{booking.bookingId}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs uppercase font-bold text-muted-foreground">Check-in</span>
+                  <p className="text-lg font-medium" data-testid="text-checkin">{formatDate(booking.checkIn)}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs uppercase font-bold text-muted-foreground">Check-out</span>
+                  <p className="text-lg font-medium" data-testid="text-checkout">{formatDate(booking.checkOut)}</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-muted-foreground">Booking ID</span>
-                <p className="text-lg font-medium">{guest.bookingId}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-muted-foreground">Check-in</span>
-                <p className="text-lg font-medium">{guest.checkIn}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-muted-foreground">Check-out</span>
-                <p className="text-lg font-medium">{guest.checkOut}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Hotel Info */}
           <Card>
             <CardHeader>
               <CardTitle>Hotel Information</CardTitle>
@@ -94,7 +132,6 @@ export default function GuestDashboard() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions / Services */}
           <Card>
             <CardHeader>
               <CardTitle>Guest Services</CardTitle>
@@ -146,6 +183,35 @@ export default function GuestDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {orders.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Orders</CardTitle>
+              <CardDescription>Your order history during this stay</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {orders.map((order: any) => (
+                  <div key={order.orderId} className="flex items-center justify-between p-3 rounded-lg border" data-testid={`card-order-${order.orderId}`}>
+                    <div>
+                      <p className="font-medium">{order.orderId}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {order.type} • {order.items?.length || 0} item(s)
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">${Number(order.totalAmount).toFixed(2)}</p>
+                      <Badge variant={order.status === "Fulfilled" ? "default" : order.status === "Cancelled" ? "destructive" : "secondary"}>
+                        {order.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </GuestLayout>
   );

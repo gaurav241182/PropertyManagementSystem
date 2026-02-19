@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,121 +9,75 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, CheckSquare, Square } from "lucide-react";
+import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, CheckSquare, Square, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
-  const [salaries, setSalaries] = useState([
-    { 
-      id: 1, 
-      name: "John Doe", 
-      role: "Manager", 
-      month: "February 2024", 
-      amount: 2500, 
-      status: "Paid", 
-      paymentDate: "2024-02-28",
-      advance: 0,
-      pending: 0,
-      dueDate: "2024-03-05"
-    },
-    { 
-      id: 2, 
-      name: "Jane Smith", 
-      role: "Chef", 
-      month: "February 2024", 
-      amount: 1800, 
-      status: "Pending", 
-      paymentDate: "-",
-      advance: 200,
-      pending: 1600,
-      dueDate: "2024-03-05"
-    },
-    { 
-      id: 3, 
-      name: "Mike Johnson", 
-      role: "Housekeeping", 
-      month: "February 2024", 
-      amount: 1200, 
-      status: "Pending", 
-      paymentDate: "-",
-      advance: 0,
-      pending: 1200,
-      dueDate: "2024-03-05"
-    },
-    { 
-      id: 4, 
-      name: "Emily Davis", 
-      role: "Receptionist", 
-      month: "February 2024", 
-      amount: 1400, 
-      status: "Paid", 
-      paymentDate: "2024-02-28",
-      advance: 0,
-      pending: 0,
-      dueDate: "2024-03-05"
-    },
-  ]);
 
-  const [selectedMonth, setSelectedMonth] = useState("current"); // Default to current or closest
+  const { data: salariesData = [], isLoading: salariesLoading } = useQuery<any[]>({ queryKey: ['/api/salaries'] });
+  const { data: staffData = [], isLoading: staffLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
+
+  const staffMap = new Map(staffData.map((s: any) => [s.id, s]));
+
+  const salaries = salariesData.map((s: any) => {
+    const staffMember = staffMap.get(s.staffId);
+    const amount = Number(s.netPay) || 0;
+    const deductions = Number(s.deductions) || 0;
+    return {
+      ...s,
+      name: staffMember?.name || `Staff #${s.staffId}`,
+      role: staffMember?.role || "Unknown",
+      amount,
+      advance: deductions,
+      pending: s.status === "Paid" ? 0 : amount - deductions,
+      paymentDate: s.paidDate || "-",
+      dueDate: "-",
+    };
+  });
+
+  const isLoading = salariesLoading || staffLoading;
+
+  const [selectedMonth, setSelectedMonth] = useState("current");
   const [selectedSalaries, setSelectedSalaries] = useState<number[]>([]);
 
-  // Load generated salaries from localStorage on mount
-  useEffect(() => {
-    const generated = localStorage.getItem("generatedSalaries");
-    if (generated) {
-      const newRecords = JSON.parse(generated);
-      // Determine if we need to merge or replace. For simplicity in mock, let's append unique ones
-      setSalaries(prev => {
-        const prevIds = new Set(prev.map(p => p.id));
-        const uniqueNew = newRecords.filter((nr: any) => !prevIds.has(nr.id)).map((nr: any) => ({
-          ...nr,
-          advance: 0,
-          pending: nr.amount,
-          dueDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 5).toISOString().split('T')[0] // 5th of next month
-        }));
-        return [...prev, ...uniqueNew];
-      });
-      
-      // If we found generated records, try to select that month
-      if (newRecords.length > 0) {
-        setSelectedMonth(newRecords[0].month);
-      }
-    }
-  }, []);
+  const updateSalaryMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/salaries/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const handlePay = (id: number) => {
-    setSalaries(salaries.map(s => s.id === id ? { 
-      ...s, 
-      status: "Paid", 
-      paymentDate: new Date().toISOString().split('T')[0],
-      pending: 0 
-    } : s));
-    
-    toast({
-      title: "Salary Paid",
-      description: "Employee salary has been marked as paid.",
+    updateSalaryMutation.mutate({
+      id,
+      data: { status: "Paid", paidDate: new Date().toISOString().split('T')[0] }
+    }, {
+      onSuccess: () => {
+        toast({ title: "Salary Paid", description: "Employee salary has been marked as paid." });
+      }
     });
   };
 
   const handleRevert = (id: number) => {
-    setSalaries(salaries.map(s => s.id === id ? { 
-      ...s, 
-      status: "Pending", 
-      paymentDate: "-",
-      pending: s.amount - (s.advance || 0)
-    } : s));
-
-    toast({
-      title: "Status Reverted",
-      description: "Salary status has been reverted to pending.",
+    updateSalaryMutation.mutate({
+      id,
+      data: { status: "Pending", paidDate: null }
+    }, {
+      onSuccess: () => {
+        toast({ title: "Status Reverted", description: "Salary status has been reverted to pending." });
+      }
     });
   };
 
   const handleDelete = (id: number) => {
-    setSalaries(salaries.filter(s => s.id !== id));
     toast({
       title: "Record Deleted",
       description: "Salary record has been permanently removed.",
@@ -146,19 +100,22 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  const handleBulkPay = () => {
-    setSalaries(salaries.map(s => selectedSalaries.includes(s.id) ? { 
-      ...s, 
-      status: "Paid", 
-      paymentDate: new Date().toISOString().split('T')[0],
-      pending: 0
-    } : s));
-    setSelectedSalaries([]);
-    
-    toast({
-      title: "Bulk Payment Successful",
-      description: `${selectedSalaries.length} salaries marked as paid.`,
-    });
+  const handleBulkPay = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const promises = selectedSalaries.map(id =>
+      apiRequest("PATCH", `/api/salaries/${id}`, { status: "Paid", paidDate: today })
+    );
+    try {
+      await Promise.all(promises);
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({
+        title: "Bulk Payment Successful",
+        description: `${selectedSalaries.length} salaries marked as paid.`,
+      });
+      setSelectedSalaries([]);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const filteredSalaries = salaries.filter(s => {
@@ -176,6 +133,11 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
 
   return (
     <AdminLayout role={role}>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -282,7 +244,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback>{salary.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          <AvatarFallback>{salary.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{salary.name}</span>
                       </div>
@@ -349,6 +311,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
           </CardContent>
         </Card>
       </div>
+      )}
     </AdminLayout>
   );
 }

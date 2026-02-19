@@ -9,11 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2, AlertTriangle } from "lucide-react";
+import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import {
   AlertDialog,
@@ -28,12 +30,52 @@ import {
 
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
-  const [staff, setStaff] = useState([
-    { id: 1, name: "John Doe", role: "Manager", salary: 2500, status: "Active", joined: "2023-01-15", advance: 0 },
-    { id: 2, name: "Jane Smith", role: "Chef", salary: 1800, status: "Active", joined: "2023-03-10", advance: 200 },
-    { id: 3, name: "Mike Johnson", role: "Housekeeping", salary: 1200, status: "Active", joined: "2023-06-01", advance: 0 },
-    { id: 4, name: "Emily Davis", role: "Receptionist", salary: 1400, status: "Inactive", joined: "2023-08-20", advance: 0 },
-  ]);
+  const { data: staffData = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
+  const staff = staffData.map((s: any) => ({
+    ...s,
+    salary: Number(s.salary) || 0,
+    bonusAmount: Number(s.bonusAmount) || 0,
+    joined: s.joinDate,
+    advance: 0,
+    status: s.status === "active" ? "Active" : "Inactive",
+  }));
+
+  const addStaffMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/staff", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Staff Added", description: "New employee has been onboarded successfully." });
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/staff/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Staff Updated", description: "Employee details have been updated." });
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/staff/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Staff Deleted", description: "Employee has been permanently removed.", variant: "destructive" });
+      setStaffToDelete(null);
+      setIsDeleteAlertOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -140,14 +182,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   };
 
   const handleToggleStatus = (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setStaff(staff.map(s => s.id === id ? { ...s, status: newStatus } : s));
-    
-    toast({
-      title: `Staff ${newStatus === "Active" ? "Activated" : "Deactivated"}`,
-      description: `Employee status has been updated to ${newStatus}.`,
-      variant: newStatus === "Active" ? "default" : "destructive",
-    });
+    const newStatus = currentStatus === "Active" ? "inactive" : "active";
+    updateStaffMutation.mutate({ id, data: { status: newStatus } });
   };
 
   const activeStaff = staff.filter(s => s.status !== "Inactive");
@@ -155,19 +191,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
   const confirmDelete = () => {
     if (staffToDelete) {
-      setStaff(staff.filter(s => s.id !== staffToDelete));
-      toast({ 
-        title: "Staff Deleted", 
-        description: "Employee has been permanently removed.", 
-        variant: "destructive" 
-      });
-      setStaffToDelete(null);
-      setIsDeleteAlertOpen(false);
+      deleteStaffMutation.mutate(staffToDelete);
     }
   };
 
   return (
     <AdminLayout role={role}>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -498,7 +532,32 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button>{editingStaff ? "Update Details" : "Onboard Employee"}</Button>
+                <Button 
+                  disabled={addStaffMutation.isPending || updateStaffMutation.isPending}
+                  onClick={() => {
+                    const staffPayload = {
+                      employeeId: employeeId,
+                      name: `${firstName} ${lastName}`.trim(),
+                      role: "Staff",
+                      email: "",
+                      phone: `${countryCode}${phone}`,
+                      salary: String(totalSalary),
+                      joinDate: joiningDate || new Date().toISOString().split('T')[0],
+                      status: "active",
+                      welfareEnabled: welfareFund,
+                      bonusEnabled: bonus > 0,
+                      bonusAmount: String(bonus),
+                    };
+                    if (editingStaff) {
+                      updateStaffMutation.mutate({ id: editingStaff.id, data: staffPayload });
+                    } else {
+                      addStaffMutation.mutate(staffPayload);
+                    }
+                  }}
+                >
+                  {(addStaffMutation.isPending || updateStaffMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingStaff ? "Update Details" : "Onboard Employee"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -554,7 +613,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          <AvatarFallback>{employee.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{employee.name}</span>
                       </div>
@@ -633,7 +692,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8 grayscale opacity-70">
-                            <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            <AvatarFallback>{employee.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{employee.name}</span>
                         </div>
@@ -668,6 +727,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           </Card>
         )}
       </div>
+      )}
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Hotel, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function GuestLogin() {
   const [, setLocation] = useLocation();
@@ -14,40 +15,45 @@ export default function GuestLogin() {
   const [lastName, setLastName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock Login Logic
-    // In a real app, this would validate against the backend
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Simple validation for prototype
-      if (bookingId && lastName) {
-        // Store guest session (mock)
-        localStorage.setItem("guestSession", JSON.stringify({
-          bookingId,
-          lastName,
-          roomNumber: "101", // Mock room
-          checkIn: new Date().toISOString(),
-          checkOut: new Date(Date.now() + 86400000 * 2).toISOString()
-        }));
-        
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in to your booking.",
-        });
-        
-        setLocation("/guest/dashboard");
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Please check your Booking ID and Last Name.",
-          variant: "destructive"
-        });
+    try {
+      const res = await apiRequest("POST", "/api/guest/login", { bookingId, lastName });
+      const data = await res.json();
+
+      sessionStorage.setItem("guestBookingId", data.bookingId);
+      sessionStorage.setItem("guestName", data.guestName);
+      sessionStorage.setItem("guestRoomNumber", data.roomNumber || "");
+      sessionStorage.setItem("guestCheckIn", data.checkIn);
+      sessionStorage.setItem("guestCheckOut", data.checkOut);
+      sessionStorage.setItem("guestStatus", data.status);
+
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in to your booking.",
+      });
+
+      setLocation("/guest/dashboard");
+    } catch (err: any) {
+      const message = err.message || "";
+      let description = "Please check your Booking ID and Last Name.";
+      if (message.includes("404")) {
+        description = "Booking not found. Please check your Booking ID.";
+      } else if (message.includes("401")) {
+        description = "Invalid credentials. Please check your Last Name.";
+      } else if (message.includes("403")) {
+        description = "Guest must be checked in to access the portal.";
       }
-    }, 1000);
+      toast({
+        title: "Login Failed",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

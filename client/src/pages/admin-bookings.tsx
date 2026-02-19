@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -46,8 +48,29 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Invoice Settings State
-  const [invoiceSettings, setInvoiceSettings] = useState({
+  const { data: bookingsData = [], isLoading: bookingsLoading } = useQuery<any[]>({ queryKey: ['/api/bookings'] });
+  const { data: roomsData = [] } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
+  const { data: roomTypesData = [] } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
+  const { data: menuItemsData = [] } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
+  const { data: facilitiesData = [] } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
+  const { data: settingsData = [] } = useQuery<any[]>({ queryKey: ['/api/settings'] });
+
+  const getRoomNumber = (roomId: number) => {
+    const room = roomsData.find((r: any) => r.id === roomId);
+    return room ? room.roomNumber : `#${roomId}`;
+  };
+
+  const getRoomTypeName = (roomTypeId: number) => {
+    const rt = roomTypesData.find((r: any) => r.id === roomTypeId);
+    return rt ? rt.name : "";
+  };
+
+  const getSetting = (key: string, defaultValue: string = "") => {
+    const setting = settingsData.find((s: any) => s.key === key);
+    return setting ? setting.value : defaultValue;
+  };
+
+  const invoiceSettings = {
     taxableItems: {
       room: true,
       food: true,
@@ -58,132 +81,116 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       email: true,
       whatsapp: false
     }
-  });
+  };
 
-  // Local state for checkout dialog options
   const [checkoutOptions, setCheckoutOptions] = useState({
     email: true,
     whatsapp: false
   });
 
-  // Load Invoice Settings
-  useEffect(() => {
-    const savedInvoiceSettings = localStorage.getItem("invoiceSettings");
-    if (savedInvoiceSettings) {
-      const settings = JSON.parse(savedInvoiceSettings);
-      setInvoiceSettings(settings);
-      setCheckoutOptions(settings.autoSend);
+  const restaurantItems = menuItemsData.map((item: any) => ({
+    ...item,
+    price: parseFloat(item.price) || 0
+  }));
+
+  const facilities = facilitiesData.map((item: any) => ({
+    ...item,
+    price: parseFloat(item.price) || 0
+  }));
+
+  const bookings = bookingsData.map((b: any) => ({
+    ...b,
+    amount: parseFloat(b.totalAmount) || 0,
+    advance: parseFloat(b.advanceAmount) || 0,
+    guest: `${b.guestName}${b.guestLastName ? ' ' + b.guestLastName : ''}`,
+    room: getRoomNumber(b.roomId),
+    type: getRoomTypeName(b.roomTypeId),
+    email: b.guestEmail || "",
+    phone: b.guestPhone || "",
+    phoneCountry: "+91",
+    taxes: (parseFloat(b.totalAmount) || 0) * 0.1,
+    charges: [] as any[],
+    source: "Direct",
+    bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
+    paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
+    accompanyingGuests: [],
+    status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Active" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
+  }));
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/bookings", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({ title: "Booking Created", description: "New reservation has been created." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
-  }, []);
-  
-  // Mock Data for Restaurant Items and Facilities
-  const [restaurantItems, setRestaurantItems] = useState<any[]>([]);
-  const [facilities, setFacilities] = useState<any[]>([]);
+  });
 
-  useEffect(() => {
-    const savedRestaurantItems = localStorage.getItem("restaurantItems");
-    if (savedRestaurantItems) setRestaurantItems(JSON.parse(savedRestaurantItems));
-    else setRestaurantItems([
-       { id: 1, name: "Club Sandwich", category: "Food", price: 15 },
-       { id: 2, name: "Cappuccino", category: "Beverage", price: 5 },
-    ]);
-
-    const defaultFacilities = [
-       { id: 1, name: "Extra Bed", price: 30, unit: "night" },
-       { id: 2, name: "Airport Transfer", price: 45, unit: "trip" },
-       { id: 3, name: "Spa Treatment", price: 80, unit: "session" },
-    ];
-    setFacilities(defaultFacilities);
-  }, []);
-
-  const [bookings, setBookings] = useState([
-    { 
-      id: "BK-7829", 
-      guest: "Alice Smith", 
-      email: "alice@example.com",
-      phoneCountry: "+1",
-      phone: "5551234567",
-      room: "304", 
-      type: "Deluxe Ocean View",
-      checkIn: "2024-02-16", 
-      checkOut: "2024-02-20", 
-      status: "Confirmed", 
-      amount: 1250,
-      source: "Booking.com",
-      bookedDate: "2024-01-15",
-      paymentStatus: "Paid",
-      charges: [] as any[],
-      advance: 1250,
-      taxes: 125,
-      accompanyingGuests: [
-        { name: "Bob Smith", dob: "1990-05-15", age: 34, idType: "Passport", idNumber: "A1234567", phoneCountry: "+1", phone: "5559876543", email: "bob@example.com" }
-      ]
+  const updateBookingMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/bookings/${id}`, data);
+      return res.json();
     },
-    { 
-      id: "BK-7830", 
-      guest: "Robert Jones", 
-      email: "robert@example.com",
-      phoneCountry: "+1",
-      phone: "5559876543",
-      room: "102", 
-      type: "Garden Villa",
-      checkIn: "2024-02-17", 
-      checkOut: "2024-02-19", 
-      status: "Check In", 
-      amount: 760,
-      source: "Direct",
-      bookedDate: "2024-02-17",
-      paymentStatus: "Pending",
-      charges: [] as any[],
-      advance: 200,
-      taxes: 76,
-      accompanyingGuests: []
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
     },
-    { 
-      id: "BK-7831", 
-      guest: "Michael Brown", 
-      email: "mike@example.com",
-      phoneCountry: "+1",
-      phone: "5554567890",
-      room: "205", 
-      type: "Standard King",
-      checkIn: "2024-02-18", 
-      checkOut: "2024-02-22", 
-      status: "Confirmed", 
-      amount: 600,
-      source: "Expedia",
-      bookedDate: "2024-02-15",
-      paymentStatus: "Paid",
-      charges: [] as any[],
-      advance: 600,
-      taxes: 60,
-      accompanyingGuests: []
-    },
-  ]);
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
 
-  // Charge Modal State
+  const deleteBookingMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/bookings/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({ title: "Booking Deleted", description: "Reservation has been permanently removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const addChargeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/booking-charges", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/booking-charges'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
   const [chargeType, setChargeType] = useState<"Restaurant" | "Facility">("Restaurant");
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
 
-  // Checkout Modal State
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [checkoutBooking, setCheckoutBooking] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState("Cash"); // Default payment method
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
 
-  // View/Edit Booking Dialog State
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingBooking, setViewingBooking] = useState<any>(null);
   const [isEditingMode, setIsEditingMode] = useState(false);
 
-  // New Reservation State
   const [isNewReservationOpen, setIsNewReservationOpen] = useState(false);
   const [newReservation, setNewReservation] = useState<any>({
     checkIn: "",
     checkOut: "",
     roomType: "",
+    roomId: "",
     guests: 1,
     guestName: "",
     phoneCountry: "+91",
@@ -214,12 +221,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  const handleCheckIn = (id: string) => {
-    setBookings(bookings.map(b => b.id === id ? { ...b, status: "Active" } : b));
-    toast({
-      title: "Check-in Successful",
-      description: `Guest for booking ${id} has been checked in.`,
-    });
+  const handleCheckIn = (booking: any) => {
+    updateBookingMutation.mutate(
+      { id: booking.id, data: { status: "checked_in" } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Check-in Successful",
+            description: `Guest for booking ${booking.bookingId} has been checked in.`,
+          });
+        }
+      }
+    );
   };
 
   const openChargeDialog = (id: string) => {
@@ -234,61 +247,68 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     if (!selectedBookingId || !selectedItemId) return;
 
     const item = chargeType === "Restaurant" 
-      ? restaurantItems.find(i => i.id.toString() === selectedItemId)
-      : facilities.find(f => f.id.toString() === selectedItemId);
+      ? restaurantItems.find((i: any) => i.id.toString() === selectedItemId)
+      : facilities.find((f: any) => f.id.toString() === selectedItemId);
 
     if (!item) return;
 
     const totalAmount = item.price * quantity;
-    const newCharge = {
-      id: Date.now(),
-      type: chargeType,
-      item: item.name,
-      quantity: quantity,
-      price: item.price,
-      amount: totalAmount,
-      date: new Date().toLocaleDateString()
-    };
-
-    setBookings(bookings.map(b => {
-      if (b.id === selectedBookingId) {
-        return {
-          ...b,
-          charges: [...b.charges, newCharge]
-        };
+    const selectedBooking = bookings.find((b: any) => b.bookingId === selectedBookingId);
+    
+    addChargeMutation.mutate(
+      {
+        bookingId: selectedBookingId,
+        description: `${item.name} x${quantity}`,
+        category: chargeType === "Restaurant" ? "Food" : "Facility",
+        amount: totalAmount.toFixed(2),
+      },
+      {
+        onSuccess: () => {
+          setIsChargeDialogOpen(false);
+          toast({
+            title: "Charge Added",
+            description: `${item.name} (x${quantity}) added to room bill.`,
+          });
+        }
       }
-      return b;
-    }));
-
-    setIsChargeDialogOpen(false);
-    toast({
-      title: "Charge Added",
-      description: `${item.name} (x${quantity}) added to room bill.`,
-    });
+    );
   };
 
 
-  const handleDeleteBooking = (id: string) => {
-    setBookings(bookings.filter(b => b.id !== id));
-    toast({
-      title: "Booking Deleted",
-      description: "Reservation has been permanently removed.",
-    });
+  const handleDeleteBooking = (booking: any) => {
+    deleteBookingMutation.mutate(booking.id);
   };
 
   const openViewDialog = (booking: any) => {
-    setViewingBooking({ ...booking }); // Clone to avoid direct mutation
+    setViewingBooking({ ...booking });
     setIsEditingMode(false);
     setIsViewDialogOpen(true);
   };
 
   const handleSaveBookingChanges = () => {
-    setBookings(bookings.map(b => b.id === viewingBooking.id ? viewingBooking : b));
-    setIsViewDialogOpen(false);
-    toast({
-      title: "Booking Updated",
-      description: "Guest details and reservation info updated.",
-    });
+    if (!viewingBooking) return;
+    updateBookingMutation.mutate(
+      {
+        id: viewingBooking.id,
+        data: {
+          guestName: viewingBooking.guest?.split(' ')[0] || viewingBooking.guestName,
+          guestLastName: viewingBooking.guest?.split(' ').slice(1).join(' ') || viewingBooking.guestLastName || "",
+          guestEmail: viewingBooking.email,
+          guestPhone: viewingBooking.phone,
+          checkIn: viewingBooking.checkIn,
+          checkOut: viewingBooking.checkOut,
+        }
+      },
+      {
+        onSuccess: () => {
+          setIsViewDialogOpen(false);
+          toast({
+            title: "Booking Updated",
+            description: "Guest details and reservation info updated.",
+          });
+        }
+      }
+    );
   };
 
   const handleAddAccompanyingGuest = (isNewRes: boolean = false) => {
@@ -311,7 +331,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       const updated = [...newReservation.accompanyingGuests];
       updated[index] = { ...updated[index], [field]: value };
       
-      // Auto calculate age if DOB changes
       if (field === 'dob') {
         updated[index].age = calculateAge(value);
       }
@@ -321,7 +340,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       const updated = [...viewingBooking.accompanyingGuests];
       updated[index] = { ...updated[index], [field]: value };
       
-      // Auto calculate age if DOB changes
       if (field === 'dob') {
         updated[index].age = calculateAge(value);
       }
@@ -342,7 +360,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  // Helper to calculate totals for checkout based on taxable settings
   const calculateTotals = (booking: any) => {
     if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, tax: 0, total: 0, due: 0 };
     
@@ -350,15 +367,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
     
-    // Calculate Tax based on Settings
     let tax = 0;
     
-    // Room Tax
     if (invoiceSettings.taxableItems.room) {
-      tax += booking.taxes; // Use the pre-calculated tax from booking or calculate fresh
+      tax += booking.taxes;
     }
 
-    // Charges Tax
     if (booking.charges) {
       booking.charges.forEach((charge: any) => {
         let isTaxable = false;
@@ -366,7 +380,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         if (charge.type === 'Facility' && invoiceSettings.taxableItems.facility) isTaxable = true;
         
         if (isTaxable) {
-           tax += (charge.amount * 0.1); // Assuming 10% tax for now
+           tax += (charge.amount * 0.1);
         }
       });
     }
@@ -379,7 +393,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
   const openCheckoutDialog = (booking: any) => {
     setCheckoutBooking(booking);
-    // Reset options to defaults from settings
     setCheckoutOptions(invoiceSettings.autoSend);
     setIsCheckoutDialogOpen(true);
   };
@@ -387,17 +400,77 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const handleCheckout = () => {
     if (!checkoutBooking) return;
 
-    setBookings(bookings.map(b => b.id === checkoutBooking.id ? { ...b, status: "Checked Out", paymentStatus: "Paid" } : b));
-    setIsCheckoutDialogOpen(false);
-    
-    let message = "Invoice generated successfully.";
-    if (checkoutOptions.email) message += " Email sent.";
-    if (checkoutOptions.whatsapp) message += " WhatsApp sent.";
+    updateBookingMutation.mutate(
+      { id: checkoutBooking.id, data: { status: "checked_out" } },
+      {
+        onSuccess: () => {
+          setIsCheckoutDialogOpen(false);
+          
+          let message = "Invoice generated successfully.";
+          if (checkoutOptions.email) message += " Email sent.";
+          if (checkoutOptions.whatsapp) message += " WhatsApp sent.";
 
-    toast({
-      title: "Checkout Complete",
-      description: message,
-    });
+          toast({
+            title: "Checkout Complete",
+            description: message,
+          });
+        }
+      }
+    );
+  };
+
+  const handleCreateReservation = () => {
+    const bookingId = `BK-${Date.now().toString().slice(-6)}`;
+    const checkInDate = new Date(newReservation.checkIn);
+    const checkOutDate = new Date(newReservation.checkOut);
+    const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 3600 * 24)));
+
+    const selectedRoomType = roomTypesData.find((rt: any) => rt.id.toString() === newReservation.roomType);
+    const totalAmount = selectedRoomType ? (parseFloat(selectedRoomType.basePrice) || 0) * nights : 0;
+
+    const roomsForType = roomsData.filter((r: any) => r.roomTypeId.toString() === newReservation.roomType && r.status === "available");
+    const roomId = newReservation.roomId ? parseInt(newReservation.roomId) : (roomsForType.length > 0 ? roomsForType[0].id : 0);
+
+    createBookingMutation.mutate(
+      {
+        bookingId,
+        guestName: newReservation.guestName.split(' ')[0] || newReservation.guestName,
+        guestLastName: newReservation.guestName.split(' ').slice(1).join(' ') || "",
+        guestEmail: newReservation.email || "",
+        guestPhone: newReservation.phone ? `${newReservation.phoneCountry}${newReservation.phone}` : "",
+        roomId,
+        roomTypeId: parseInt(newReservation.roomType) || 0,
+        checkIn: newReservation.checkIn,
+        checkOut: newReservation.checkOut,
+        nights,
+        adults: newReservation.guests,
+        children: 0,
+        status: "confirmed",
+        totalAmount: totalAmount.toFixed(2),
+        advanceAmount: (newReservation.advanceAmount || 0).toFixed(2),
+        paymentMethod: "Cash",
+        notes: newReservation.notes || "",
+      },
+      {
+        onSuccess: () => {
+          setIsNewReservationOpen(false);
+          setNewReservation({
+            checkIn: "",
+            checkOut: "",
+            roomType: "",
+            roomId: "",
+            guests: 1,
+            guestName: "",
+            phoneCountry: "+91",
+            phone: "",
+            email: "",
+            notes: "",
+            advanceAmount: 0,
+            accompanyingGuests: []
+          });
+        }
+      }
+    );
   };
 
   return (
@@ -441,14 +514,14 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Room Type</Label>
-                      <Select value={newReservation.roomType} onValueChange={(val) => setNewReservation({...newReservation, roomType: val})}>
+                      <Select value={newReservation.roomType} onValueChange={(val) => setNewReservation({...newReservation, roomType: val, roomId: ""})}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Room" />
+                          <SelectValue placeholder="Select Room Type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="standard">Standard King</SelectItem>
-                          <SelectItem value="deluxe">Deluxe Ocean View</SelectItem>
-                          <SelectItem value="suite">Executive Suite</SelectItem>
+                          {roomTypesData.map((rt: any) => (
+                            <SelectItem key={rt.id} value={rt.id.toString()}>{rt.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -596,7 +669,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsNewReservationOpen(false)}>Cancel</Button>
-                  <Button onClick={() => { setIsNewReservationOpen(false); toast({ title: "Booking Created" }); }}>Confirm Booking</Button>
+                  <Button onClick={handleCreateReservation} disabled={createBookingMutation.isPending}>
+                    {createBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirm Booking
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -630,6 +706,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             </div>
           </CardHeader>
           <CardContent>
+            {bookingsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -643,14 +724,14 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {bookings.map((booking) => {
+                {bookings.map((booking: any) => {
                   const totals = calculateTotals(booking);
                   return (
                     <TableRow key={booking.id}>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">{booking.guest}</span>
-                          <span className="text-xs text-muted-foreground">{booking.id}</span>
+                          <span className="text-xs text-muted-foreground">{booking.bookingId}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -685,13 +766,13 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                               <Eye className="h-3 w-3 mr-1" /> View/Edit
                             </Button>
 
-                            {booking.status === "Check In" || booking.status === "Confirmed" ? (
-                              <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => handleCheckIn(booking.id)}>
+                            {booking.status === "Confirmed" ? (
+                              <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => handleCheckIn(booking)}>
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Check In
                               </Button>
                             ) : booking.status === "Active" ? (
                               <>
-                                <Button size="sm" variant="outline" className="h-8" onClick={() => openChargeDialog(booking.id)}>
+                                <Button size="sm" variant="outline" className="h-8" onClick={() => openChargeDialog(booking.bookingId)}>
                                   <Plus className="h-3 w-3 mr-1" /> Charge
                                 </Button>
                                 <Button size="sm" className="h-8" onClick={() => openCheckoutDialog(booking)}>
@@ -716,7 +797,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteBooking(booking.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+                                  <AlertDialogAction onClick={() => handleDeleteBooking(booking)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
@@ -728,6 +809,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                 })}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -736,7 +818,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
           <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex justify-between items-center pr-8">
-                <span>Booking Details - {viewingBooking?.id}</span>
+                <span>Booking Details - {viewingBooking?.bookingId}</span>
                 {!isEditingMode && (
                    <Button size="sm" variant="outline" onClick={() => setIsEditingMode(true)}>
                      <Edit className="h-4 w-4 mr-2" /> Edit Details
@@ -918,10 +1000,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                 {/* Booking Meta Info */}
                 <div className="bg-muted/10 p-3 rounded text-xs text-muted-foreground grid grid-cols-2 gap-4">
                   <div>
-                    <span className="font-medium">Booking ID:</span> {viewingBooking.id}
+                    <span className="font-medium">Booking ID:</span> {viewingBooking.bookingId}
                   </div>
                   <div className="text-right">
-                    <span className="font-medium">Booked On:</span> {viewingBooking.bookedDate || "2024-01-15"} 
+                    <span className="font-medium">Booked On:</span> {viewingBooking.bookedDate || "N/A"} 
                   </div>
                   <div>
                     <span className="font-medium">Duration:</span> {Math.ceil((new Date(viewingBooking.checkOut).getTime() - new Date(viewingBooking.checkIn).getTime()) / (1000 * 3600 * 24))} Nights
@@ -937,7 +1019,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
               {isEditingMode && (
-                <Button onClick={handleSaveBookingChanges}>Save Changes</Button>
+                <Button onClick={handleSaveBookingChanges} disabled={updateBookingMutation.isPending}>
+                  {updateBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
               )}
             </DialogFooter>
           </DialogContent>
@@ -948,7 +1033,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Add Room Charge</DialogTitle>
-              <CardDescription>Add F&B or Facility charges to {bookings.find(b => b.id === selectedBookingId)?.room}</CardDescription>
+              <CardDescription>Add F&B or Facility charges to booking {selectedBookingId}</CardDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
@@ -995,7 +1080,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsChargeDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleAddCharge}>Add Charge</Button>
+              <Button onClick={handleAddCharge} disabled={addChargeMutation.isPending}>
+                {addChargeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Charge
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1013,11 +1101,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    <div>
                      <h3 className="font-bold text-lg">{checkoutBooking.guest}</h3>
                      <p className="text-sm text-muted-foreground">Room {checkoutBooking.room} - {checkoutBooking.type}</p>
-                     <p className="text-xs text-muted-foreground mt-1">Invoice #{checkoutBooking.id.replace('BK', 'INV')}</p>
+                     <p className="text-xs text-muted-foreground mt-1">Invoice #{(checkoutBooking.bookingId || '').replace('BK', 'INV')}</p>
                    </div>
                    <div className="text-right">
                      <p className="text-sm font-medium">{checkoutBooking.checkIn} to {checkoutBooking.checkOut}</p>
-                     <p className="text-xs text-muted-foreground">3 Nights</p>
+                     <p className="text-xs text-muted-foreground">{checkoutBooking.nights || Math.ceil((new Date(checkoutBooking.checkOut).getTime() - new Date(checkoutBooking.checkIn).getTime()) / (1000 * 3600 * 24))} Nights</p>
                    </div>
                 </div>
 
@@ -1124,7 +1212,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Close</Button>
               {checkoutBooking && checkoutBooking.status !== "Checked Out" && (
-                <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700">
+                <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700" disabled={updateBookingMutation.isPending}>
+                  {updateBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <CreditCard className="mr-2 h-4 w-4" />
                   Pay & Checkout
                 </Button>

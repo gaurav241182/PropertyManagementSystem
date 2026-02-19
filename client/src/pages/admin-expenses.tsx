@@ -8,25 +8,66 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Save, FileSpreadsheet, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Expense, Category } from "@shared/schema";
 
 export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
-  // Mock data with receipt info
-  const [expenses, setExpenses] = useState([
-    { id: 1, date: "2024-02-16", recordDate: "2024-02-16", category: "Grocery", subCategory: "Vegetables", item: "Onions", qty: "5", price: 10, total: 50, status: "Pending", hasReceipt: true },
-    { id: 2, date: "2024-02-16", recordDate: "2024-02-16", category: "Utility", subCategory: "Cleaning", item: "Floor Cleaner", qty: "2", price: 25, total: 50, status: "Paid", hasReceipt: true },
-    { id: 3, date: "2024-02-15", recordDate: "2024-02-15", category: "Grocery", subCategory: "Dairy", item: "Milk", qty: "10", price: 5, total: 50, status: "Paid", hasReceipt: false },
-    { id: 4, date: "2024-02-15", recordDate: "2024-02-15", category: "Maintenance", subCategory: "Plumbing", item: "Pipe Fixing", qty: "1", price: 150, total: 150, status: "Rejected", hasReceipt: true },
-  ]);
 
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Filter expenses based on role and view
-  const visibleExpenses = role === "owner" 
-    ? expenses // Owner sees all
-    : expenses.filter(e => e.recordDate === filterDate); // Manager sees daily sheet
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
+    queryKey: ['/api/expenses'],
+  });
 
-  const totalAmount = visibleExpenses.reduce((sum, e) => sum + (e.total || 0), 0);
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['/api/categories'],
+  });
+
+  const addExpenseMutation = useMutation({
+    mutationFn: async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
+      const res = await apiRequest('POST', '/api/expenses', expense);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: number; [key: string]: any }) => {
+      const res = await apiRequest('PATCH', `/api/expenses/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/expenses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/expenses'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const visibleExpenses = role === "owner" 
+    ? expenses
+    : expenses.filter(e => e.recordDate === filterDate);
+
+  const totalAmount = visibleExpenses.reduce((sum, e) => sum + (parseFloat(e.total as string) || 0), 0);
 
   const CATEGORY_SUBS: Record<string, string[]> = {
     "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
@@ -40,38 +81,39 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   const isTaxableCategory = (cat: string) => cat === "Asset";
 
   const handleAddRow = () => {
-    const newId = Math.max(...expenses.map(e => e.id), 0) + 1;
     const dateToUse = role === "owner" ? new Date().toISOString().split('T')[0] : filterDate;
     
-    setExpenses([
-      ...expenses, 
-      { id: newId, date: dateToUse, recordDate: dateToUse, category: "Grocery", subCategory: "Vegetables", item: "", qty: "1", price: 0, total: 0, status: "Pending", hasReceipt: false }
-    ]);
+    addExpenseMutation.mutate({
+      date: dateToUse,
+      recordDate: dateToUse,
+      category: "Grocery",
+      subCategory: "Vegetables",
+      item: "",
+      qty: "1",
+      price: "0",
+      total: "0",
+      status: "Pending",
+      hasReceipt: false,
+    });
   };
 
   const handleRemoveRow = (id: number) => {
-    setExpenses(expenses.filter(e => e.id !== id));
+    deleteExpenseMutation.mutate(id);
   };
 
   const updateExpense = (id: number, field: string, value: any) => {
-    setExpenses(expenses.map(e => {
-      if (e.id === id) {
-        const updated = { ...e, [field]: value };
-        // Auto-calculate total if price or qty changes
-        if (field === 'price' || field === 'qty') {
-           // Simple parse for mock calculation, assuming numeric inputs mostly
-           const p = field === 'price' ? parseFloat(value) || 0 : e.price;
-           const q = field === 'qty' ? parseFloat(value) || 1 : parseFloat(e.qty) || 1; 
-           // Note: qty is string "5kg" in mock, so this auto-calc is simplified. 
-           // For prototype, we'll just try to parse or leave it. 
-           // Let's improve the mock data to use numeric qty if we want calc, or just let user type total.
-           // For this "Excel" view, auto-calc is nice.
-           updated.total = p * q;
-        }
-        return updated;
-      }
-      return e;
-    }));
+    const expense = expenses.find(e => e.id === id);
+    if (!expense) return;
+
+    const updateData: Record<string, any> = { [field]: value };
+
+    if (field === 'price' || field === 'qty') {
+      const p = field === 'price' ? parseFloat(value) || 0 : parseFloat(expense.price as string) || 0;
+      const q = field === 'qty' ? parseFloat(value) || 1 : parseFloat(expense.qty) || 1;
+      updateData.total = String(p * q);
+    }
+
+    updateExpenseMutation.mutate({ id, ...updateData });
   };
 
   const handleSaveChanges = () => {
@@ -80,6 +122,16 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
       description: "All changes have been updated successfully.",
     });
   };
+
+  if (expensesLoading) {
+    return (
+      <AdminLayout role={role}>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading expenses...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout role={role}>
@@ -128,7 +180,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                    <div className="flex flex-col items-end">
                       <span className="text-xs text-muted-foreground uppercase font-bold">Total Amount</span>
                       <span className="text-2xl font-bold font-serif text-primary">
-                        {expenses.reduce((sum, e) => sum + (e.total || 0), 0).toLocaleString()}
+                        {totalAmount.toLocaleString()}
                       </span>
                    </div>
                 </div>
@@ -136,7 +188,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
             </CardHeader>
             <CardContent className="p-0">
               <div className="p-2 flex justify-end bg-muted/10 border-b">
-                 <Button variant="ghost" size="sm" onClick={handleAddRow} className="text-primary hover:text-primary hover:bg-primary/10">
+                 <Button variant="ghost" size="sm" onClick={handleAddRow} className="text-primary hover:text-primary hover:bg-primary/10" disabled={addExpenseMutation.isPending}>
                    <Plus className="mr-2 h-4 w-4" /> Add Line Item
                  </Button>
               </div>
@@ -172,7 +224,6 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                             value={expense.category} 
                             onValueChange={(val) => {
                                updateExpense(expense.id, 'category', val);
-                               // Reset subcategory when category changes
                                updateExpense(expense.id, 'subCategory', CATEGORY_SUBS[val]?.[0] || "");
                             }}
                           >
@@ -233,7 +284,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                             <Input 
                               type="number"
                               value={expense.total} 
-                              onChange={(e) => updateExpense(expense.id, 'total', parseFloat(e.target.value))}
+                              onChange={(e) => updateExpense(expense.id, 'total', e.target.value)}
                               className="h-8 w-full bg-muted/20 font-bold"
                               placeholder="0"
                             />
@@ -272,6 +323,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                               size="sm" 
                               className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
                               onClick={() => handleRemoveRow(expense.id)}
+                              disabled={deleteExpenseMutation.isPending}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

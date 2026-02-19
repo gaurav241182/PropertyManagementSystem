@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,28 +12,53 @@ import { Plus, Trash2, Edit, Save, Calendar, UtensilsCrossed, ChefHat, Copy } fr
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+interface ApiMenuItem {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  price: string;
+  available: boolean;
+  createdAt: string;
+}
 
 export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
-  
-  // Available Items (Simulated from Settings)
-  const [availableItems, setAvailableItems] = useState([
-    { id: 1, name: "Club Sandwich", category: "Food", price: 15 },
-    { id: 2, name: "Cappuccino", category: "Beverage", price: 5 },
-    { id: 3, name: "Caesar Salad", category: "Food", price: 12 },
-    { id: 4, name: "Fresh Juice", category: "Beverage", price: 6 },
-    { id: 5, name: "Steak Dinner", category: "Food", price: 25 },
-  ]);
 
-  // Load items from Settings
-  useEffect(() => {
-    const savedItems = localStorage.getItem("restaurantItems");
-    if (savedItems) {
-      setAvailableItems(JSON.parse(savedItems));
-    }
-  }, []);
+  const { data: availableItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
 
-  // Menus State
+  const addItemMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/menu-items", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const res = await apiRequest("PATCH", `/api/menu-items/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/menu-items/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+    },
+  });
+
   const [menus, setMenus] = useState([
     { 
       id: 1, 
@@ -146,7 +171,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                 <div className="space-y-2">
                   <Label>Select Items</Label>
                   <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto space-y-2">
-                    {availableItems.map(item => (
+                    {availableItems.map((item: ApiMenuItem) => (
                       <div key={item.id} className="flex items-center space-x-2">
                         <Checkbox 
                           id={`item-${item.id}`} 
@@ -206,7 +231,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                     <p className="text-sm font-medium mb-2">Featured Items:</p>
                     <div className="space-y-1">
                       {menu.items.slice(0, 3).map(itemId => {
-                        const item = availableItems.find(i => i.id === itemId);
+                        const item = availableItems.find((i: ApiMenuItem) => i.id === itemId);
                         return item ? (
                           <div key={itemId} className="text-xs text-muted-foreground flex justify-between">
                             <span>{item.name}</span>
