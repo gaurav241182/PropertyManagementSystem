@@ -92,6 +92,33 @@ export default function AdminSettings() {
     price: 0
   });
 
+  // Invoice Settings State
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    taxableItems: {
+      room: true,
+      food: true,
+      facility: true,
+      other: false
+    },
+    autoSend: {
+      email: true,
+      whatsapp: false
+    }
+  });
+
+  // Load Invoice Settings
+  useEffect(() => {
+    const savedInvoiceSettings = localStorage.getItem("invoiceSettings");
+    if (savedInvoiceSettings) {
+      setInvoiceSettings(JSON.parse(savedInvoiceSettings));
+    }
+  }, []);
+
+  // Save Invoice Settings
+  useEffect(() => {
+    localStorage.setItem("invoiceSettings", JSON.stringify(invoiceSettings));
+  }, [invoiceSettings]);
+
   // Load Room Types from Local Storage on Mount
   useEffect(() => {
     const savedTypes = localStorage.getItem("roomTypes");
@@ -248,6 +275,7 @@ export default function AdminSettings() {
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
             <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
+            <TabsTrigger value="invoice">Invoice & Taxes</TabsTrigger>
             <TabsTrigger value="devtools" className="text-amber-600">Dev Tools</TabsTrigger>
           </TabsList>
 
@@ -403,6 +431,102 @@ export default function AdminSettings() {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Invoice & Tax Settings */}
+          <TabsContent value="invoice" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Invoice Configuration</CardTitle>
+                <CardDescription>Configure which items are taxable and automation preferences.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Taxable Items</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="tax-room" 
+                        checked={invoiceSettings.taxableItems.room}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          taxableItems: { ...invoiceSettings.taxableItems, room: !!checked }
+                        })}
+                      />
+                      <Label htmlFor="tax-room">Room Charges</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="tax-food" 
+                        checked={invoiceSettings.taxableItems.food}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          taxableItems: { ...invoiceSettings.taxableItems, food: !!checked }
+                        })}
+                      />
+                      <Label htmlFor="tax-food">Food & Beverage</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="tax-facility" 
+                        checked={invoiceSettings.taxableItems.facility}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          taxableItems: { ...invoiceSettings.taxableItems, facility: !!checked }
+                        })}
+                      />
+                      <Label htmlFor="tax-facility">Facilities & Services</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="tax-other" 
+                        checked={invoiceSettings.taxableItems.other}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          taxableItems: { ...invoiceSettings.taxableItems, other: !!checked }
+                        })}
+                      />
+                      <Label htmlFor="tax-other">Other Charges</Label>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Only checked items will have tax applied in the final invoice.</p>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="text-lg font-medium">Automation</h3>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Auto-Send Email</Label>
+                        <p className="text-sm text-muted-foreground">Automatically email invoice to guest upon checkout.</p>
+                      </div>
+                      <Switch 
+                        checked={invoiceSettings.autoSend.email}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          autoSend: { ...invoiceSettings.autoSend, email: checked }
+                        })}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Auto-Send WhatsApp</Label>
+                        <p className="text-sm text-muted-foreground">Automatically send invoice via WhatsApp upon checkout.</p>
+                      </div>
+                      <Switch 
+                        checked={invoiceSettings.autoSend.whatsapp}
+                        onCheckedChange={(checked) => setInvoiceSettings({
+                          ...invoiceSettings, 
+                          autoSend: { ...invoiceSettings.autoSend, whatsapp: checked }
+                        })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>

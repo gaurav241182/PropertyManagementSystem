@@ -32,15 +32,49 @@ import {
   Users,
   Upload,
   Eye,
-  Globe
+  Globe,
+  Printer,
+  Download,
+  MessageCircle
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Invoice Settings State
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    taxableItems: {
+      room: true,
+      food: true,
+      facility: true,
+      other: false
+    },
+    autoSend: {
+      email: true,
+      whatsapp: false
+    }
+  });
+
+  // Local state for checkout dialog options
+  const [checkoutOptions, setCheckoutOptions] = useState({
+    email: true,
+    whatsapp: false
+  });
+
+  // Load Invoice Settings
+  useEffect(() => {
+    const savedInvoiceSettings = localStorage.getItem("invoiceSettings");
+    if (savedInvoiceSettings) {
+      const settings = JSON.parse(savedInvoiceSettings);
+      setInvoiceSettings(settings);
+      setCheckoutOptions(settings.autoSend);
+    }
+  }, []);
   
   // Mock Data for Restaurant Items and Facilities
   const [restaurantItems, setRestaurantItems] = useState<any[]>([]);
@@ -231,21 +265,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     });
   };
 
-  const openCheckoutDialog = (booking: any) => {
-    setCheckoutBooking(booking);
-    setIsCheckoutDialogOpen(true);
-  };
-
-  const handleCheckout = () => {
-    if (!checkoutBooking) return;
-
-    setBookings(bookings.map(b => b.id === checkoutBooking.id ? { ...b, status: "Checked Out", paymentStatus: "Paid" } : b));
-    setIsCheckoutDialogOpen(false);
-    toast({
-      title: "Checkout Complete",
-      description: `Invoice generated and email sent to ${checkoutBooking.email}`,
-    });
-  };
 
   const handleDeleteBooking = (id: string) => {
     setBookings(bookings.filter(b => b.id !== id));
@@ -321,21 +340,63 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  // Helper to calculate totals for checkout
+  // Helper to calculate totals for checkout based on taxable settings
   const calculateTotals = (booking: any) => {
     if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, tax: 0, total: 0, due: 0 };
     
     const roomTotal = booking.amount;
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
-    const tax = booking.taxes + (chargesTotal * 0.1); // Assuming 10% tax on extras
+    
+    // Calculate Tax based on Settings
+    let tax = 0;
+    
+    // Room Tax
+    if (invoiceSettings.taxableItems.room) {
+      tax += booking.taxes; // Use the pre-calculated tax from booking or calculate fresh
+    }
+
+    // Charges Tax
+    if (booking.charges) {
+      booking.charges.forEach((charge: any) => {
+        let isTaxable = false;
+        if (charge.type === 'Restaurant' && invoiceSettings.taxableItems.food) isTaxable = true;
+        if (charge.type === 'Facility' && invoiceSettings.taxableItems.facility) isTaxable = true;
+        
+        if (isTaxable) {
+           tax += (charge.amount * 0.1); // Assuming 10% tax for now
+        }
+      });
+    }
+
     const total = subtotal + tax;
     const due = total - booking.advance;
 
     return { roomTotal, chargesTotal, subtotal, tax, total, due };
   };
 
-  return (
+  const openCheckoutDialog = (booking: any) => {
+    setCheckoutBooking(booking);
+    // Reset options to defaults from settings
+    setCheckoutOptions(invoiceSettings.autoSend);
+    setIsCheckoutDialogOpen(true);
+  };
+
+  const handleCheckout = () => {
+    if (!checkoutBooking) return;
+
+    setBookings(bookings.map(b => b.id === checkoutBooking.id ? { ...b, status: "Checked Out", paymentStatus: "Paid" } : b));
+    setIsCheckoutDialogOpen(false);
+    
+    let message = "Invoice generated successfully.";
+    if (checkoutOptions.email) message += " Email sent.";
+    if (checkoutOptions.whatsapp) message += " WhatsApp sent.";
+
+    toast({
+      title: "Checkout Complete",
+      description: message,
+    });
+  };
     <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -926,7 +987,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
           <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Guest Checkout & Invoice</DialogTitle>
-              <CardDescription>Review final charges and process payment.</CardDescription>
+              <CardDescription>Review final charges, configure invoice, and process payment.</CardDescription>
             </DialogHeader>
             {checkoutBooking && (
               <div className="space-y-6 py-4">
@@ -970,7 +1031,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <span>${calculateTotals(checkoutBooking).subtotal.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm">
-                      <span>Taxes & Fees</span>
+                      <span>Taxes & Fees {(!invoiceSettings.taxableItems.room || !invoiceSettings.taxableItems.food) && <span className="text-xs text-muted-foreground">(Adjusted)</span>}</span>
                       <span>${calculateTotals(checkoutBooking).tax.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm text-green-600">
@@ -984,19 +1045,49 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    </div>
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
-                   <p className="flex items-center gap-2">
-                     <FileText className="h-4 w-4" />
-                     Invoice will be automatically emailed to {checkoutBooking.email} upon completion.
-                   </p>
+                {/* Automation & Actions */}
+                <div className="space-y-4 pt-2">
+                   <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Invoice Actions</h4>
+                   
+                   <div className="grid grid-cols-2 gap-4 bg-muted/10 p-4 rounded-md">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="auto-email" 
+                          checked={checkoutOptions.email}
+                          onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, email: !!checked})}
+                        />
+                        <Label htmlFor="auto-email" className="flex items-center gap-2 cursor-pointer">
+                          <Mail className="h-4 w-4 text-muted-foreground" /> Auto-Email Invoice
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="auto-whatsapp" 
+                          checked={checkoutOptions.whatsapp}
+                          onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, whatsapp: !!checked})}
+                        />
+                        <Label htmlFor="auto-whatsapp" className="flex items-center gap-2 cursor-pointer">
+                          <MessageCircle className="h-4 w-4 text-muted-foreground" /> Auto-WhatsApp
+                        </Label>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-2 justify-center pt-2">
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <Printer className="mr-2 h-4 w-4" /> Print
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <Download className="mr-2 h-4 w-4" /> Download PDF
+                      </Button>
+                   </div>
                 </div>
               </div>
             )}
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Save as Draft</Button>
+              <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700">
                 <CreditCard className="mr-2 h-4 w-4" />
-                Process Payment & Checkout
+                Checkout & Send Invoice
               </Button>
             </DialogFooter>
           </DialogContent>
