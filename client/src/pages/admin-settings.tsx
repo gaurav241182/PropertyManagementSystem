@@ -32,10 +32,23 @@ export default function AdminSettings() {
     { id: 2, name: "City Tax", rate: 5, type: "Fixed", appliedTo: "Rooms" },
   ]);
   const [categories, setCategories] = useState([
-    { id: 1, type: "Grocery", subtype: "Vegetables", item: "Onion" },
-    { id: 2, type: "Grocery", subtype: "Vegetables", item: "Potato" },
-    { id: 3, type: "Utility", subtype: "Cleaning", item: "Bleach" },
+    { id: 1, type: "Grocery", subtype: "Vegetables", item: "Onion", taxable: false },
+    { id: 2, type: "Grocery", subtype: "Dairy", item: "Milk", taxable: false },
+    { id: 3, type: "Utility", subtype: "Cleaning", item: "Bleach", taxable: true },
+    { id: 4, type: "Asset", subtype: "Electronics", item: "AC Unit", taxable: true },
   ]);
+  const [newCategory, setNewCategory] = useState({ type: "", subtype: "", item: "", taxable: false });
+
+  const handleAddCategory = () => {
+    if (newCategory.type && newCategory.item) {
+      setCategories([...categories, { ...newCategory, id: Date.now() }]);
+      setNewCategory({ type: "", subtype: "", item: "", taxable: false });
+      toast({
+        title: "Category Added",
+        description: "New category item has been added.",
+      });
+    }
+  };
 
   // Room Types State
   const [roomTypes, setRoomTypes] = useState(DEFAULT_ROOM_TYPES);
@@ -917,30 +930,51 @@ export default function AdminSettings() {
                     <div className="grid gap-4 py-4">
                       <div className="space-y-2">
                         <Label>Type</Label>
-                        <Input placeholder="e.g. Grocery" />
+                        <Input 
+                          placeholder="e.g. Grocery" 
+                          value={newCategory.type}
+                          onChange={(e) => setNewCategory({...newCategory, type: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Subtype</Label>
-                        <Input placeholder="e.g. Vegetables" />
+                        <Input 
+                          placeholder="e.g. Vegetables" 
+                          value={newCategory.subtype}
+                          onChange={(e) => setNewCategory({...newCategory, subtype: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                          <Label>Default Item Name</Label>
-                         <Input placeholder="e.g. Onion" />
+                         <Input 
+                           placeholder="e.g. Onion" 
+                           value={newCategory.item}
+                           onChange={(e) => setNewCategory({...newCategory, item: e.target.value})}
+                         />
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox 
+                          id="cat-taxable" 
+                          checked={newCategory.taxable}
+                          onCheckedChange={(checked) => setNewCategory({...newCategory, taxable: checked === true})}
+                        />
+                        <Label htmlFor="cat-taxable">Taxable Item (Requires Invoice)</Label>
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button>Save</Button>
+                      <Button onClick={handleAddCategory}>Save</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
-                <Table>
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Type</TableHead>
                       <TableHead>Subtype</TableHead>
                       <TableHead>Item Name</TableHead>
+                      <TableHead>Taxable</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -950,6 +984,9 @@ export default function AdminSettings() {
                         <TableCell>{cat.type}</TableCell>
                         <TableCell>{cat.subtype}</TableCell>
                         <TableCell className="font-medium">{cat.item}</TableCell>
+                        <TableCell>
+                          {cat.taxable && <Badge variant="secondary" className="bg-amber-100 text-amber-800">Taxable</Badge>}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="text-red-500"><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>

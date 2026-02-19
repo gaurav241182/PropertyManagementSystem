@@ -33,8 +33,11 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     "Utility": ["Electricity", "Water", "Internet", "Cleaning", "Gas"],
     "Maintenance": ["Plumbing", "Electrical", "Carpenter", "Painting", "AC Repair"],
     "Staff": ["Salary", "Bonus", "Uniform", "Training", "Transport"],
+    "Asset": ["Electronics", "Furniture", "Appliances", "Machinery"],
     "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
   };
+
+  const isTaxableCategory = (cat: string) => cat === "Asset";
 
   const handleAddRow = () => {
     const newId = Math.max(...expenses.map(e => e.id), 0) + 1;
@@ -148,6 +151,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                       <TableHead className="w-[80px]">Qty</TableHead>
                       <TableHead className="w-[100px]">Price</TableHead>
                       <TableHead className="w-[100px]">Total</TableHead>
+                      <TableHead className="w-[80px]">Receipt</TableHead>
                       <TableHead className="w-[130px]">Status</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
@@ -234,6 +238,13 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                               placeholder="0"
                             />
                           </div>
+                        </TableCell>
+                        <TableCell className="p-2 text-center">
+                          {isTaxableCategory(expense.category) && (
+                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary bg-primary/10 hover:bg-primary/20" title="Upload Tax Invoice">
+                               <Upload className="h-4 w-4" />
+                             </Button>
+                          )}
                         </TableCell>
                         <TableCell className="p-2">
                           <Select 
