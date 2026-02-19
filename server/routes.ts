@@ -278,6 +278,8 @@ export async function registerRoutes(
         }
         const bonusAmt = Number(data.bonusAmount) || 0;
         const welfareAmount = data.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const dueDateStr = lastDay.toISOString().split('T')[0];
         await storage.createSalary({
           staffId: data.id,
           month,
@@ -286,6 +288,8 @@ export async function registerRoutes(
           deductions: "0",
           welfareContribution: String(welfareAmount),
           netPay: String(netPay + bonusAmt),
+          advanceAmount: "0",
+          dueDate: dueDateStr,
           status: "Pending",
           paidDate: null,
         });
@@ -485,6 +489,79 @@ export async function registerRoutes(
   app.delete("/api/salaries/:id", async (req, res) => {
     await storage.deleteSalary(Number(req.params.id));
     res.json({ success: true });
+  });
+
+  app.post("/api/salaries/:id/advance", async (req, res) => {
+    try {
+      const salaryId = Number(req.params.id);
+      const { amount } = req.body;
+      const advanceAmount = Number(amount) || 0;
+      if (advanceAmount <= 0) {
+        return res.status(400).json({ message: "Advance amount must be greater than 0" });
+      }
+
+      const allSalaries = await storage.getSalaries();
+      const salary = allSalaries.find((s: any) => s.id === salaryId);
+      if (!salary) return res.status(404).json({ message: "Salary record not found" });
+
+      const netPay = Number(salary.netPay) || 0;
+      const existingAdvance = Number(salary.advanceAmount) || 0;
+      const totalAdvance = existingAdvance + advanceAmount;
+      const pendingAfterAdvance = netPay - totalAdvance;
+
+      if (pendingAfterAdvance <= 0) {
+        await storage.updateSalary(salaryId, {
+          advanceAmount: String(totalAdvance),
+          status: "Paid",
+          paidDate: new Date().toISOString().split('T')[0],
+        });
+
+        if (pendingAfterAdvance < 0) {
+          const overflow = Math.abs(pendingAfterAdvance);
+          const [yearStr, monthStr] = salary.month.split("-");
+          let nextYear = parseInt(yearStr);
+          let nextMonth = parseInt(monthStr) + 1;
+          if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+          const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+          const nextLastDay = new Date(nextYear, nextMonth, 0);
+          const nextDueDate = nextLastDay.toISOString().split('T')[0];
+
+          const existingNext = allSalaries.find(
+            (s: any) => s.staffId === salary.staffId && s.month === nextMonthKey
+          );
+
+          if (existingNext) {
+            const existNextAdv = Number(existingNext.advanceAmount) || 0;
+            await storage.updateSalary(existingNext.id, {
+              advanceAmount: String(existNextAdv + overflow),
+            });
+          } else {
+            await storage.createSalary({
+              staffId: salary.staffId,
+              month: nextMonthKey,
+              basicSalary: salary.basicSalary,
+              bonus: salary.bonus,
+              deductions: "0",
+              welfareContribution: salary.welfareContribution,
+              netPay: salary.netPay,
+              advanceAmount: String(overflow),
+              dueDate: nextDueDate,
+              status: "Pending",
+              paidDate: null,
+            });
+          }
+        }
+      } else {
+        await storage.updateSalary(salaryId, {
+          advanceAmount: String(totalAdvance),
+        });
+      }
+
+      const updated = (await storage.getSalaries()).find((s: any) => s.id === salaryId);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to process advance" });
+    }
   });
 
   // ============= BOOKING CHARGES =============

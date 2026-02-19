@@ -58,3 +58,8 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
 - 2026-02-19: Staff dialog rewritten with view/edit/add modes - view shows read-only details, edit populates all saved fields
 - 2026-02-19: Auto-create salary record on staff onboarding with prorated calculation for mid-month joins
 - 2026-02-19: Zod validation added to POST/PATCH staff routes, welfare based on basicPay
+- 2026-02-19: Photo persistence added to staff schema (base64 stored in `photo` column), shown in view mode and table
+- 2026-02-19: Avatar initials removed from staff table, replaced with photo or empty circle
+- 2026-02-19: Salary schema extended with advanceAmount and dueDate fields
+- 2026-02-19: Due date auto-set to end of month when salary record is created
+- 2026-02-19: Advance payment system: POST /api/salaries/:id/advance - records advance, auto-marks paid when advance >= salary, overflows to next month

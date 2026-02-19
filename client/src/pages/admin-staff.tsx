@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -240,7 +239,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setEmergencyPhone(emp.emergencyPhone || "");
     setIdCardNumber(emp.idCardNumber || "");
     setPoliceVerification(emp.policeVerification || false);
-    setPhotoPreview(null);
+    setPhotoPreview(emp.photo || null);
     setCreateLogin(false);
     setLoginPassword("");
     setFormErrors({});
@@ -355,6 +354,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       emergencyPhone: emergencyPhone || null,
       idCardNumber: idCardNumber || null,
       policeVerification,
+      photo: photoPreview || null,
     };
 
     if (editingStaff) {
@@ -439,13 +439,19 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <h3 className="font-medium text-primary">Personal Information</h3>
                       <Badge variant="outline" className="font-mono">ID: {employeeId}</Badge>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <ViewField label="First Name" value={firstName} />
-                      <ViewField label="Last Name" value={lastName} />
-                      <ViewField label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : null} />
-                      <ViewField label="Nationality" value={nationality} />
-                      <ViewField label="Date of Birth" value={dob} />
-                      <ViewField label="Age" value={age !== null ? `${age} Years` : null} />
+                    <div className="flex items-start gap-4">
+                      {photoPreview && (
+                        <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-primary/20 shrink-0">
+                          <img src={photoPreview} alt="Staff photo" className="h-full w-full object-cover" />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-4 flex-1">
+                        <ViewField label="Full Name" value={`${firstName} ${lastName}`} />
+                        <ViewField label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : null} />
+                        <ViewField label="Nationality" value={nationality} />
+                        <ViewField label="Date of Birth" value={dob} />
+                        <ViewField label="Age" value={age !== null ? `${age} Years` : null} />
+                      </div>
                     </div>
                   </div>
 
@@ -845,9 +851,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <TableRow key={employee.id} data-testid={`row-staff-${employee.id}`} className="cursor-pointer" onClick={() => handleView(employee)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>{employee.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
-                        </Avatar>
+                        {employee.photo ? (
+                          <img src={employee.photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-muted" />
+                        )}
                         <span className="font-medium">{employee.name}</span>
                       </div>
                     </TableCell>
@@ -912,9 +920,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     <TableRow key={employee.id} data-testid={`row-inactive-staff-${employee.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 grayscale opacity-70">
-                            <AvatarFallback>{employee.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
-                          </Avatar>
+                          {employee.photo ? (
+                            <img src={employee.photo} alt="" className="h-8 w-8 rounded-full object-cover grayscale opacity-70" />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-muted opacity-70" />
+                          )}
                           <span className="font-medium">{employee.name}</span>
                         </div>
                       </TableCell>

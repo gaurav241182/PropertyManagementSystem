@@ -131,6 +131,7 @@ export const staff = pgTable("staff", {
   emergencyPhone: text("emergency_phone"),
   idCardNumber: text("id_card_number"),
   policeVerification: boolean("police_verification").default(false),
+  photo: text("photo"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -247,12 +248,14 @@ export type Setting = typeof settings.$inferSelect;
 export const salaries = pgTable("salaries", {
   id: serial("id").primaryKey(),
   staffId: integer("staff_id").notNull(),
-  month: text("month").notNull(), // e.g. "2026-02"
+  month: text("month").notNull(),
   basicSalary: decimal("basic_salary", { precision: 10, scale: 2 }).notNull().default("0"),
   bonus: decimal("bonus", { precision: 10, scale: 2 }).notNull().default("0"),
   deductions: decimal("deductions", { precision: 10, scale: 2 }).notNull().default("0"),
   welfareContribution: decimal("welfare_contribution", { precision: 10, scale: 2 }).notNull().default("0"),
   netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull().default("0"),
+  advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  dueDate: date("due_date"),
   status: text("status").notNull().default("Pending"), // Pending, Paid
   paidDate: date("paid_date"),
   createdAt: timestamp("created_at").defaultNow(),
