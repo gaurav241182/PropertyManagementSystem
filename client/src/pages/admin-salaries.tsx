@@ -16,11 +16,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: "₹", USD: "$", EUR: "€", GBP: "£", AUD: "A$", CAD: "C$", JPY: "¥", CNY: "¥", AED: "د.إ", SGD: "S$",
+};
+
 export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
 
   const { data: salariesData = [], isLoading: salariesLoading } = useQuery<any[]>({ queryKey: ['/api/salaries'] });
   const { data: staffData = [], isLoading: staffLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
+  const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
+  const currency = (settingsData as Record<string, string>)?.currency || "USD";
+  const cs = CURRENCY_SYMBOLS[currency?.toUpperCase()] || currency || "$";
 
   const staffMap = new Map(staffData.map((s: any) => [s.id, s]));
 
@@ -184,7 +191,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Payroll</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalPayroll.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{cs}{totalPayroll.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">For Selected Month</p>
             </CardContent>
           </Card>
@@ -193,7 +200,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">${paidAmount.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">{cs}{paidAmount.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">{filteredSalaries.filter(s => s.status === "Paid").length} Employees</p>
             </CardContent>
           </Card>
@@ -202,7 +209,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">${pendingAmount.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-amber-600">{cs}{pendingAmount.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">{filteredSalaries.filter(s => s.status === "Pending").length} Employees</p>
             </CardContent>
           </Card>
@@ -263,9 +270,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       </div>
                     </TableCell>
                     <TableCell>{salary.role}</TableCell>
-                    <TableCell className="font-medium">${salary.amount}</TableCell>
-                    <TableCell className="text-muted-foreground">${salary.advance || 0}</TableCell>
-                    <TableCell className="font-medium text-amber-600">${salary.pending !== undefined ? salary.pending : (salary.status === 'Paid' ? 0 : salary.amount)}</TableCell>
+                    <TableCell className="font-medium">{cs}{salary.amount}</TableCell>
+                    <TableCell className="text-muted-foreground">{cs}{salary.advance || 0}</TableCell>
+                    <TableCell className="font-medium text-amber-600">{cs}{salary.pending !== undefined ? salary.pending : (salary.status === 'Paid' ? 0 : salary.amount)}</TableCell>
                     <TableCell>
                       <Badge variant={salary.status === "Paid" ? "default" : "secondary"} className={salary.status === "Paid" ? "bg-green-600 hover:bg-green-700" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}>
                         {salary.status}
