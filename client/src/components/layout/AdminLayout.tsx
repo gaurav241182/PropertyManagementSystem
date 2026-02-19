@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { 
   LayoutDashboard, 
@@ -17,7 +18,7 @@ import {
   DollarSign,
   ShoppingBag,
   ChefHat,
-  Menu // Hamburger Icon for Mobile
+  Menu
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import type { Hotel as HotelType } from "@shared/schema";
 
 // Define navigation items per role
 const ROLE_NAV_ITEMS = {
@@ -59,21 +61,28 @@ const ROLE_NAV_ITEMS = {
 export default function AdminLayout({ children, role = "owner" }: { children: React.ReactNode, role?: "owner" | "manager" }) {
   const [location] = useLocation();
   const navItems = ROLE_NAV_ITEMS[role];
-  const [currentBranch, setCurrentBranch] = useState("Grand Luxe Hotel - NY");
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const branches = [
-    "Grand Luxe Hotel - NY",
-    "Seaside Resort - Miami",
-    "Mountain Lodge - Aspen"
-  ];
+  const { data: hotelsData = [] } = useQuery<HotelType[]>({ queryKey: ["/api/hotels"] });
+
+  const parseBranches = (b: string): { name: string; city: string; address: string }[] => {
+    try { return JSON.parse(b); } catch { return []; }
+  };
+
+  const selectedHotelId = localStorage.getItem("selectedHotelId");
+  const currentHotel = selectedHotelId
+    ? hotelsData.find(h => h.id === Number(selectedHotelId)) || hotelsData[0]
+    : hotelsData[0];
+  const branches = currentHotel ? parseBranches(currentHotel.branches) : [];
+  const branchNames = branches.map(b => b.name + (b.city ? ` - ${b.city}` : "")).filter(Boolean);
+  const [currentBranch, setCurrentBranch] = useState("");
 
   const SidebarContent = () => (
     <>
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2 font-serif font-bold text-xl text-sidebar-primary truncate">
           <Hotel className="h-6 w-6 shrink-0" />
-          <span>{role === "owner" ? "Owner Portal" : "Manager Portal"}</span>
+          <span className="truncate">{currentHotel ? currentHotel.name : (role === "owner" ? "Owner Portal" : "Manager Portal")}</span>
         </div>
       </div>
 
@@ -86,7 +95,7 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
                   <Building className="h-4 w-4 shrink-0 opacity-70" />
                   <div className="flex flex-col items-start truncate">
                     <span className="text-[10px] uppercase text-muted-foreground font-bold">Current Branch</span>
-                    <span className="text-xs font-medium truncate w-32 text-left">{currentBranch}</span>
+                    <span className="text-xs font-medium truncate w-32 text-left">{currentBranch || branchNames[0] || "No Branch"}</span>
                   </div>
                 </div>
                 <ChevronDown className="h-4 w-4 opacity-50" />
@@ -95,15 +104,13 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
             <DropdownMenuContent className="w-56">
               <DropdownMenuLabel>Select Branch</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {branches.map((branch) => (
+              {branchNames.length > 0 ? branchNames.map((branch) => (
                 <DropdownMenuItem key={branch} onClick={() => setCurrentBranch(branch)}>
                   {branch}
                 </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-primary cursor-pointer">
-                + Add New Branch
-              </DropdownMenuItem>
+              )) : (
+                <DropdownMenuItem disabled>No branches configured</DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

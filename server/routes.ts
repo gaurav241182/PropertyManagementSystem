@@ -15,8 +15,8 @@ export async function registerRoutes(
 
   app.post("/api/hotels", async (req, res) => {
     try {
-      const data = await storage.createHotel(req.body);
-      res.status(201).json(data);
+      const result = await storage.createHotelWithOwner(req.body);
+      res.status(201).json(result);
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to create hotel" });
     }

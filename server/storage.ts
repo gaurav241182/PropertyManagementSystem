@@ -25,6 +25,7 @@ export interface IStorage {
   // Hotels
   getHotels(): Promise<Hotel[]>;
   createHotel(data: InsertHotel): Promise<Hotel>;
+  createHotelWithOwner(data: InsertHotel): Promise<Hotel>;
   updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined>;
   deleteHotel(id: number): Promise<void>;
 
@@ -121,6 +122,19 @@ export class DatabaseStorage implements IStorage {
   async createHotel(data: InsertHotel): Promise<Hotel> {
     const [result] = await db.insert(hotels).values(data).returning();
     return result;
+  }
+  async createHotelWithOwner(data: InsertHotel): Promise<Hotel> {
+    return await db.transaction(async (tx) => {
+      const [hotel] = await tx.insert(hotels).values(data).returning();
+      await tx.insert(platformUsers).values({
+        name: data.ownerName,
+        email: data.ownerEmail,
+        role: "owner",
+        hotelId: hotel.id,
+        status: "Active",
+      });
+      return hotel;
+    });
   }
   async updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined> {
     const [result] = await db.update(hotels).set(data).where(eq(hotels.id, id)).returning();

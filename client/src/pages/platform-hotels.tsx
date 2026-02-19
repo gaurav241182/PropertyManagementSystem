@@ -70,6 +70,17 @@ export default function PlatformHotels() {
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Record<string, unknown> }) => {
+      const res = await apiRequest("PATCH", `/api/hotels/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
       const res = await apiRequest("POST", "/api/hotels", data);
@@ -77,7 +88,8 @@ export default function PlatformHotels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
-      toast({ title: "Hotel Created", description: `"${form.name}" has been successfully onboarded.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
+      toast({ title: "Hotel Created", description: `"${form.name}" has been successfully onboarded. Owner login created in User Management.` });
       resetAndClose();
     },
     onError: (error: Error) => {
@@ -152,6 +164,12 @@ export default function PlatformHotels() {
       return;
     }
 
+    const validBranches = branches.filter(b => b.name.trim());
+    if (validBranches.length === 0) {
+      toast({ title: "Missing Required Field", description: "At least one branch with a name is required.", variant: "destructive" });
+      return;
+    }
+
     createMutation.mutate({
       name: form.name,
       plan: form.plan,
@@ -165,7 +183,7 @@ export default function PlatformHotels() {
       ownerIdNumber: form.ownerIdNumber,
       adminLogin: form.adminLogin,
       logoUrl: logoPreview || "",
-      branches: JSON.stringify(branches.filter(b => b.name.trim())),
+      branches: JSON.stringify(validBranches),
     });
   };
 
@@ -366,7 +384,7 @@ export default function PlatformHotels() {
                       <div className="flex items-center justify-between">
                         <h3 className="font-medium flex items-center gap-2">
                           <GitBranch className="h-4 w-4" />
-                          Hotel Branches
+                          Hotel Branches <span className="text-red-500">*</span>
                         </h3>
                         <Button size="sm" variant="outline" onClick={addBranch} data-testid="button-add-branch">
                           <Plus className="h-3 w-3 mr-1" /> Add Branch
@@ -388,7 +406,7 @@ export default function PlatformHotels() {
                           )}
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <Label className="text-xs">Branch Name</Label>
+                              <Label className="text-xs">Branch Name <span className="text-red-500">*</span></Label>
                               <Input 
                                 placeholder="e.g. Downtown Branch" 
                                 className="h-8" 
@@ -558,18 +576,35 @@ export default function PlatformHotels() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                localStorage.setItem("selectedHotelId", String(hotel.id));
+                                window.location.href = "/admin";
+                              }}>
                                 <ExternalLink className="mr-2 h-4 w-4" />
                                 Login as Owner
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                toast({ title: "Branches", description: `${hotel.name} has ${branchList.length} branch(es): ${branchList.map((b: any) => b.name).join(", ") || "None"}` });
+                              }}>
                                 <GitBranch className="mr-2 h-4 w-4" />
-                                Manage Branches
+                                View Branches
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem 
+                                className={hotel.status === "Active" ? "text-red-600" : "text-green-600"}
+                                onClick={() => {
+                                  updateMutation.mutate({ 
+                                    id: hotel.id, 
+                                    data: { status: hotel.status === "Active" ? "Suspended" : "Active" }
+                                  });
+                                  toast({ 
+                                    title: hotel.status === "Active" ? "Hotel Suspended" : "Hotel Activated",
+                                    description: `${hotel.name} has been ${hotel.status === "Active" ? "suspended" : "activated"}.`
+                                  });
+                                }}
+                              >
                                 <Power className="mr-2 h-4 w-4" />
-                                Suspend Account
+                                {hotel.status === "Active" ? "Suspend Account" : "Activate Account"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
