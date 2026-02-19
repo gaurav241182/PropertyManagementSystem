@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 // Default Room Types if nothing in local storage
 const DEFAULT_ROOM_TYPES = [
@@ -275,6 +277,8 @@ export default function AdminSettings() {
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
             <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+            <TabsTrigger value="discounts">Discounts</TabsTrigger>
             <TabsTrigger value="invoice">Invoice & Taxes</TabsTrigger>
             <TabsTrigger value="devtools" className="text-amber-600">Dev Tools</TabsTrigger>
           </TabsList>
@@ -327,8 +331,188 @@ export default function AdminSettings() {
             </Card>
           </TabsContent>
 
-          {/* Invoice & Tax Settings */}
-          <TabsContent value="invoice" className="mt-6 space-y-6">
+          {/* Communication Settings */}
+          <TabsContent value="communication" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Communication Templates</CardTitle>
+                <CardDescription>Customize automated messages sent to guests via Email and WhatsApp.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="welcome" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 mb-4">
+                    <TabsTrigger value="welcome">Welcome</TabsTrigger>
+                    <TabsTrigger value="invoice">Invoice</TabsTrigger>
+                    <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                    <TabsTrigger value="promotional">Promotional</TabsTrigger>
+                  </TabsList>
+
+                  {["welcome", "invoice", "feedback", "promotional"].map((category) => (
+                    <TabsContent key={category} value={category} className="space-y-4">
+                      <div className="grid gap-6">
+                        {/* Email Template */}
+                        <div className="space-y-2 border p-4 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-base font-semibold flex items-center gap-2">
+                              <Mail className="h-4 w-4" /> Email Template
+                            </Label>
+                            <Switch defaultChecked={true} />
+                          </div>
+                          <div className="space-y-2">
+                             <Label className="text-xs text-muted-foreground">Subject Line</Label>
+                             <Input 
+                               defaultValue={
+                                 category === "welcome" ? "Welcome to Our Hotel!" : 
+                                 category === "invoice" ? "Your Invoice from Our Hotel" : 
+                                 category === "feedback" ? "How was your stay?" : "Special Offer Just for You!"
+                               } 
+                             />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Message Body</Label>
+                            <Textarea 
+                              className="min-h-[120px]" 
+                              defaultValue={
+                                 category === "welcome" ? "Dear {GuestName},\n\nWe are delighted to welcome you to our hotel. Your reservation {BookingID} is confirmed.\n\nWarm regards,\nHotel Team" : 
+                                 category === "invoice" ? "Dear {GuestName},\n\nPlease find attached the invoice for your recent stay. We hope you had a pleasant experience.\n\nBest regards,\nHotel Team" : 
+                                 category === "feedback" ? "Dear {GuestName},\n\nThank you for staying with us! We would love to hear your thoughts on your recent visit.\n\nBest,\nHotel Team" : "Hello {GuestName},\n\nWe have an exclusive offer waiting for you! Book your next stay and get 20% off.\n\nCheers,\nHotel Team"
+                               }
+                            />
+                            <p className="text-[10px] text-muted-foreground">Available variables: {'{GuestName}'}, {'{BookingID}'}, {'{CheckInDate}'}, {'{CheckOutDate}'}</p>
+                          </div>
+                        </div>
+
+                        {/* WhatsApp Template */}
+                        <div className="space-y-2 border p-4 rounded-lg">
+                          <div className="flex items-center justify-between">
+                             <Label className="text-base font-semibold flex items-center gap-2">
+                               <MessageCircle className="h-4 w-4" /> WhatsApp Template
+                             </Label>
+                             <Switch defaultChecked={category === "invoice" || category === "welcome"} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Message Text</Label>
+                            <Textarea 
+                              className="min-h-[80px]" 
+                              defaultValue={
+                                 category === "welcome" ? "Hi {GuestName}, welcome to our hotel! Your booking {BookingID} is confirmed. See you soon! 🏨" : 
+                                 category === "invoice" ? "Hi {GuestName}, thank you for your stay. Here is your invoice link: {InvoiceLink}. Safe travels! ✈️" : 
+                                 category === "feedback" ? "Hi {GuestName}, hope you enjoyed your stay! Rate us here: {FeedbackLink}. ⭐" : "Hey {GuestName}! 🌟 Get 20% off your next booking with code SAVE20. Book now!"
+                               }
+                            />
+                             <p className="text-[10px] text-muted-foreground">Keep WhatsApp messages concise.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+                <div className="pt-4 flex justify-end">
+                   <Button>
+                     <Save className="mr-2 h-4 w-4" />
+                     Save Templates
+                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Discounts & Offers Settings */}
+          <TabsContent value="discounts" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Discounts & Offers Configuration</CardTitle>
+                <CardDescription>Manage discount codes and role-based limits for manual discounts.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                
+                {/* Role-Based Limits */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5" /> Role-Based Discount Limits
+                  </h3>
+                  <div className="grid gap-4 border p-4 rounded-lg bg-muted/20">
+                    <div className="grid grid-cols-2 gap-4 items-center">
+                      <div className="space-y-1">
+                        <Label className="text-base">Manager Limit</Label>
+                        <p className="text-sm text-muted-foreground">Maximum discount a Manager can apply manually.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <Input type="number" defaultValue="15" className="w-24" />
+                         <span className="text-sm font-medium">%</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 items-center pt-2 border-t">
+                      <div className="space-y-1">
+                        <Label className="text-base">Receptionist Limit</Label>
+                        <p className="text-sm text-muted-foreground">Maximum discount a Receptionist can apply manually.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <Input type="number" defaultValue="5" className="w-24" />
+                         <span className="text-sm font-medium">%</span>
+                      </div>
+                    </div>
+                     <p className="text-xs text-muted-foreground pt-2">Note: Owners always have unlimited discount authority.</p>
+                  </div>
+                </div>
+
+                {/* Pre-defined Coupons */}
+                <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <h3 className="text-lg font-medium flex items-center gap-2">
+                       <Tags className="h-5 w-5" /> Active Coupons
+                     </h3>
+                     <Button size="sm" variant="outline">
+                       <Plus className="h-4 w-4 mr-2" /> Add Coupon
+                     </Button>
+                   </div>
+                   
+                   <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Discount</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Expiry</TableHead>
+                          <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="font-medium font-mono">WELCOME10</TableCell>
+                          <TableCell>10%</TableCell>
+                          <TableCell>Percentage</TableCell>
+                          <TableCell>Dec 31, 2024</TableCell>
+                          <TableCell className="text-right"><Badge variant="default" className="bg-green-600">Active</Badge></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium font-mono">SUMMER50</TableCell>
+                          <TableCell>$50</TableCell>
+                          <TableCell>Fixed Amount</TableCell>
+                          <TableCell>Aug 31, 2024</TableCell>
+                          <TableCell className="text-right"><Badge variant="outline">Scheduled</Badge></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium font-mono">VIPSTAY</TableCell>
+                          <TableCell>25%</TableCell>
+                          <TableCell>Percentage</TableCell>
+                          <TableCell>No Expiry</TableCell>
+                          <TableCell className="text-right"><Badge variant="default" className="bg-green-600">Active</Badge></TableCell>
+                        </TableRow>
+                      </TableBody>
+                   </Table>
+                </div>
+                 
+                 <div className="pt-4 flex justify-end">
+                   <Button>
+                     <Save className="mr-2 h-4 w-4" />
+                     Save Discount Rules
+                   </Button>
+                </div>
+
+              </CardContent>
+            </Card>
+          </TabsContent>
             <Card>
               <CardHeader>
                 <CardTitle>Invoice Configuration</CardTitle>
