@@ -29,7 +29,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border bg-sidebar-primary/5">
           <div className="flex items-center gap-2 font-serif font-bold text-xl text-primary">
             <ShieldCheck className="h-6 w-6 text-primary" />
-            <span>LuxeStay SaaS</span>
+            <span>YellowBerry PMS</span>
           </div>
         </div>
 

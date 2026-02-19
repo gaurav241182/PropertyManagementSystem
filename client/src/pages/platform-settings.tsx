@@ -19,8 +19,8 @@ import {
 export default function PlatformSettings() {
   const { toast } = useToast();
 
-  const [platformName, setPlatformName] = useState("LuxeStay SaaS");
-  const [supportEmail, setSupportEmail] = useState("support@luxestay-saas.com");
+  const [platformName, setPlatformName] = useState("YellowBerry PMS");
+  const [supportEmail, setSupportEmail] = useState("support@yellowberry-pms.com");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(true);

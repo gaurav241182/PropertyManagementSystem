@@ -10,7 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/">
             <div className="flex items-center gap-2 font-serif font-bold text-xl cursor-pointer">
               <Hotel className="h-6 w-6 text-primary" />
-              <span>LuxeStay</span>
+              <span>YellowBerry</span>
             </div>
           </Link>
           
@@ -41,7 +41,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="space-y-4">
             <div className="flex items-center gap-2 font-serif font-bold text-xl">
               <Hotel className="h-6 w-6" />
-              <span>LuxeStay</span>
+              <span>YellowBerry</span>
             </div>
             <p className="text-primary-foreground/70 text-sm">
               Experience luxury and comfort in the heart of the city. Your perfect getaway awaits.
@@ -81,7 +81,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="container mt-12 pt-8 border-t border-primary-foreground/10 text-center text-sm text-primary-foreground/50">
-          © 2024 LuxeStay Hotel. All rights reserved.
+          © 2026 YellowBerry PMS. All rights reserved.
         </div>
       </footer>
     </div>

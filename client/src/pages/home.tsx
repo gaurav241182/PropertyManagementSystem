@@ -56,7 +56,7 @@ export default function Home() {
         </div>
         
         <div className="container relative z-10 text-center text-white space-y-6">
-          <span className="uppercase tracking-[0.2em] text-sm font-medium text-secondary">Welcome to LuxeStay</span>
+          <span className="uppercase tracking-[0.2em] text-sm font-medium text-secondary">Welcome to YellowBerry PMS</span>
           <h1 className="font-serif text-5xl md:text-7xl font-bold leading-tight">
             Experience Luxury <br /> Like Never Before
           </h1>
