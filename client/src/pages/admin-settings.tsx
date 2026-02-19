@@ -325,114 +325,6 @@ export default function AdminSettings() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Tax Rules */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Tax Rules</CardTitle>
-                  <CardDescription>Configure taxes applied to bookings and services.</CardDescription>
-                </div>
-                <Dialog open={isTaxDialogOpen} onOpenChange={setIsTaxDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Tax Rule
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Add New Tax Rule</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Tax Name</Label>
-                        <Input 
-                          placeholder="e.g. GST" 
-                          value={newTax.name}
-                          onChange={(e) => setNewTax({...newTax, name: e.target.value})}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Rate</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0" 
-                            value={newTax.rate}
-                            onChange={(e) => setNewTax({...newTax, rate: parseFloat(e.target.value)})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Type</Label>
-                          <Select 
-                            value={newTax.type}
-                            onValueChange={(val) => setNewTax({...newTax, type: val})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Percentage">Percentage (%)</SelectItem>
-                              <SelectItem value="Fixed">Fixed Amount</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Applied To</Label>
-                        <Select 
-                          value={newTax.appliedTo}
-                          onValueChange={(val) => setNewTax({...newTax, appliedTo: val})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="All">All Transactions</SelectItem>
-                            <SelectItem value="Rooms">Room Bookings Only</SelectItem>
-                            <SelectItem value="Services">Services & Food Only</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsTaxDialogOpen(false)}>Cancel</Button>
-                      <Button onClick={handleAddTax}>Save Tax Rule</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tax Name</TableHead>
-                      <TableHead>Rate</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Applied To</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {taxes.map((tax) => (
-                      <TableRow key={tax.id}>
-                        <TableCell className="font-medium">{tax.name}</TableCell>
-                        <TableCell>{tax.rate}{tax.type === "Percentage" ? "%" : currency}</TableCell>
-                        <TableCell>{tax.type}</TableCell>
-                        <TableCell>{tax.appliedTo}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteTax(tax.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Invoice & Tax Settings */}
@@ -446,53 +338,99 @@ export default function AdminSettings() {
                 
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Taxable Items</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="tax-room" 
-                        checked={invoiceSettings.taxableItems.room}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          taxableItems: { ...invoiceSettings.taxableItems, room: !!checked }
-                        })}
-                      />
-                      <Label htmlFor="tax-room">Room Charges</Label>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox 
+                          id="tax-room" 
+                          checked={invoiceSettings.taxableItems.room}
+                          onCheckedChange={(checked) => setInvoiceSettings({
+                            ...invoiceSettings, 
+                            taxableItems: { ...invoiceSettings.taxableItems, room: !!checked }
+                          })}
+                        />
+                        <div className="space-y-0.5">
+                          <Label htmlFor="tax-room" className="text-base font-medium">Room Charges</Label>
+                          <p className="text-xs text-muted-foreground">Apply tax to room rates and accommodation</p>
+                        </div>
+                      </div>
+                      {invoiceSettings.taxableItems.room && (
+                        <div className="flex items-center gap-2">
+                           <Label htmlFor="room-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
+                           <Input className="h-8 w-20" type="number" defaultValue="12" id="room-tax-rate" />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="tax-food" 
-                        checked={invoiceSettings.taxableItems.food}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          taxableItems: { ...invoiceSettings.taxableItems, food: !!checked }
-                        })}
-                      />
-                      <Label htmlFor="tax-food">Food & Beverage</Label>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox 
+                          id="tax-food" 
+                          checked={invoiceSettings.taxableItems.food}
+                          onCheckedChange={(checked) => setInvoiceSettings({
+                            ...invoiceSettings, 
+                            taxableItems: { ...invoiceSettings.taxableItems, food: !!checked }
+                          })}
+                        />
+                        <div className="space-y-0.5">
+                          <Label htmlFor="tax-food" className="text-base font-medium">Food & Beverage</Label>
+                          <p className="text-xs text-muted-foreground">Apply tax to restaurant and room service orders</p>
+                        </div>
+                      </div>
+                      {invoiceSettings.taxableItems.food && (
+                        <div className="flex items-center gap-2">
+                           <Label htmlFor="food-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
+                           <Input className="h-8 w-20" type="number" defaultValue="5" id="food-tax-rate" />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="tax-facility" 
-                        checked={invoiceSettings.taxableItems.facility}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          taxableItems: { ...invoiceSettings.taxableItems, facility: !!checked }
-                        })}
-                      />
-                      <Label htmlFor="tax-facility">Facilities & Services</Label>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox 
+                          id="tax-facility" 
+                          checked={invoiceSettings.taxableItems.facility}
+                          onCheckedChange={(checked) => setInvoiceSettings({
+                            ...invoiceSettings, 
+                            taxableItems: { ...invoiceSettings.taxableItems, facility: !!checked }
+                          })}
+                        />
+                        <div className="space-y-0.5">
+                          <Label htmlFor="tax-facility" className="text-base font-medium">Facilities & Services</Label>
+                          <p className="text-xs text-muted-foreground">Apply tax to spa, transport, and extra services</p>
+                        </div>
+                      </div>
+                      {invoiceSettings.taxableItems.facility && (
+                        <div className="flex items-center gap-2">
+                           <Label htmlFor="facility-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
+                           <Input className="h-8 w-20" type="number" defaultValue="18" id="facility-tax-rate" />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="tax-other" 
-                        checked={invoiceSettings.taxableItems.other}
-                        onCheckedChange={(checked) => setInvoiceSettings({
-                          ...invoiceSettings, 
-                          taxableItems: { ...invoiceSettings.taxableItems, other: !!checked }
-                        })}
-                      />
-                      <Label htmlFor="tax-other">Other Charges</Label>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox 
+                          id="tax-other" 
+                          checked={invoiceSettings.taxableItems.other}
+                          onCheckedChange={(checked) => setInvoiceSettings({
+                            ...invoiceSettings, 
+                            taxableItems: { ...invoiceSettings.taxableItems, other: !!checked }
+                          })}
+                        />
+                        <div className="space-y-0.5">
+                          <Label htmlFor="tax-other" className="text-base font-medium">Other Charges</Label>
+                          <p className="text-xs text-muted-foreground">Apply tax to miscellaneous items</p>
+                        </div>
+                      </div>
+                      {invoiceSettings.taxableItems.other && (
+                        <div className="flex items-center gap-2">
+                           <Label htmlFor="other-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
+                           <Input className="h-8 w-20" type="number" defaultValue="0" id="other-tax-rate" />
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">Only checked items will have tax applied in the final invoice.</p>
                 </div>
 
                 <div className="border-t pt-4 space-y-4">
@@ -525,6 +463,13 @@ export default function AdminSettings() {
                       />
                     </div>
                   </div>
+                </div>
+                
+                <div className="pt-4 flex justify-end">
+                  <Button>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Invoice Settings
+                  </Button>
                 </div>
 
               </CardContent>
