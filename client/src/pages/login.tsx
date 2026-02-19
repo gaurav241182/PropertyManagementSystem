@@ -34,7 +34,7 @@ export default function Login() {
             <Hotel className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-serif font-bold text-primary">LuxeStay Access</CardTitle>
+            <CardTitle className="text-2xl font-serif font-bold text-primary">YellowBerry PMS</CardTitle>
             <CardDescription>Select your role to sign in to the portal.</CardDescription>
           </div>
         </CardHeader>
@@ -57,7 +57,7 @@ export default function Login() {
                   <Input type="password" />
                 </div>
                 <Button className="w-full" onClick={() => handleLogin("platform")} disabled={loading}>
-                  {loading ? "Signing in..." : "Login as Platform Admin"}
+                  {loading ? "Signing in..." : "Login as YellowBerry Admin"}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground mt-4">
                   Access for SaaS Providers only.

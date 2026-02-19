@@ -157,7 +157,7 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar border-b border-sidebar-border z-50 flex items-center px-4 justify-between">
         <div className="flex items-center gap-2 font-serif font-bold text-xl text-sidebar-primary">
           <Hotel className="h-6 w-6 shrink-0" />
-          <span>LuxeStay</span>
+          <span>YellowBerry</span>
         </div>
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
