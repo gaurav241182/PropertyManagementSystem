@@ -171,6 +171,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   // Checkout Modal State
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [checkoutBooking, setCheckoutBooking] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState("Cash"); // Default payment method
 
   // View/Edit Booking Dialog State
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -189,6 +190,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     phone: "",
     email: "",
     notes: "",
+    advanceAmount: 0,
     accompanyingGuests: []
   });
 
@@ -482,6 +484,20 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                     <div className="space-y-2">
                       <Label>Email</Label>
                       <Input type="email" placeholder="guest@example.com" value={newReservation.email} onChange={(e) => setNewReservation({...newReservation, email: e.target.value})} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Advance Payment</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        type="number" 
+                        className="pl-9" 
+                        placeholder="0.00" 
+                        value={newReservation.advanceAmount} 
+                        onChange={(e) => setNewReservation({...newReservation, advanceAmount: parseFloat(e.target.value)})} 
+                      />
                     </div>
                   </div>
 
@@ -1045,52 +1061,74 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <span className="font-bold text-lg">Total Due</span>
                       <span className="font-bold text-lg text-primary">${calculateTotals(checkoutBooking).due.toFixed(2)}</span>
                    </div>
+
+                   {/* Payment Method - Only show if not checked out */}
+                   {checkoutBooking.status !== "Checked Out" && (
+                     <div className="pt-4 space-y-2">
+                        <Label>Payment Method</Label>
+                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Payment Method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Card">Credit/Debit Card</SelectItem>
+                            <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                     </div>
+                   )}
                 </div>
 
-                {/* Automation & Actions */}
-                <div className="space-y-4 pt-2">
-                   <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Invoice Actions</h4>
-                   
-                   <div className="grid grid-cols-2 gap-4 bg-muted/10 p-4 rounded-md">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="auto-email" 
-                          checked={checkoutOptions.email}
-                          onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, email: !!checked})}
-                        />
-                        <Label htmlFor="auto-email" className="flex items-center gap-2 cursor-pointer">
-                          <Mail className="h-4 w-4 text-muted-foreground" /> Auto-Email Invoice
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="auto-whatsapp" 
-                          checked={checkoutOptions.whatsapp}
-                          onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, whatsapp: !!checked})}
-                        />
-                        <Label htmlFor="auto-whatsapp" className="flex items-center gap-2 cursor-pointer">
-                          <MessageCircle className="h-4 w-4 text-muted-foreground" /> Auto-WhatsApp
-                        </Label>
-                      </div>
-                   </div>
+                {/* Automation & Actions - Only show if Checked Out */}
+                {checkoutBooking.status === "Checked Out" && (
+                  <div className="space-y-4 pt-2">
+                     <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Invoice Actions</h4>
+                     
+                     <div className="grid grid-cols-2 gap-4 bg-muted/10 p-4 rounded-md">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="auto-email" 
+                            checked={checkoutOptions.email}
+                            onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, email: !!checked})}
+                          />
+                          <Label htmlFor="auto-email" className="flex items-center gap-2 cursor-pointer">
+                            <Mail className="h-4 w-4 text-muted-foreground" /> Auto-Email Invoice
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="auto-whatsapp" 
+                            checked={checkoutOptions.whatsapp}
+                            onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, whatsapp: !!checked})}
+                          />
+                          <Label htmlFor="auto-whatsapp" className="flex items-center gap-2 cursor-pointer">
+                            <MessageCircle className="h-4 w-4 text-muted-foreground" /> Auto-WhatsApp
+                          </Label>
+                        </div>
+                     </div>
 
-                   <div className="flex gap-2 justify-center pt-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Printer className="mr-2 h-4 w-4" /> Print
-                      </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Download className="mr-2 h-4 w-4" /> Download PDF
-                      </Button>
-                   </div>
-                </div>
+                     <div className="flex gap-2 justify-center pt-2">
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Printer className="mr-2 h-4 w-4" /> Print
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Download className="mr-2 h-4 w-4" /> Download PDF
+                        </Button>
+                     </div>
+                  </div>
+                )}
               </div>
             )}
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Checkout & Send Invoice
-              </Button>
+              <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Close</Button>
+              {checkoutBooking && checkoutBooking.status !== "Checked Out" && (
+                <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pay & Checkout
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

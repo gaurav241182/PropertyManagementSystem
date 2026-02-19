@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import PricingCalendar from "@/components/PricingCalendar";
 
 // Default Room Types if nothing in local storage
 const DEFAULT_ROOM_TYPES = [
@@ -106,6 +107,14 @@ export default function AdminSettings() {
       email: true,
       whatsapp: false
     }
+  });
+
+  // Welfare Fund State
+  const [welfareSettings, setWelfareSettings] = useState({
+    enabled: false,
+    firstYearAmount: 1000,
+    afterFirstYearAmount: 1500,
+    contributionType: "Fixed" // "Fixed" or "Percentage"
   });
 
   // Load Invoice Settings
@@ -273,9 +282,10 @@ export default function AdminSettings() {
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="pricing">Pricing Calendar</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="facilities">Facilities</TabsTrigger>
+            <TabsTrigger value="hr">HR & Payroll</TabsTrigger>
             <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
             <TabsTrigger value="communication">Communication</TabsTrigger>
             <TabsTrigger value="discounts">Discounts</TabsTrigger>
@@ -789,60 +799,101 @@ export default function AdminSettings() {
             </Card>
           </TabsContent>
 
-          {/* Pricing Rules */}
+          {/* Pricing Calendar */}
           <TabsContent value="pricing" className="mt-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Seasonal Pricing Configuration</CardTitle>
-                  <CardDescription>Set base rates for room types based on date ranges or seasons.</CardDescription>
-                </div>
-                <Dialog open={isPriceRuleDialogOpen} onOpenChange={setIsPriceRuleDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Price Rule
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Add Pricing Rule</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Room Type</Label>
-                        <Select 
-                          value={newPriceRule.roomTypeId}
-                          onValueChange={(val) => setNewPriceRule({...newPriceRule, roomTypeId: val})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Room Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roomTypes.map(rt => (
-                              <SelectItem key={rt.id} value={rt.id}>{rt.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Start Date</Label>
-                          <Input 
-                            type="date"
-                            value={newPriceRule.startDate}
-                            onChange={(e) => setNewPriceRule({...newPriceRule, startDate: e.target.value})}
-                          />
+               <CardHeader>
+                  <CardTitle>Pricing Calendar</CardTitle>
+                  <CardDescription>Manage daily rates and availability for all room types.</CardDescription>
+               </CardHeader>
+               <CardContent>
+                  <PricingCalendar roomTypes={roomTypes} />
+               </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* HR & Payroll Settings */}
+          <TabsContent value="hr" className="mt-6 space-y-6">
+             <Card>
+               <CardHeader>
+                 <CardTitle>HR & Payroll Configuration</CardTitle>
+                 <CardDescription>Manage employee compensation, welfare funds, and compliance.</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-6">
+                 
+                 <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <div className="space-y-0.5">
+                       <h3 className="font-medium text-lg">Welfare Fund Liability</h3>
+                       <p className="text-sm text-muted-foreground">Configure owner's contribution to employee welfare fund.</p>
+                     </div>
+                     <Switch 
+                        checked={welfareSettings.enabled}
+                        onCheckedChange={(checked) => setWelfareSettings({...welfareSettings, enabled: checked})}
+                     />
+                   </div>
+                   
+                   {welfareSettings.enabled && (
+                     <div className="grid gap-6 border p-4 rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="grid grid-cols-2 gap-8">
+                           <div className="space-y-2">
+                             <Label>Contribution Type</Label>
+                             <Select 
+                               value={welfareSettings.contributionType}
+                               onValueChange={(val) => setWelfareSettings({...welfareSettings, contributionType: val})}
+                             >
+                               <SelectTrigger>
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="Fixed">Fixed Amount</SelectItem>
+                                 <SelectItem value="Percentage">Percentage of Salary</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>End Date</Label>
-                          <Input 
-                            type="date"
-                            value={newPriceRule.endDate}
-                            onChange={(e) => setNewPriceRule({...newPriceRule, endDate: e.target.value})}
-                          />
+
+                        <div className="grid grid-cols-2 gap-8">
+                           <div className="space-y-2">
+                              <Label>1st Year Contribution</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{welfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
+                                <Input 
+                                  type="number" 
+                                  className="pl-8"
+                                  value={welfareSettings.firstYearAmount}
+                                  onChange={(e) => setWelfareSettings({...welfareSettings, firstYearAmount: Number(e.target.value)})}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground">Monthly contribution for employees &lt; 1 year tenure.</p>
+                           </div>
+                           <div className="space-y-2">
+                              <Label>After 1 Year Contribution</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{welfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
+                                <Input 
+                                  type="number" 
+                                  className="pl-8"
+                                  value={welfareSettings.afterFirstYearAmount}
+                                  onChange={(e) => setWelfareSettings({...welfareSettings, afterFirstYearAmount: Number(e.target.value)})}
+                                />
+                              </div>
+                              <p className="text-xs text-muted-foreground">Monthly contribution for employees &gt; 1 year tenure.</p>
+                           </div>
                         </div>
-                      </div>
+                     </div>
+                   )}
+                 </div>
+
+                 <div className="pt-4 flex justify-end">
+                   <Button>
+                     <Save className="mr-2 h-4 w-4" />
+                     Save HR Settings
+                   </Button>
+                 </div>
+               </CardContent>
+             </Card>
+          </TabsContent>
                       <div className="space-y-2">
                         <Label>Special Price ({currency})</Label>
                         <Input 

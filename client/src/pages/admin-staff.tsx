@@ -41,11 +41,15 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   // Form State
+  const [employeeId, setEmployeeId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
   const [age, setAge] = useState<number | null>(null);
   const [policeVerification, setPoliceVerification] = useState(false);
+  const [welfareFund, setWelfareFund] = useState(false);
+  const [bonus, setBonus] = useState(0);
+
   const [relation, setRelation] = useState("");
   const [nationality, setNationality] = useState("");
   const [state, setState] = useState("");
@@ -111,8 +115,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setEditingStaff(employee);
     setFirstName(employee.name.split(" ")[0]);
     setLastName(employee.name.split(" ")[1] || "");
+    setEmployeeId(employee.employeeId || `EMP-${employee.id.toString().padStart(4, '0')}`);
     setBasicSalary(employee.salary); // Simplified for mock
     setJoiningDate(employee.joined);
+    setWelfareFund(employee.welfareFund || false);
+    setBonus(employee.bonus || 0);
     setIsDialogOpen(true);
   };
 
@@ -121,11 +128,14 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setEditingStaff(null);
     setFirstName("");
     setLastName("");
+    setEmployeeId(`EMP-${Math.floor(1000 + Math.random() * 9000)}`);
     setBasicSalary(0);
     setDob("");
     setNationality("");
     setState("");
     setJoiningDate("");
+    setWelfareFund(false);
+    setBonus(0);
     setIsDialogOpen(true);
   };
 
@@ -179,7 +189,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <div className="grid gap-6 py-4">
                 {/* Personal Info */}
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="font-medium flex items-center gap-2 text-primary">Personal Information</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-medium flex items-center gap-2 text-primary">Personal Information</h3>
+                    <Badge variant="outline" className="font-mono">ID: {employeeId}</Badge>
+                  </div>
                   
                   <div className="flex items-start gap-4">
                     <div className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0 mt-1">
@@ -408,6 +421,29 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           onChange={(e) => setAllowance(Number(e.target.value))}
                         />
                       </div>
+                    </div>
+
+                    {/* Welfare & Bonus */}
+                    <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-dashed">
+                       <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="welfare" 
+                            checked={welfareFund}
+                            onCheckedChange={(checked) => setWelfareFund(checked as boolean)}
+                          />
+                          <Label htmlFor="welfare" className="text-sm font-medium cursor-pointer">Enable Welfare Fund Liability</Label>
+                       </div>
+                       <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Monthly Bonus (Owner Config)</Label>
+                          <Input 
+                            type="number" 
+                            min="0" 
+                            placeholder="0" 
+                            className="h-8 bg-white"
+                            value={bonus || ""}
+                            onChange={(e) => setBonus(Number(e.target.value))}
+                          />
+                       </div>
                     </div>
                     
                     {/* Pro-rated Salary Warning */}
