@@ -32,7 +32,20 @@ client/src/components/ - Reusable UI components
 ## Database Tables
 hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges
 
+## Authentication
+- Session-based auth using express-session (in-memory store)
+- Login API: POST /api/auth/login (email + password, returns user object)
+- Logout API: POST /api/auth/logout (destroys session)
+- Session check: GET /api/auth/me (returns current user or 401)
+- Seed endpoint: POST /api/auth/seed (creates demo users)
+- Auth context: client/src/lib/auth.tsx (AuthProvider, useAuth, RequireAuth)
+- Route protection: RequireAuth wraps protected routes with role-based access
+- Demo accounts: admin@yellowberry.com/admin123, owner@demo.com/owner123, manager@demo.com/manager123
+- Roles: super_admin (platform), owner (hotel admin), manager (hotel manager)
+- Password stored in platform_users.password field (plain text for demo)
+
 ## Recent Changes
+- 2026-02-19: Real authentication system - login/logout with sessions, auth context, route protection, demo users
 - 2026-02-19: Complete Platform Admin section overhaul - all pages connected to real API data
   - Dashboard: live stats from hotels/users API (hotel count, branches, users, MRR)
   - Hotels: full CRUD with onboarding form, logo upload, validation, success/error toasts

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { 
   LayoutDashboard, 
   Building2, 
@@ -12,7 +13,12 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const { user, logout } = useAuth();
+  const [location, setLocation] = useLocation();
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
+  };
 
   const navItems = [
     { href: "/platform/dashboard", icon: LayoutDashboard, label: "Overview" },
@@ -55,14 +61,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         <div className="p-4 border-t border-sidebar-border">
           <div className="px-3 py-2 mb-2 text-xs text-muted-foreground">
             <p>Logged in as</p>
-            <p className="font-semibold text-foreground">Super Admin</p>
+            <p className="font-semibold text-foreground">{user?.name || "Super Admin"}</p>
           </div>
-          <Link href="/login">
-            <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
-          </Link>
+          <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
       </aside>
 

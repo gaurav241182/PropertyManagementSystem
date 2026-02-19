@@ -31,6 +31,7 @@ export interface IStorage {
 
   // Platform Users
   getPlatformUsers(): Promise<PlatformUser[]>;
+  getPlatformUserByEmail(email: string): Promise<PlatformUser | undefined>;
   createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser>;
   updatePlatformUser(id: number, data: Partial<InsertPlatformUser>): Promise<PlatformUser | undefined>;
   deletePlatformUser(id: number): Promise<void>;
@@ -147,6 +148,10 @@ export class DatabaseStorage implements IStorage {
   // Platform Users
   async getPlatformUsers(): Promise<PlatformUser[]> {
     return db.select().from(platformUsers).orderBy(desc(platformUsers.createdAt));
+  }
+  async getPlatformUserByEmail(email: string): Promise<PlatformUser | undefined> {
+    const [result] = await db.select().from(platformUsers).where(eq(platformUsers.email, email));
+    return result;
   }
   async createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser> {
     const [result] = await db.insert(platformUsers).values(data).returning();

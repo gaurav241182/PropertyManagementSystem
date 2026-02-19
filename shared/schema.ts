@@ -32,6 +32,7 @@ export const platformUsers = pgTable("platform_users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  password: text("password").notNull().default("password123"),
   role: text("role").notNull().default("staff"),
   hotelId: integer("hotel_id"),
   status: text("status").notNull().default("Active"),

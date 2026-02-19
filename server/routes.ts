@@ -7,6 +7,89 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // ============= AUTH =============
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+    const user = await storage.getPlatformUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    if (user.status !== "Active") {
+      return res.status(403).json({ message: "Account is deactivated. Contact your administrator." });
+    }
+    req.session.user = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hotelId: user.hotelId,
+    };
+    await storage.updatePlatformUser(user.id, { lastLogin: new Date() } as any);
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hotelId: user.hotelId,
+    });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ message: "Logout failed" });
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json(req.session.user);
+  });
+
+  app.post("/api/auth/seed", async (_req, res) => {
+    try {
+      const existingAdmin = await storage.getPlatformUserByEmail("admin@yellowberry.com");
+      if (existingAdmin) {
+        return res.json({ message: "Sample users already exist" });
+      }
+      await storage.createPlatformUser({
+        name: "Platform Admin",
+        email: "admin@yellowberry.com",
+        password: "admin123",
+        role: "super_admin",
+        hotelId: null,
+        status: "Active",
+      });
+      await storage.createPlatformUser({
+        name: "Hotel Owner",
+        email: "owner@demo.com",
+        password: "owner123",
+        role: "owner",
+        hotelId: null,
+        status: "Active",
+      });
+      await storage.createPlatformUser({
+        name: "Hotel Manager",
+        email: "manager@demo.com",
+        password: "manager123",
+        role: "manager",
+        hotelId: null,
+        status: "Active",
+      });
+      res.json({ message: "Sample users created successfully" });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============= HOTELS (Platform Admin) =============
   app.get("/api/hotels", async (_req, res) => {
     const data = await storage.getHotels();

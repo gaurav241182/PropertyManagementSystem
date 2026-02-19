@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -59,9 +60,15 @@ const ROLE_NAV_ITEMS = {
 };
 
 export default function AdminLayout({ children, role = "owner" }: { children: React.ReactNode, role?: "owner" | "manager" }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { user, logout } = useAuth();
   const navItems = ROLE_NAV_ITEMS[role];
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
+  };
 
   const { data: hotelsData = [] } = useQuery<HotelType[]>({ queryKey: ["/api/hotels"] });
 
@@ -136,12 +143,16 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
       </nav>
 
       <div className="p-4 border-t border-sidebar-border">
-        <Link href="/login">
-          <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
-        </Link>
+        {user && (
+          <div className="px-3 py-2 mb-2 text-xs text-muted-foreground">
+            <p>Logged in as</p>
+            <p className="font-semibold text-foreground">{user.name}</p>
+          </div>
+        )}
+        <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </Button>
       </div>
     </>
   );
