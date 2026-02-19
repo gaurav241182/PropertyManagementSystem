@@ -109,6 +109,7 @@ export interface IStorage {
   getSalariesByMonth(month: string): Promise<Salary[]>;
   createSalary(data: InsertSalary): Promise<Salary>;
   updateSalary(id: number, data: Partial<InsertSalary>): Promise<Salary | undefined>;
+  deleteSalary(id: number): Promise<void>;
 
   // Booking Charges
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
@@ -370,6 +371,9 @@ export class DatabaseStorage implements IStorage {
   async updateSalary(id: number, data: Partial<InsertSalary>): Promise<Salary | undefined> {
     const [result] = await db.update(salaries).set(data).where(eq(salaries.id, id)).returning();
     return result;
+  }
+  async deleteSalary(id: number): Promise<void> {
+    await db.delete(salaries).where(eq(salaries.id, id));
   }
 
   // Booking Charges

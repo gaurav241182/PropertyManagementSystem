@@ -53,7 +53,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const { data: roomTypesData = [] } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
   const { data: menuItemsData = [] } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
   const { data: facilitiesData = [] } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
-  const { data: settingsData = [] } = useQuery<any[]>({ queryKey: ['/api/settings'] });
+  const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
 
   const getRoomNumber = (roomId: number) => {
     const room = roomsData.find((r: any) => r.id === roomId);
@@ -66,8 +66,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   };
 
   const getSetting = (key: string, defaultValue: string = "") => {
-    const setting = settingsData.find((s: any) => s.key === key);
-    return setting ? setting.value : defaultValue;
+    return (settingsData as Record<string, string>)?.[key] || defaultValue;
   };
 
   const invoiceSettings = {

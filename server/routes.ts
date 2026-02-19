@@ -441,6 +441,11 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.delete("/api/salaries/:id", async (req, res) => {
+    await storage.deleteSalary(Number(req.params.id));
+    res.json({ success: true });
+  });
+
   // ============= BOOKING CHARGES =============
   app.get("/api/booking-charges/:bookingId", async (req, res) => {
     const data = await storage.getBookingCharges(req.params.bookingId);

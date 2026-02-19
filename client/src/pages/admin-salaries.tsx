@@ -77,11 +77,24 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     });
   };
 
+  const deleteSalaryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/salaries/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({
+        title: "Record Deleted",
+        description: "Salary record has been permanently removed.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleDelete = (id: number) => {
-    toast({
-      title: "Record Deleted",
-      description: "Salary record has been permanently removed.",
-    });
+    deleteSalaryMutation.mutate(id);
   };
 
   const toggleSelectAll = (checked: boolean) => {

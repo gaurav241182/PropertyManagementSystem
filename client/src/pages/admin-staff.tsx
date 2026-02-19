@@ -92,6 +92,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [welfareFund, setWelfareFund] = useState(false);
   const [bonus, setBonus] = useState(0);
 
+  const [staffRole, setStaffRole] = useState("Staff");
   const [relation, setRelation] = useState("");
   const [nationality, setNationality] = useState("");
   const [state, setState] = useState("");
@@ -158,10 +159,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setFirstName(employee.name.split(" ")[0]);
     setLastName(employee.name.split(" ")[1] || "");
     setEmployeeId(employee.employeeId || `EMP-${employee.id.toString().padStart(4, '0')}`);
-    setBasicSalary(employee.salary); // Simplified for mock
+    setBasicSalary(employee.salary);
+    setStaffRole(employee.role || "Staff");
     setJoiningDate(employee.joined);
-    setWelfareFund(employee.welfareFund || false);
-    setBonus(employee.bonus || 0);
+    setWelfareFund(employee.welfareEnabled || false);
+    setBonus(employee.bonusAmount || 0);
     setIsDialogOpen(true);
   };
 
@@ -172,6 +174,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setLastName("");
     setEmployeeId(`EMP-${Math.floor(1000 + Math.random() * 9000)}`);
     setBasicSalary(0);
+    setStaffRole("Staff");
     setDob("");
     setNationality("");
     setState("");
@@ -378,16 +381,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="role">Job Role</Label>
-                      <Select>
+                      <Select value={staffRole} onValueChange={setStaffRole}>
                         <SelectTrigger id="role">
                           <SelectValue placeholder="Select Role" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="chef">Chef</SelectItem>
-                          <SelectItem value="housekeeping">Housekeeping</SelectItem>
-                          <SelectItem value="receptionist">Receptionist</SelectItem>
-                          <SelectItem value="security">Security</SelectItem>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Receptionist">Receptionist</SelectItem>
+                          <SelectItem value="Kitchen">Kitchen / Chef</SelectItem>
+                          <SelectItem value="Housekeeping">Housekeeping</SelectItem>
+                          <SelectItem value="Security">Security</SelectItem>
+                          <SelectItem value="Staff">General Staff</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -538,7 +542,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     const staffPayload = {
                       employeeId: employeeId,
                       name: `${firstName} ${lastName}`.trim(),
-                      role: "Staff",
+                      role: staffRole,
                       email: "",
                       phone: `${countryCode}${phone}`,
                       salary: String(totalSalary),
@@ -577,7 +581,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Salaries</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">$4,500</div>
+              <div className="text-2xl font-bold text-amber-600">${activeStaff.reduce((sum, s) => sum + s.salary, 0).toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
@@ -585,7 +589,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Advances</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">$850</div>
+              <div className="text-2xl font-bold text-blue-600">$0</div>
             </CardContent>
           </Card>
         </div>
