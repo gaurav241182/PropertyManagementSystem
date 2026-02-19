@@ -1,0 +1,144 @@
+# 🍽️ Food & Facilities Order Automation
+
+We want to automate Food and Facility Orders for hotel guests. Orders can be created either by:
+
+* Manager (on behalf of customer)
+* Customer (via login portal)
+
+The system must automatically link charges to the booking and reflect them at checkout.
+
+Manager / Owner Order Management Panel:
+
+Create a separate menu item:
+Dashboard → Orders (Food & Facilities)
+Accessible by: Owner & Manager
+
+ A. Manual Order Entry (Manager Side)
+Manager should be able to:
+* Create an order for:
+  * Food items
+  * Hotel facilities (laundry, spa, transport, etc.)
+* Tag the order against a customer:
+  * Only customers with:
+    * Booking Status = Confirmed
+    * Not yet Checked Out
+
+ B. Order Sorting Logic
+Orders list should be sorted by:
+1. Check-in Date & Time (ascending)
+2. Order Placement Time (ascending)
+
+This ensures priority to guests who checked in earlier.
+ C. Order Completion & Billing Integration
+ 
+* When an order is marked as “Fulfilled”:
+  * Charges should automatically be added to the customer’s booking ledger.
+  * These charges must appear in:
+    * Checkout summary
+    * Invoice generation page
+No manual billing entry should be required.
+
+---
+
+Now Customer Login Portal:
+We are enabling login access for customers.
+
+## Login Rules
+* Only customers with Confirmed Booking can log in.
+* Login credentials:
+  * Booking ID
+  * Last Name (case-insensitive match)
+
+If:
+* Booking is Cancelled OR Checked Out → Login denied.
+
+
+# Customer Dashboard After Login
+
+After login, customer should see:
+
+ A. Booking History
+* Current active booking
+* Past bookings
+* Hotel details:
+  * Hotel name
+  * Address
+  * Manager name
+  * Contact number
+  * Address, 
+  * map to the location
+  * Guidelines
+
+---
+ B. Hotel Menu & Facility Listing
+
+Customer should be able to view:
+  * Food menu
+  * Item name
+  * Description
+  * Price
+* Facility services
+  * Service name
+  * Pricing (fixed or variable)
+
+---
+
+ C. Order Placement (Self-Service)
+
+Customer should be able to:
+
+* Place order anytime before checkout
+* Schedule food in advance (optional feature)
+* Add special instructions
+
+After placing order:
+
+* Order should immediately appear in:
+
+  * Manager dashboard
+  * Owner dashboard
+  * Status should start as: “Pending”
+
+# Order Workflow Design
+
+ Order Status Flow:
+Pending → Accepted → Fulfilled → Billed
+
+When status becomes Fulfilled:
+* Auto-create booking charge entry
+* Link to booking ID
+* Mark as payable at checkout
+
+Automation Rules
+1. Only active booking can accept orders.
+2. If checkout is done:
+   * Block order placement.
+3. Invoice should dynamically calculate:
+   * Room Charges
+   * Food Orders
+   * Facility Orders
+   * Taxes
+   * Total Payable
+
+---
+
+UX Flow Summary
+ Manager:
+Dashboard → Orders → Create Order → Select Booking → Add Items → Save → Mark Fulfilled → Auto-charge
+ Customer:
+Login → Dashboard → View Booking → View Menu → Place Order → Track Status
+
+* Push notification to manager when customer places order
+
+---
+
+# Intent Understanding
+
+You are trying to:
+* Reduce manual billing mistakes
+* Allow real-time room service ordering
+* Improve guest experience
+* Automate ledger management
+* Integrate operations + billing seamlessly
+
+This design aligns with modern hotel PMS systems used by mid-sized hotels.

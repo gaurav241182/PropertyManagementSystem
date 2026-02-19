@@ -35,6 +35,7 @@ const ROLE_NAV_ITEMS = {
   owner: [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
+    { href: "/admin/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" }, // Added Orders
     { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/expenses", icon: Receipt, label: "Expenses & Purchases" },
@@ -47,6 +48,7 @@ const ROLE_NAV_ITEMS = {
   manager: [
     { href: "/manager", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/manager/bookings", icon: CalendarDays, label: "Bookings" },
+    { href: "/manager/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" }, // Added Orders
     { href: "/manager/rooms", icon: BedDouble, label: "Room Inventory" },
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
