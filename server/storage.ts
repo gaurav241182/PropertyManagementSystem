@@ -1,10 +1,11 @@
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import {
-  hotels, roomTypes, rooms, bookings, staff, expenses, categories,
+  hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, facilities, orders, orderItems, settings, salaries,
   bookingCharges,
   type InsertHotel, type Hotel,
+  type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
   type InsertRoom, type Room,
   type InsertBooking, type Booking,
@@ -26,6 +27,12 @@ export interface IStorage {
   createHotel(data: InsertHotel): Promise<Hotel>;
   updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined>;
   deleteHotel(id: number): Promise<void>;
+
+  // Platform Users
+  getPlatformUsers(): Promise<PlatformUser[]>;
+  createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser>;
+  updatePlatformUser(id: number, data: Partial<InsertPlatformUser>): Promise<PlatformUser | undefined>;
+  deletePlatformUser(id: number): Promise<void>;
 
   // Room Types
   getRoomTypes(): Promise<RoomType[]>;
@@ -121,6 +128,22 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHotel(id: number): Promise<void> {
     await db.delete(hotels).where(eq(hotels.id, id));
+  }
+
+  // Platform Users
+  async getPlatformUsers(): Promise<PlatformUser[]> {
+    return db.select().from(platformUsers).orderBy(desc(platformUsers.createdAt));
+  }
+  async createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser> {
+    const [result] = await db.insert(platformUsers).values(data).returning();
+    return result;
+  }
+  async updatePlatformUser(id: number, data: Partial<InsertPlatformUser>): Promise<PlatformUser | undefined> {
+    const [result] = await db.update(platformUsers).set(data).where(eq(platformUsers.id, id)).returning();
+    return result;
+  }
+  async deletePlatformUser(id: number): Promise<void> {
+    await db.delete(platformUsers).where(eq(platformUsers.id, id));
   }
 
   // Room Types

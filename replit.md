@@ -30,10 +30,14 @@ client/src/components/ - Reusable UI components
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table
 
 ## Database Tables
-hotels, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges
+hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges
 
 ## Recent Changes
-- 2026-02-19: Added hotels table for Platform Admin hotel onboarding with full CRUD API
-- 2026-02-19: Fixed platform-hotels.tsx: form state management, validation, success/error toasts, cancel button, logo upload, mandatory field indicators (*)
+- 2026-02-19: Complete Platform Admin section overhaul - all pages connected to real API data
+  - Dashboard: live stats from hotels/users API (hotel count, branches, users, MRR)
+  - Hotels: full CRUD with onboarding form, logo upload, validation, success/error toasts
+  - Users: new platform_users table + full CRUD with create form, deactivate, role filter
+  - Reports: real subscription distribution and revenue breakdown from hotel data
+  - Settings: new page with general, security, notification, and backup settings
 - 2026-02-19: Full backend implementation - DB schema, storage layer, API routes
 - 2026-02-19: All frontend pages connected to real API data (removed mock data/localStorage)

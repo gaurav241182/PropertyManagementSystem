@@ -33,6 +33,32 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ============= PLATFORM USERS =============
+  app.get("/api/platform-users", async (_req, res) => {
+    const data = await storage.getPlatformUsers();
+    res.json(data);
+  });
+
+  app.post("/api/platform-users", async (req, res) => {
+    try {
+      const data = await storage.createPlatformUser(req.body);
+      res.status(201).json(data);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/platform-users/:id", async (req, res) => {
+    const data = await storage.updatePlatformUser(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/platform-users/:id", async (req, res) => {
+    await storage.deletePlatformUser(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ============= ROOM TYPES =============
   app.get("/api/room-types", async (_req, res) => {
     const data = await storage.getRoomTypes();

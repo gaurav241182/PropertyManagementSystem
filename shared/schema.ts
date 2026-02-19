@@ -27,6 +27,22 @@ export const insertHotelSchema = createInsertSchema(hotels).omit({ id: true, cre
 export type InsertHotel = z.infer<typeof insertHotelSchema>;
 export type Hotel = typeof hotels.$inferSelect;
 
+// ============= PLATFORM USERS =============
+export const platformUsers = pgTable("platform_users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("staff"),
+  hotelId: integer("hotel_id"),
+  status: text("status").notNull().default("Active"),
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlatformUserSchema = createInsertSchema(platformUsers).omit({ id: true, createdAt: true, lastLogin: true });
+export type InsertPlatformUser = z.infer<typeof insertPlatformUserSchema>;
+export type PlatformUser = typeof platformUsers.$inferSelect;
+
 // ============= ROOM TYPES =============
 export const roomTypes = pgTable("room_types", {
   id: serial("id").primaryKey(),

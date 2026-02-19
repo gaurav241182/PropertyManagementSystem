@@ -10,6 +10,7 @@ import PlatformDashboard from "@/pages/platform-dashboard";
 import PlatformHotels from "@/pages/platform-hotels";
 import PlatformReports from "@/pages/platform-reports";
 import PlatformUsers from "@/pages/platform-users";
+import PlatformSettings from "@/pages/platform-settings";
 import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/platform/hotels" component={PlatformHotels} />
       <Route path="/platform/users" component={PlatformUsers} />
       <Route path="/platform/reports" component={PlatformReports} />
+      <Route path="/platform/settings" component={PlatformSettings} />
       
       {/* Owner Routes (Default Role) */}
       <Route path="/admin" component={AdminDashboard} />
