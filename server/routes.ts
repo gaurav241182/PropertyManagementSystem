@@ -6,11 +6,316 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // ============= ROOM TYPES =============
+  app.get("/api/room-types", async (_req, res) => {
+    const data = await storage.getRoomTypes();
+    res.json(data);
+  });
+
+  app.post("/api/room-types", async (req, res) => {
+    const data = await storage.createRoomType(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/room-types/:id", async (req, res) => {
+    const data = await storage.updateRoomType(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/room-types/:id", async (req, res) => {
+    await storage.deleteRoomType(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= ROOMS =============
+  app.get("/api/rooms", async (_req, res) => {
+    const data = await storage.getRooms();
+    res.json(data);
+  });
+
+  app.post("/api/rooms", async (req, res) => {
+    const data = await storage.createRoom(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/rooms/:id", async (req, res) => {
+    const data = await storage.updateRoom(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/rooms/:id", async (req, res) => {
+    await storage.deleteRoom(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= BOOKINGS =============
+  app.get("/api/bookings", async (_req, res) => {
+    const data = await storage.getBookings();
+    res.json(data);
+  });
+
+  app.get("/api/bookings/:bookingId", async (req, res) => {
+    const data = await storage.getBookingByBookingId(req.params.bookingId);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.post("/api/bookings", async (req, res) => {
+    const data = await storage.createBooking(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/bookings/:id", async (req, res) => {
+    const data = await storage.updateBooking(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/bookings/:id", async (req, res) => {
+    await storage.deleteBooking(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= GUEST AUTH =============
+  app.post("/api/guest/login", async (req, res) => {
+    const { bookingId, lastName } = req.body;
+    if (!bookingId || !lastName) {
+      return res.status(400).json({ message: "Booking ID and Last Name required" });
+    }
+    const booking = await storage.getBookingByBookingId(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    if (booking.guestLastName.toLowerCase() !== lastName.toLowerCase()) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    if (booking.status !== "checked_in") {
+      return res.status(403).json({ message: "Guest must be checked in to access portal" });
+    }
+    res.json({
+      bookingId: booking.bookingId,
+      guestName: booking.guestName,
+      roomNumber: "", // will be resolved from room
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      status: booking.status,
+    });
+  });
+
+  app.get("/api/guest/:bookingId/orders", async (req, res) => {
+    const orders = await storage.getOrdersByBookingId(req.params.bookingId);
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        const items = await storage.getOrderItems(order.orderId);
+        return { ...order, items };
+      })
+    );
+    res.json(ordersWithItems);
+  });
+
+  // ============= STAFF =============
+  app.get("/api/staff", async (_req, res) => {
+    const data = await storage.getStaff();
+    res.json(data);
+  });
+
+  app.post("/api/staff", async (req, res) => {
+    const data = await storage.createStaff(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/staff/:id", async (req, res) => {
+    const data = await storage.updateStaff(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/staff/:id", async (req, res) => {
+    await storage.deleteStaff(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= EXPENSES =============
+  app.get("/api/expenses", async (_req, res) => {
+    const data = await storage.getExpenses();
+    res.json(data);
+  });
+
+  app.post("/api/expenses", async (req, res) => {
+    const data = await storage.createExpense(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/expenses/:id", async (req, res) => {
+    const data = await storage.updateExpense(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/expenses/:id", async (req, res) => {
+    await storage.deleteExpense(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= CATEGORIES =============
+  app.get("/api/categories", async (_req, res) => {
+    const data = await storage.getCategories();
+    res.json(data);
+  });
+
+  app.post("/api/categories", async (req, res) => {
+    const data = await storage.createCategory(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/categories/:id", async (req, res) => {
+    const data = await storage.updateCategory(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/categories/:id", async (req, res) => {
+    await storage.deleteCategory(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= MENU ITEMS =============
+  app.get("/api/menu-items", async (_req, res) => {
+    const data = await storage.getMenuItems();
+    res.json(data);
+  });
+
+  app.post("/api/menu-items", async (req, res) => {
+    const data = await storage.createMenuItem(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/menu-items/:id", async (req, res) => {
+    const data = await storage.updateMenuItem(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/menu-items/:id", async (req, res) => {
+    await storage.deleteMenuItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= FACILITIES =============
+  app.get("/api/facilities", async (_req, res) => {
+    const data = await storage.getFacilities();
+    res.json(data);
+  });
+
+  app.post("/api/facilities", async (req, res) => {
+    const data = await storage.createFacility(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/facilities/:id", async (req, res) => {
+    const data = await storage.updateFacility(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/facilities/:id", async (req, res) => {
+    await storage.deleteFacility(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  // ============= ORDERS =============
+  app.get("/api/orders", async (_req, res) => {
+    const allOrders = await storage.getOrders();
+    const ordersWithItems = await Promise.all(
+      allOrders.map(async (order) => {
+        const items = await storage.getOrderItems(order.orderId);
+        return { ...order, items };
+      })
+    );
+    res.json(ordersWithItems);
+  });
+
+  app.post("/api/orders", async (req, res) => {
+    const { items, ...orderData } = req.body;
+    const order = await storage.createOrder(orderData);
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        await storage.createOrderItem({ ...item, orderId: order.orderId });
+      }
+    }
+    const orderItemsList = await storage.getOrderItems(order.orderId);
+    res.status(201).json({ ...order, items: orderItemsList });
+  });
+
+  app.patch("/api/orders/:id", async (req, res) => {
+    const order = await storage.updateOrder(Number(req.params.id), req.body);
+    if (!order) return res.status(404).json({ message: "Not found" });
+
+    if (req.body.status === "Fulfilled" && order.bookingId) {
+      const items = await storage.getOrderItems(order.orderId);
+      const desc = items.map(i => `${i.itemName} x${i.quantity}`).join(", ");
+      await storage.createBookingCharge({
+        bookingId: order.bookingId,
+        orderId: order.orderId,
+        description: desc || `${order.type} Order ${order.orderId}`,
+        category: order.type === "Food" ? "Food" : "Facility",
+        amount: order.totalAmount,
+      });
+    }
+
+    const orderItems = await storage.getOrderItems(order.orderId);
+    res.json({ ...order, items: orderItems });
+  });
+
+  // ============= SETTINGS =============
+  app.get("/api/settings", async (_req, res) => {
+    const data = await storage.getSettings();
+    const settingsObj: Record<string, string> = {};
+    data.forEach((s) => { settingsObj[s.key] = s.value; });
+    res.json(settingsObj);
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    const entries = Object.entries(req.body) as [string, string][];
+    for (const [key, value] of entries) {
+      await storage.upsertSetting(key, String(value));
+    }
+    res.json({ message: "Settings saved" });
+  });
+
+  // ============= SALARIES =============
+  app.get("/api/salaries", async (req, res) => {
+    const month = req.query.month as string | undefined;
+    const data = month
+      ? await storage.getSalariesByMonth(month)
+      : await storage.getSalaries();
+    res.json(data);
+  });
+
+  app.post("/api/salaries", async (req, res) => {
+    const data = await storage.createSalary(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/salaries/:id", async (req, res) => {
+    const data = await storage.updateSalary(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  // ============= BOOKING CHARGES =============
+  app.get("/api/booking-charges/:bookingId", async (req, res) => {
+    const data = await storage.getBookingCharges(req.params.bookingId);
+    res.json(data);
+  });
+
+  app.post("/api/booking-charges", async (req, res) => {
+    const data = await storage.createBookingCharge(req.body);
+    res.status(201).json(data);
+  });
 
   return httpServer;
 }
