@@ -7,6 +7,32 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // ============= HOTELS (Platform Admin) =============
+  app.get("/api/hotels", async (_req, res) => {
+    const data = await storage.getHotels();
+    res.json(data);
+  });
+
+  app.post("/api/hotels", async (req, res) => {
+    try {
+      const data = await storage.createHotel(req.body);
+      res.status(201).json(data);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create hotel" });
+    }
+  });
+
+  app.patch("/api/hotels/:id", async (req, res) => {
+    const data = await storage.updateHotel(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/hotels/:id", async (req, res) => {
+    await storage.deleteHotel(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ============= ROOM TYPES =============
   app.get("/api/room-types", async (_req, res) => {
     const data = await storage.getRoomTypes();

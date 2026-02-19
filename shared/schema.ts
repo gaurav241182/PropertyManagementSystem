@@ -3,6 +3,30 @@ import { pgTable, text, varchar, integer, boolean, timestamp, decimal, serial, d
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ============= HOTELS (Platform Admin) =============
+export const hotels = pgTable("hotels", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  plan: text("plan").notNull().default("starter"),
+  country: text("country").notNull().default(""),
+  city: text("city").notNull().default(""),
+  taxId: text("tax_id").default(""),
+  ownerName: text("owner_name").notNull(),
+  ownerEmail: text("owner_email").notNull(),
+  ownerPhone: text("owner_phone").default(""),
+  ownerDob: date("owner_dob"),
+  ownerIdNumber: text("owner_id_number").default(""),
+  adminLogin: text("admin_login").notNull(),
+  logoUrl: text("logo_url").default(""),
+  branches: text("branches").notNull().default("[]"),
+  status: text("status").notNull().default("Active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertHotelSchema = createInsertSchema(hotels).omit({ id: true, createdAt: true });
+export type InsertHotel = z.infer<typeof insertHotelSchema>;
+export type Hotel = typeof hotels.$inferSelect;
+
 // ============= ROOM TYPES =============
 export const roomTypes = pgTable("room_types", {
   id: serial("id").primaryKey(),

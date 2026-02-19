@@ -1,9 +1,10 @@
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import {
-  roomTypes, rooms, bookings, staff, expenses, categories,
+  hotels, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, facilities, orders, orderItems, settings, salaries,
   bookingCharges,
+  type InsertHotel, type Hotel,
   type InsertRoomType, type RoomType,
   type InsertRoom, type Room,
   type InsertBooking, type Booking,
@@ -20,6 +21,12 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
+  // Hotels
+  getHotels(): Promise<Hotel[]>;
+  createHotel(data: InsertHotel): Promise<Hotel>;
+  updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined>;
+  deleteHotel(id: number): Promise<void>;
+
   // Room Types
   getRoomTypes(): Promise<RoomType[]>;
   createRoomType(data: InsertRoomType): Promise<RoomType>;
@@ -100,6 +107,22 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Hotels
+  async getHotels(): Promise<Hotel[]> {
+    return db.select().from(hotels).orderBy(desc(hotels.createdAt));
+  }
+  async createHotel(data: InsertHotel): Promise<Hotel> {
+    const [result] = await db.insert(hotels).values(data).returning();
+    return result;
+  }
+  async updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined> {
+    const [result] = await db.update(hotels).set(data).where(eq(hotels.id, id)).returning();
+    return result;
+  }
+  async deleteHotel(id: number): Promise<void> {
+    await db.delete(hotels).where(eq(hotels.id, id));
+  }
+
   // Room Types
   async getRoomTypes(): Promise<RoomType[]> {
     return db.select().from(roomTypes).orderBy(roomTypes.id);
