@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertStaffSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -258,14 +259,54 @@ export async function registerRoutes(
   });
 
   app.post("/api/staff", async (req, res) => {
-    const data = await storage.createStaff(req.body);
-    res.status(201).json(data);
+    try {
+      const parsed = insertStaffSchema.parse(req.body);
+      const data = await storage.createStaff(parsed);
+      
+      const totalSalary = Number(data.salary) || 0;
+      const basicPay = Number(data.basicPay) || totalSalary;
+      if (totalSalary > 0) {
+        const now = new Date();
+        const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const joinDate = data.joinDate ? new Date(data.joinDate + "T00:00:00") : now;
+        let netPay = totalSalary;
+        if (!isNaN(joinDate.getTime()) && joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear()) {
+          const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          const dayOfJoining = joinDate.getDate();
+          const daysWorked = daysInMonth - dayOfJoining + 1;
+          netPay = Math.round((totalSalary / daysInMonth) * daysWorked);
+        }
+        const bonusAmt = Number(data.bonusAmount) || 0;
+        const welfareAmount = data.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+        await storage.createSalary({
+          staffId: data.id,
+          month,
+          basicSalary: String(totalSalary),
+          bonus: String(bonusAmt),
+          deductions: "0",
+          welfareContribution: String(welfareAmount),
+          netPay: String(netPay + bonusAmt),
+          status: "Pending",
+          paidDate: null,
+        });
+      }
+      
+      res.status(201).json(data);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Invalid staff data" });
+    }
   });
 
   app.patch("/api/staff/:id", async (req, res) => {
-    const data = await storage.updateStaff(Number(req.params.id), req.body);
-    if (!data) return res.status(404).json({ message: "Not found" });
-    res.json(data);
+    try {
+      const partialSchema = insertStaffSchema.partial();
+      const parsed = partialSchema.parse(req.body);
+      const data = await storage.updateStaff(Number(req.params.id), parsed);
+      if (!data) return res.status(404).json({ message: "Not found" });
+      res.json(data);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Invalid update data" });
+    }
   });
 
   app.delete("/api/staff/:id", async (req, res) => {

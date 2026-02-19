@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, DollarSign, FileText, Upload, Calculator, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera } from "lucide-react";
-import { differenceInYears, isSameMonth, parseISO, format } from "date-fns";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye } from "lucide-react";
+import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -41,9 +41,7 @@ function getCurrencySymbol(currency: string): string {
 function generateEmployeeIdPrefix(hotelName: string): string {
   if (!hotelName) return "EMP";
   const words = hotelName.trim().split(/\s+/);
-  if (words.length === 1) {
-    return words[0].substring(0, 2).toUpperCase();
-  }
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
   return words.map(w => w[0]).join("").toUpperCase().substring(0, 3);
 }
 
@@ -66,6 +64,20 @@ function getMaxDob(): string {
   return d.toISOString().split("T")[0];
 }
 
+const countries: Record<string, string[]> = {
+  "American": ["California", "New York", "Texas", "Florida"],
+  "Canadian": ["Ontario", "Quebec", "British Columbia"],
+  "Indian": ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu"],
+  "British": ["England", "Scotland", "Wales"]
+};
+
+const countryCodes = [
+  { code: "+1", label: "US/CA" },
+  { code: "+44", label: "UK" },
+  { code: "+91", label: "IN" },
+  { code: "+61", label: "AU" }
+];
+
 export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -77,9 +89,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const cs = getCurrencySymbol(currency);
 
   const currentHotel = useMemo(() => {
-    if (user?.hotelId) {
-      return hotelsData.find((h: any) => h.id === user.hotelId);
-    }
+    if (user?.hotelId) return hotelsData.find((h: any) => h.id === user.hotelId);
     return hotelsData[0];
   }, [hotelsData, user]);
 
@@ -90,7 +100,6 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     salary: Number(s.salary) || 0,
     bonusAmount: Number(s.bonusAmount) || 0,
     joined: s.joinDate,
-    advance: 0,
     status: s.status === "active" ? "Active" : "Inactive",
   }));
 
@@ -98,6 +107,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     mutationFn: (data: any) => apiRequest("POST", "/api/staff", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
       toast({ title: "Staff Added", description: "New employee has been onboarded successfully." });
       setIsDialogOpen(false);
     },
@@ -139,6 +149,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"view" | "edit" | "add">("add");
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<number | null>(null);
   const [editingStaff, setEditingStaff] = useState<any>(null);
@@ -152,9 +163,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [policeVerification, setPoliceVerification] = useState(false);
   const [welfareFund, setWelfareFund] = useState(false);
   const [bonus, setBonus] = useState(0);
-
   const [staffRole, setStaffRole] = useState("Staff");
-  const [relation, setRelation] = useState("");
   const [nationality, setNationality] = useState("");
   const [state, setState] = useState("");
   const [countryCode, setCountryCode] = useState("+1");
@@ -164,44 +173,24 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [address, setAddress] = useState("");
   const [joiningDate, setJoiningDate] = useState("");
   const [proratedSalary, setProratedSalary] = useState<number | null>(null);
-
   const [emergencyName, setEmergencyName] = useState("");
   const [emergencyRelation, setEmergencyRelation] = useState("");
   const [emergencyPhone, setEmergencyPhone] = useState("");
   const [idCardNumber, setIdCardNumber] = useState("");
-
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-
   const [createLogin, setCreateLogin] = useState(false);
   const [loginPassword, setLoginPassword] = useState("");
-
   const [basicSalary, setBasicSalary] = useState(0);
   const [transport, setTransport] = useState(0);
   const [hra, setHra] = useState(0);
   const [allowance, setAllowance] = useState(0);
   const totalSalary = basicSalary + transport + hra + allowance;
-
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  const countries: Record<string, string[]> = {
-    "American": ["California", "New York", "Texas", "Florida"],
-    "Canadian": ["Ontario", "Quebec", "British Columbia"],
-    "Indian": ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu"],
-    "British": ["England", "Scotland", "Wales"]
-  };
-
-  const countryCodes = [
-     { code: "+1", label: "US/CA" },
-     { code: "+44", label: "UK" },
-     { code: "+91", label: "IN" },
-     { code: "+61", label: "AU" }
-  ];
 
   useEffect(() => {
     if (dob) {
-      const calculatedAge = differenceInYears(new Date(), new Date(dob));
-      setAge(calculatedAge);
+      setAge(differenceInYears(new Date(), new Date(dob)));
     } else {
       setAge(null);
     }
@@ -212,11 +201,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       const join = parseISO(joiningDate);
       const today = new Date();
       if (isSameMonth(join, today)) {
-         const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-         const dayOfJoining = join.getDate();
-         const daysWorked = daysInMonth - dayOfJoining + 1;
-         const dailyRate = totalSalary / daysInMonth;
-         setProratedSalary(Math.round(dailyRate * daysWorked));
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const dayOfJoining = join.getDate();
+        const daysWorked = daysInMonth - dayOfJoining + 1;
+        setProratedSalary(Math.round((totalSalary / daysInMonth) * daysWorked));
       } else {
         setProratedSalary(null);
       }
@@ -224,6 +212,70 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       setProratedSalary(null);
     }
   }, [joiningDate, totalSalary]);
+
+  const populateFormFromEmployee = (emp: any) => {
+    const names = (emp.name || "").split(" ");
+    setFirstName(names[0] || "");
+    setLastName(names.slice(1).join(" ") || "");
+    setEmployeeId(emp.employeeId || "");
+    setStaffRole(emp.role || "Staff");
+    setEmail(emp.email || "");
+    setPhone((emp.phone || "").replace(/^\+\d{1,3}/, ""));
+    setCountryCode(emp.countryCode || "+1");
+    setBasicSalary(Number(emp.basicPay) || Number(emp.salary) || 0);
+    setHra(Number(emp.hra) || 0);
+    setTransport(Number(emp.transport) || 0);
+    setAllowance(Number(emp.allowance) || 0);
+    setJoiningDate(emp.joinDate || "");
+    setWelfareFund(emp.welfareEnabled || false);
+    setBonus(Number(emp.bonusAmount) || 0);
+    setDob(emp.dob || "");
+    setGender(emp.gender || "");
+    setNationality(emp.nationality || "");
+    setState(emp.state || "");
+    setCity(emp.city || "");
+    setAddress(emp.address || "");
+    setEmergencyName(emp.emergencyName || "");
+    setEmergencyRelation(emp.emergencyRelation || "");
+    setEmergencyPhone(emp.emergencyPhone || "");
+    setIdCardNumber(emp.idCardNumber || "");
+    setPoliceVerification(emp.policeVerification || false);
+    setPhotoPreview(null);
+    setCreateLogin(false);
+    setLoginPassword("");
+    setFormErrors({});
+  };
+
+  const handleView = (employee: any) => {
+    setEditingStaff(employee);
+    populateFormFromEmployee(employee);
+    setDialogMode("view");
+    setIsDialogOpen(true);
+  };
+
+  const handleSwitchToEdit = () => {
+    setDialogMode("edit");
+  };
+
+  const handleAdd = () => {
+    setEditingStaff(null);
+    setFirstName(""); setLastName("");
+    setEmployeeId(getNextEmployeeId(empIdPrefix, staffData));
+    setBasicSalary(0); setTransport(0); setHra(0); setAllowance(0);
+    setStaffRole("Staff"); setGender(""); setDob(""); setNationality(""); setState("");
+    setCity(""); setAddress(""); setPhone(""); setEmail(""); setCountryCode("+1");
+    setJoiningDate(""); setWelfareFund(false); setBonus(0); setPoliceVerification(false);
+    setEmergencyName(""); setEmergencyRelation(""); setEmergencyPhone("");
+    setIdCardNumber(""); setPhotoPreview(null);
+    setCreateLogin(false); setLoginPassword(""); setFormErrors({});
+    setDialogMode("add");
+    setIsDialogOpen(true);
+  };
+
+  const handleToggleStatus = (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === "Active" ? "inactive" : "active";
+    updateStaffMutation.mutate({ id, data: { status: newStatus } });
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -233,83 +285,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         return;
       }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
-      };
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
   const handleNameInput = (value: string, setter: (v: string) => void) => {
-    const cleaned = value.replace(/[^a-zA-Z\s'-]/g, "");
-    setter(cleaned);
+    setter(value.replace(/[^a-zA-Z\s'-]/g, ""));
   };
 
-  const handlePhoneInput = (value: string) => {
-    const cleaned = value.replace(/[^0-9]/g, "");
-    setPhone(cleaned);
-  };
-
-  const handleEmergencyPhoneInput = (value: string) => {
-    const cleaned = value.replace(/[^0-9]/g, "");
-    setEmergencyPhone(cleaned);
-  };
-
-  const handleEdit = (employee: any) => {
-    setEditingStaff(employee);
-    setFirstName(employee.name.split(" ")[0]);
-    setLastName(employee.name.split(" ")[1] || "");
-    setEmployeeId(employee.employeeId || `${empIdPrefix}-${employee.id.toString().padStart(4, '0')}`);
-    setBasicSalary(employee.salary);
-    setStaffRole(employee.role || "Staff");
-    setJoiningDate(employee.joined);
-    setWelfareFund(employee.welfareEnabled || false);
-    setBonus(employee.bonusAmount || 0);
-    setPhotoPreview(null);
-    setCreateLogin(false);
-    setLoginPassword("");
-    setFormErrors({});
-    setIsDialogOpen(true);
-  };
-
-  const handleAdd = () => {
-    setEditingStaff(null);
-    setFirstName("");
-    setLastName("");
-    setEmployeeId(getNextEmployeeId(empIdPrefix, staffData));
-    setBasicSalary(0);
-    setTransport(0);
-    setHra(0);
-    setAllowance(0);
-    setStaffRole("Staff");
-    setGender("");
-    setDob("");
-    setNationality("");
-    setState("");
-    setCity("");
-    setAddress("");
-    setPhone("");
-    setEmail("");
-    setCountryCode("+1");
-    setJoiningDate("");
-    setWelfareFund(false);
-    setBonus(0);
-    setPoliceVerification(false);
-    setRelation("");
-    setEmergencyName("");
-    setEmergencyRelation("");
-    setEmergencyPhone("");
-    setIdCardNumber("");
-    setPhotoPreview(null);
-    setCreateLogin(false);
-    setLoginPassword("");
-    setFormErrors({});
-    setIsDialogOpen(true);
-  };
-
-  const handleToggleStatus = (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === "Active" ? "inactive" : "active";
-    updateStaffMutation.mutate({ id, data: { status: newStatus } });
+  const handlePhoneInput = (value: string, setter: (v: string) => void) => {
+    setter(value.replace(/[^0-9]/g, ""));
   };
 
   const validateForm = (): boolean => {
@@ -342,10 +328,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     }
 
     const staffPayload = {
-      employeeId: employeeId,
+      employeeId,
       name: `${firstName} ${lastName}`.trim(),
       role: staffRole,
-      email: email,
+      email,
       phone: `${countryCode}${phone}`,
       salary: String(totalSalary),
       joinDate: joiningDate || new Date().toISOString().split('T')[0],
@@ -353,6 +339,22 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       welfareEnabled: welfareFund,
       bonusEnabled: bonus > 0,
       bonusAmount: String(bonus),
+      dob: dob || null,
+      gender: gender || null,
+      nationality: nationality || null,
+      state: state || null,
+      city: city || null,
+      address: address || null,
+      countryCode,
+      basicPay: String(basicSalary),
+      hra: String(hra),
+      transport: String(transport),
+      allowance: String(allowance),
+      emergencyName: emergencyName || null,
+      emergencyRelation: emergencyRelation || null,
+      emergencyPhone: emergencyPhone || null,
+      idCardNumber: idCardNumber || null,
+      policeVerification,
     };
 
     if (editingStaff) {
@@ -362,9 +364,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       if (createLogin && email.trim() && loginPassword) {
         createUserMutation.mutate({
           name: `${firstName} ${lastName}`.trim(),
-          email: email,
-          password: loginPassword,
-          role: "staff",
+          email, password: loginPassword, role: "staff",
           hotelId: user?.hotelId || currentHotel?.id || null,
           status: "Active",
         });
@@ -374,15 +374,22 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
   const activeStaff = staff.filter(s => s.status !== "Inactive");
   const inactiveStaff = staff.filter(s => s.status === "Inactive");
+  const isViewMode = dialogMode === "view";
+  const isEditable = dialogMode === "edit" || dialogMode === "add";
 
   const confirmDelete = () => {
-    if (staffToDelete) {
-      deleteStaffMutation.mutate(staffToDelete);
-    }
+    if (staffToDelete) deleteStaffMutation.mutate(staffToDelete);
   };
 
   const Req = () => <span className="text-red-500">*</span>;
   const FieldError = ({ field }: { field: string }) => formErrors[field] ? <p className="text-red-500 text-xs mt-1">{formErrors[field]}</p> : null;
+
+  const ViewField = ({ label, value, span2 }: { label: string; value: string | number | null | undefined; span2?: boolean }) => (
+    <div className={`space-y-1 ${span2 ? "col-span-2" : ""}`}>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="text-sm font-medium min-h-[20px]">{value || <span className="text-muted-foreground italic">Not provided</span>}</div>
+    </div>
+  );
 
   return (
     <AdminLayout role={role}>
@@ -395,7 +402,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-page-title">Staff Management</h2>
-            <p className="text-muted-foreground">Manage employees, salaries, and advances.</p>
+            <p className="text-muted-foreground">Manage employees and their records.</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -407,11 +414,99 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </DialogTrigger>
             <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingStaff ? "Edit Employee Details" : "Onboard New Employee"}</DialogTitle>
-                <DialogDescription>
-                  {editingStaff ? "Update employee information." : "Fill in the details to register a new staff member. Fields marked with * are mandatory."}
-                </DialogDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle>
+                      {dialogMode === "view" ? "Employee Details" : editingStaff ? "Edit Employee Details" : "Onboard New Employee"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {dialogMode === "view" ? "Viewing employee information." : editingStaff ? "Update employee information." : "Fill in the details to register a new staff member. Fields marked with * are mandatory."}
+                    </DialogDescription>
+                  </div>
+                  {isViewMode && (
+                    <Button variant="outline" size="sm" onClick={handleSwitchToEdit} data-testid="button-switch-to-edit">
+                      <Edit className="h-4 w-4 mr-1" /> Edit
+                    </Button>
+                  )}
+                </div>
               </DialogHeader>
+
+              {/* VIEW MODE */}
+              {isViewMode && editingStaff && (
+                <div className="grid gap-6 py-4">
+                  <div className="space-y-4 border-b pb-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium text-primary">Personal Information</h3>
+                      <Badge variant="outline" className="font-mono">ID: {employeeId}</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <ViewField label="First Name" value={firstName} />
+                      <ViewField label="Last Name" value={lastName} />
+                      <ViewField label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : null} />
+                      <ViewField label="Nationality" value={nationality} />
+                      <ViewField label="Date of Birth" value={dob} />
+                      <ViewField label="Age" value={age !== null ? `${age} Years` : null} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-b pb-4">
+                    <h3 className="font-medium text-primary">Contact Details</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <ViewField label="Phone Number" value={phone ? `${countryCode} ${phone}` : null} />
+                      <ViewField label="Email ID" value={email} />
+                      <ViewField label="State / Province" value={state} />
+                      <ViewField label="City" value={city} />
+                      <ViewField label="Permanent Address" value={address} span2 />
+                    </div>
+                    {(emergencyName || emergencyPhone) && (
+                      <div className="bg-red-50 p-4 rounded-md border border-red-100">
+                        <Label className="text-red-800 font-semibold text-sm mb-2 block">Emergency Contact</Label>
+                        <div className="grid grid-cols-3 gap-4">
+                          <ViewField label="Contact Person" value={emergencyName} />
+                          <ViewField label="Relation" value={emergencyRelation} />
+                          <ViewField label="Phone" value={emergencyPhone} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 border-b pb-4">
+                    <h3 className="font-medium text-primary">Role & Compensation</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <ViewField label="Job Role" value={staffRole} />
+                      <ViewField label="Joining Date" value={joiningDate} />
+                      <ViewField label="Status" value={editingStaff.status} />
+                    </div>
+                    <div className="bg-muted/30 p-4 rounded-lg border">
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-sm font-semibold">Monthly Salary</Label>
+                        <Badge variant="outline" className="font-mono">{cs}{totalSalary.toFixed(2)} / mo</Badge>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        <ViewField label="Basic Pay" value={`${cs}${basicSalary}`} />
+                        <ViewField label="HRA" value={`${cs}${hra}`} />
+                        <ViewField label="Transport" value={`${cs}${transport}`} />
+                        <ViewField label="Other Allowance" value={`${cs}${allowance}`} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-dashed">
+                        <ViewField label="Welfare Fund" value={welfareFund ? "Enabled" : "Disabled"} />
+                        <ViewField label="Monthly Bonus" value={`${cs}${bonus}`} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-primary">Verification & Documents</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <ViewField label="ID Card Number" value={idCardNumber} />
+                      <ViewField label="Police Verification" value={policeVerification ? "Completed" : "Pending"} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* EDIT / ADD MODE */}
+              {isEditable && (
               <div className="grid gap-6 py-4">
                 <div className="space-y-4 border-b pb-4">
                   <div className="flex justify-between items-center">
@@ -421,7 +516,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   
                   <div className="flex items-start gap-4">
                     <div 
-                      className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0 mt-1 overflow-hidden relative"
+                      className="h-24 w-24 border-2 border-dashed rounded-full flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors shrink-0 mt-1 overflow-hidden"
                       onClick={() => photoInputRef.current?.click()}
                       data-testid="button-photo-upload"
                     >
@@ -433,84 +528,51 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <span className="text-[10px]">Photo</span>
                         </>
                       )}
-                      <input
-                        ref={photoInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handlePhotoUpload}
-                        data-testid="input-photo"
-                      />
+                      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} data-testid="input-photo" />
                     </div>
                     <div className="grid grid-cols-2 gap-4 flex-1">
                       <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name <Req /></Label>
-                        <Input 
-                          id="firstName" 
-                          placeholder="John" 
-                          value={firstName} 
-                          onChange={e => handleNameInput(e.target.value, setFirstName)} 
-                          className={formErrors.firstName ? "border-red-500" : ""}
-                          data-testid="input-first-name"
-                        />
+                        <Label>First Name <Req /></Label>
+                        <Input value={firstName} onChange={e => handleNameInput(e.target.value, setFirstName)} className={formErrors.firstName ? "border-red-500" : ""} data-testid="input-first-name" placeholder="John" />
                         <FieldError field="firstName" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name <Req /></Label>
-                        <Input 
-                          id="lastName" 
-                          placeholder="Doe" 
-                          value={lastName} 
-                          onChange={e => handleNameInput(e.target.value, setLastName)} 
-                          className={formErrors.lastName ? "border-red-500" : ""}
-                          data-testid="input-last-name"
-                        />
+                        <Label>Last Name <Req /></Label>
+                        <Input value={lastName} onChange={e => handleNameInput(e.target.value, setLastName)} className={formErrors.lastName ? "border-red-500" : ""} data-testid="input-last-name" placeholder="Doe" />
                         <FieldError field="lastName" />
                       </div>
                       <div className="space-y-2">
-                         <Label htmlFor="gender">Gender <Req /></Label>
-                         <Select value={gender} onValueChange={setGender}>
-                           <SelectTrigger id="gender" className={formErrors.gender ? "border-red-500" : ""} data-testid="select-gender">
-                             <SelectValue placeholder="Select" />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="male">Male</SelectItem>
-                             <SelectItem value="female">Female</SelectItem>
-                             <SelectItem value="other">Other</SelectItem>
-                           </SelectContent>
-                         </Select>
-                         <FieldError field="gender" />
+                        <Label>Gender <Req /></Label>
+                        <Select value={gender} onValueChange={setGender}>
+                          <SelectTrigger className={formErrors.gender ? "border-red-500" : ""} data-testid="select-gender"><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FieldError field="gender" />
                       </div>
-                       <div className="space-y-2">
-                         <Label htmlFor="nationality">Nationality <Req /></Label>
-                         <Select value={nationality} onValueChange={(val) => { setNationality(val); setState(""); }}>
-                           <SelectTrigger id="nationality" className={formErrors.nationality ? "border-red-500" : ""} data-testid="select-nationality">
-                             <SelectValue placeholder="Select Nationality" />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="American">American</SelectItem>
-                             <SelectItem value="Canadian">Canadian</SelectItem>
-                             <SelectItem value="Indian">Indian</SelectItem>
-                             <SelectItem value="British">British</SelectItem>
-                           </SelectContent>
-                         </Select>
-                         <FieldError field="nationality" />
+                      <div className="space-y-2">
+                        <Label>Nationality <Req /></Label>
+                        <Select value={nationality} onValueChange={(val) => { setNationality(val); setState(""); }}>
+                          <SelectTrigger className={formErrors.nationality ? "border-red-500" : ""} data-testid="select-nationality"><SelectValue placeholder="Select Nationality" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="American">American</SelectItem>
+                            <SelectItem value="Canadian">Canadian</SelectItem>
+                            <SelectItem value="Indian">Indian</SelectItem>
+                            <SelectItem value="British">British</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FieldError field="nationality" />
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="dob">Date of Birth <Req /></Label>
-                      <Input 
-                        id="dob" 
-                        type="date" 
-                        value={dob} 
-                        max={getMaxDob()}
-                        onChange={(e) => setDob(e.target.value)} 
-                        className={formErrors.dob ? "border-red-500" : ""}
-                        data-testid="input-dob"
-                      />
+                      <Label>Date of Birth <Req /></Label>
+                      <Input type="date" value={dob} max={getMaxDob()} onChange={(e) => setDob(e.target.value)} className={formErrors.dob ? "border-red-500" : ""} data-testid="input-dob" />
                       <FieldError field="dob" />
                     </div>
                     <div className="space-y-2">
@@ -524,129 +586,87 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
                 <div className="space-y-4 border-b pb-4">
                   <h3 className="font-medium flex items-center gap-2 text-primary">Contact Details</h3>
-                  
                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number <Req /></Label>
+                    <div className="space-y-2">
+                      <Label>Phone Number <Req /></Label>
                       <div className="flex gap-2">
-                         <Select value={countryCode} onValueChange={setCountryCode}>
-                           <SelectTrigger className="w-[100px]" data-testid="select-country-code">
-                             <SelectValue />
-                           </SelectTrigger>
-                           <SelectContent>
-                             {countryCodes.map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
-                           </SelectContent>
-                         </Select>
-                         <Input 
-                           id="phone" 
-                           type="tel" 
-                           placeholder="9876543210" 
-                           value={phone} 
-                           onChange={e => handlePhoneInput(e.target.value)} 
-                           maxLength={15}
-                           className={formErrors.phone ? "border-red-500" : ""}
-                           data-testid="input-phone"
-                         />
+                        <Select value={countryCode} onValueChange={setCountryCode}>
+                          <SelectTrigger className="w-[100px]" data-testid="select-country-code"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {countryCodes.map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input type="tel" placeholder="9876543210" value={phone} onChange={e => handlePhoneInput(e.target.value, setPhone)} maxLength={15} className={formErrors.phone ? "border-red-500" : ""} data-testid="input-phone" />
                       </div>
                       <FieldError field="phone" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email ID</Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        placeholder="john.doe@example.com" 
-                        value={email} 
-                        onChange={e => setEmail(e.target.value)} 
-                        className={formErrors.email ? "border-red-500" : ""}
-                        data-testid="input-email"
-                      />
+                      <Label>Email ID</Label>
+                      <Input type="email" placeholder="john.doe@example.com" value={email} onChange={e => setEmail(e.target.value)} className={formErrors.email ? "border-red-500" : ""} data-testid="input-email" />
                       <FieldError field="email" />
                     </div>
-                     <div className="space-y-2">
-                      <Label htmlFor="state">State / Province <Req /></Label>
+                    <div className="space-y-2">
+                      <Label>State / Province <Req /></Label>
                       <Select value={state} onValueChange={setState} disabled={!nationality}>
-                         <SelectTrigger id="state" className={formErrors.state ? "border-red-500" : ""} data-testid="select-state">
-                           <SelectValue placeholder="Select State" />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {nationality && countries[nationality]?.map((s) => (
-                             <SelectItem key={s} value={s}>{s}</SelectItem>
-                           ))}
-                         </SelectContent>
-                       </Select>
-                       <FieldError field="state" />
+                        <SelectTrigger className={formErrors.state ? "border-red-500" : ""} data-testid="select-state"><SelectValue placeholder="Select State" /></SelectTrigger>
+                        <SelectContent>
+                          {nationality && countries[nationality]?.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError field="state" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="city">City <Req /></Label>
-                      <Input 
-                        id="city" 
-                        placeholder="City Name" 
-                        value={city} 
-                        onChange={e => setCity(e.target.value)} 
-                        className={formErrors.city ? "border-red-500" : ""}
-                        data-testid="input-city"
-                      />
+                      <Label>City <Req /></Label>
+                      <Input placeholder="City Name" value={city} onChange={e => setCity(e.target.value)} className={formErrors.city ? "border-red-500" : ""} data-testid="input-city" />
                       <FieldError field="city" />
                     </div>
                   </div>
-                  
                   <div className="space-y-2">
-                    <Label htmlFor="address">Permanent Address <Req /></Label>
-                    <Textarea 
-                      id="address" 
-                      placeholder="House No, Street, Landmark, Zip Code" 
-                      className={`min-h-[60px] ${formErrors.address ? "border-red-500" : ""}`} 
-                      value={address} 
-                      onChange={e => setAddress(e.target.value)} 
-                      data-testid="input-address"
-                    />
+                    <Label>Permanent Address <Req /></Label>
+                    <Textarea placeholder="House No, Street, Landmark, Zip Code" className={`min-h-[60px] ${formErrors.address ? "border-red-500" : ""}`} value={address} onChange={e => setAddress(e.target.value)} data-testid="input-address" />
                     <FieldError field="address" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 bg-red-50 p-4 rounded-md border border-red-100">
-                     <div className="col-span-2">
-                        <Label className="text-red-800 font-semibold">Emergency Contact (Optional)</Label>
-                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="emergencyName" className="text-red-700">Contact Person Name</Label>
-                        <Input id="emergencyName" className="bg-white" placeholder="Name" value={emergencyName} onChange={e => handleNameInput(e.target.value, setEmergencyName)} data-testid="input-emergency-name" />
-                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="emergencyRelation" className="text-red-700">Relation</Label>
-                        <Select value={emergencyRelation} onValueChange={setEmergencyRelation}>
-                          <SelectTrigger className="bg-white" data-testid="select-emergency-relation">
-                            <SelectValue placeholder="Select Relation" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Father">Father</SelectItem>
-                            <SelectItem value="Mother">Mother</SelectItem>
-                            <SelectItem value="Spouse">Spouse</SelectItem>
-                            <SelectItem value="Brother">Brother</SelectItem>
-                            <SelectItem value="Sister">Sister</SelectItem>
-                            <SelectItem value="Children">Children</SelectItem>
-                            <SelectItem value="Guardian">Guardian</SelectItem>
-                            <SelectItem value="Friend">Friend</SelectItem>
-                          </SelectContent>
-                        </Select>
-                     </div>
-                     <div className="space-y-2 col-span-2">
-                        <Label htmlFor="emergencyPhone" className="text-red-700">Contact Number</Label>
-                        <Input id="emergencyPhone" className="bg-white" type="tel" placeholder="Phone" value={emergencyPhone} onChange={e => handleEmergencyPhoneInput(e.target.value)} data-testid="input-emergency-phone" />
-                     </div>
+                    <div className="col-span-2">
+                      <Label className="text-red-800 font-semibold">Emergency Contact (Optional)</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-red-700">Contact Person Name</Label>
+                      <Input className="bg-white" placeholder="Name" value={emergencyName} onChange={e => handleNameInput(e.target.value, setEmergencyName)} data-testid="input-emergency-name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-red-700">Relation</Label>
+                      <Select value={emergencyRelation} onValueChange={setEmergencyRelation}>
+                        <SelectTrigger className="bg-white" data-testid="select-emergency-relation"><SelectValue placeholder="Select Relation" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Father">Father</SelectItem>
+                          <SelectItem value="Mother">Mother</SelectItem>
+                          <SelectItem value="Spouse">Spouse</SelectItem>
+                          <SelectItem value="Brother">Brother</SelectItem>
+                          <SelectItem value="Sister">Sister</SelectItem>
+                          <SelectItem value="Children">Children</SelectItem>
+                          <SelectItem value="Guardian">Guardian</SelectItem>
+                          <SelectItem value="Friend">Friend</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label className="text-red-700">Contact Number</Label>
+                      <Input className="bg-white" type="tel" placeholder="Phone" value={emergencyPhone} onChange={e => handlePhoneInput(e.target.value, setEmergencyPhone)} data-testid="input-emergency-phone" />
+                    </div>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <h3 className="font-medium flex items-center gap-2 text-primary">Role & Compensation</h3>
-                  
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="role">Job Role <Req /></Label>
+                      <Label>Job Role <Req /></Label>
                       <Select value={staffRole} onValueChange={setStaffRole}>
-                        <SelectTrigger id="role" className={formErrors.staffRole ? "border-red-500" : ""} data-testid="select-role">
-                          <SelectValue placeholder="Select Role" />
-                        </SelectTrigger>
+                        <SelectTrigger className={formErrors.staffRole ? "border-red-500" : ""} data-testid="select-role"><SelectValue placeholder="Select Role" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Manager">Manager</SelectItem>
                           <SelectItem value="Receptionist">Receptionist</SelectItem>
@@ -659,15 +679,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <FieldError field="staffRole" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="joinDate">Joining Date <Req /></Label>
-                      <Input 
-                        id="joinDate" 
-                        type="date" 
-                        value={joiningDate} 
-                        onChange={(e) => setJoiningDate(e.target.value)} 
-                        className={formErrors.joiningDate ? "border-red-500" : ""}
-                        data-testid="input-join-date"
-                      />
+                      <Label>Joining Date <Req /></Label>
+                      <Input type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} className={formErrors.joiningDate ? "border-red-500" : ""} data-testid="input-join-date" />
                       <FieldError field="joiningDate" />
                     </div>
                   </div>
@@ -675,104 +688,47 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
                     <div className="flex justify-between items-center">
                       <Label className="text-sm font-semibold">Monthly Salary Breakdown <Req /></Label>
-                      <Badge variant="outline" className="bg-background font-mono" data-testid="text-total-salary">
-                        Total: {cs}{totalSalary.toFixed(2)} / mo
-                      </Badge>
+                      <Badge variant="outline" className="bg-background font-mono" data-testid="text-total-salary">Total: {cs}{totalSalary.toFixed(2)} / mo</Badge>
                     </div>
                     {formErrors.salary && <p className="text-red-500 text-xs">{formErrors.salary}</p>}
-                    
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Basic Pay <Req /></Label>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          placeholder="0" 
-                          className="h-8 bg-white"
-                          value={basicSalary || ""}
-                          onChange={(e) => setBasicSalary(Number(e.target.value))}
-                          data-testid="input-basic-salary"
-                        />
+                        <Input type="number" min="0" placeholder="0" className="h-8 bg-white" value={basicSalary || ""} onChange={(e) => setBasicSalary(Number(e.target.value))} data-testid="input-basic-salary" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">HRA</Label>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          placeholder="0" 
-                          className="h-8 bg-white"
-                          value={hra || ""}
-                          onChange={(e) => setHra(Number(e.target.value))}
-                          data-testid="input-hra"
-                        />
+                        <Input type="number" min="0" placeholder="0" className="h-8 bg-white" value={hra || ""} onChange={(e) => setHra(Number(e.target.value))} data-testid="input-hra" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Transport</Label>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          placeholder="0" 
-                          className="h-8 bg-white"
-                          value={transport || ""}
-                          onChange={(e) => setTransport(Number(e.target.value))}
-                          data-testid="input-transport"
-                        />
+                        <Input type="number" min="0" placeholder="0" className="h-8 bg-white" value={transport || ""} onChange={(e) => setTransport(Number(e.target.value))} data-testid="input-transport" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs text-muted-foreground">Other Allowance</Label>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          placeholder="0" 
-                          className="h-8 bg-white"
-                          value={allowance || ""}
-                          onChange={(e) => setAllowance(Number(e.target.value))}
-                          data-testid="input-allowance"
-                        />
+                        <Input type="number" min="0" placeholder="0" className="h-8 bg-white" value={allowance || ""} onChange={(e) => setAllowance(Number(e.target.value))} data-testid="input-allowance" />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-dashed">
-                       <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            id="welfare" 
-                            checked={welfareFund}
-                            onCheckedChange={(checked) => setWelfareFund(checked as boolean)}
-                            data-testid="checkbox-welfare"
-                          />
-                          <Label htmlFor="welfare" className="text-sm font-medium cursor-pointer">Enable Welfare Fund Liability</Label>
-                       </div>
-                       <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Monthly Bonus (Owner Config)</Label>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            placeholder="0" 
-                            className="h-8 bg-white"
-                            value={bonus || ""}
-                            onChange={(e) => setBonus(Number(e.target.value))}
-                            data-testid="input-bonus"
-                          />
-                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="welfare" checked={welfareFund} onCheckedChange={(checked) => setWelfareFund(checked as boolean)} data-testid="checkbox-welfare" />
+                        <Label htmlFor="welfare" className="text-sm font-medium cursor-pointer">Enable Welfare Fund Liability</Label>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Monthly Bonus (Owner Config)</Label>
+                        <Input type="number" min="0" placeholder="0" className="h-8 bg-white" value={bonus || ""} onChange={(e) => setBonus(Number(e.target.value))} data-testid="input-bonus" />
+                      </div>
                     </div>
-                    
                     {proratedSalary !== null && (
                       <div className="mt-4 pt-3 border-t border-dashed">
-                         <div className="flex items-center justify-between">
-                            <Label className="text-amber-700 text-sm">Pro-rated Salary (Current Month)</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Auto-calculated:</span>
-                              <Input 
-                                className="h-8 w-24 bg-amber-50 border-amber-200"
-                                value={proratedSalary}
-                                onChange={(e) => setProratedSalary(Number(e.target.value))}
-                                data-testid="input-prorated-salary"
-                              />
-                            </div>
-                         </div>
-                         <p className="text-[10px] text-muted-foreground mt-1">
-                           *Based on joining date. Will be added to pending salaries.
-                         </p>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-amber-700 text-sm">Pro-rated Salary (Current Month)</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Auto-calculated:</span>
+                            <Input className="h-8 w-28 bg-amber-50 border-amber-200" value={`${cs}${proratedSalary}`} readOnly data-testid="input-prorated-salary" />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">*Based on joining date. This amount will be used for the first month's salary.</p>
                       </div>
                     )}
                   </div>
@@ -780,71 +736,41 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
                 <div className="space-y-4 pt-2 border-t mt-2">
                   <h3 className="font-medium flex items-center gap-2 text-primary mt-2">Verification & Documents</h3>
-                  
                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                      <Label htmlFor="idCard">ID Card Number</Label>
-                      <Input id="idCard" placeholder="Enter ID Number" value={idCardNumber} onChange={e => setIdCardNumber(e.target.value)} data-testid="input-id-card" />
+                    <div className="space-y-2">
+                      <Label>ID Card Number</Label>
+                      <Input placeholder="Enter ID Number" value={idCardNumber} onChange={e => setIdCardNumber(e.target.value)} data-testid="input-id-card" />
                     </div>
-                     <div className="space-y-2">
+                    <div className="space-y-2">
                       <Label>ID Proof Document</Label>
                       <Input type="file" data-testid="input-id-document" />
                     </div>
-                    <div className="col-span-2 flex items-center space-x-2 h-full pt-2">
-                      <Checkbox 
-                        id="policeVerification" 
-                        checked={policeVerification}
-                        onCheckedChange={(checked) => setPoliceVerification(checked as boolean)}
-                        data-testid="checkbox-police-verification"
-                      />
-                      <label
-                        htmlFor="policeVerification"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Police Verification Completed
-                      </label>
+                    <div className="col-span-2 flex items-center space-x-2 pt-2">
+                      <Checkbox id="policeVerification" checked={policeVerification} onCheckedChange={(checked) => setPoliceVerification(checked as boolean)} data-testid="checkbox-police-verification" />
+                      <label htmlFor="policeVerification" className="text-sm font-medium leading-none">Police Verification Completed</label>
                     </div>
                   </div>
                 </div>
 
-                {!editingStaff && (
+                {dialogMode === "add" && (
                   <div className="space-y-4 pt-2 border-t mt-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium flex items-center gap-2 text-primary">Login Access</h3>
                         <p className="text-xs text-muted-foreground mt-1">Optionally create a system login for this employee</p>
                       </div>
-                      <Switch 
-                        checked={createLogin} 
-                        onCheckedChange={setCreateLogin} 
-                        data-testid="switch-create-login"
-                      />
+                      <Switch checked={createLogin} onCheckedChange={setCreateLogin} data-testid="switch-create-login" />
                     </div>
-                    
                     {createLogin && (
                       <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-md border border-blue-100">
                         <div className="space-y-2">
                           <Label className="text-blue-700">Login ID (Email) <Req /></Label>
-                          <Input 
-                            type="email" 
-                            placeholder="john.doe@example.com" 
-                            value={email} 
-                            onChange={e => setEmail(e.target.value)} 
-                            className={`bg-white ${formErrors.email ? "border-red-500" : ""}`}
-                            data-testid="input-login-email"
-                          />
+                          <Input type="email" placeholder="john.doe@example.com" value={email} onChange={e => setEmail(e.target.value)} className={`bg-white ${formErrors.email ? "border-red-500" : ""}`} data-testid="input-login-email" />
                           <FieldError field="email" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-blue-700">Password <Req /></Label>
-                          <Input 
-                            type="password" 
-                            placeholder="Minimum 6 characters" 
-                            value={loginPassword} 
-                            onChange={e => setLoginPassword(e.target.value)} 
-                            className={`bg-white ${formErrors.loginPassword ? "border-red-500" : ""}`}
-                            data-testid="input-login-password"
-                          />
+                          <Input type="password" placeholder="Minimum 6 characters" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} className={`bg-white ${formErrors.loginPassword ? "border-red-500" : ""}`} data-testid="input-login-password" />
                           <FieldError field="loginPassword" />
                         </div>
                         <p className="text-xs text-blue-600 col-span-2">This employee will be able to log in with their email and the password set above.</p>
@@ -853,6 +779,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 )}
               </div>
+              )}
+
+              {isEditable && (
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                 <Button 
@@ -864,11 +793,18 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   {editingStaff ? "Update Details" : "Onboard Employee"}
                 </Button>
               </DialogFooter>
+              )}
+
+              {isViewMode && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+              )}
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Staff</CardTitle>
@@ -879,18 +815,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Salaries</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Payroll</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-amber-600" data-testid="text-pending-salaries">{cs}{activeStaff.reduce((sum, s) => sum + s.salary, 0).toLocaleString()}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Advances</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600" data-testid="text-active-advances">{cs}0</div>
             </CardContent>
           </Card>
         </div>
@@ -904,17 +832,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Salary</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead>Advance Taken</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {activeStaff.map((employee) => (
-                  <TableRow key={employee.id} data-testid={`row-staff-${employee.id}`}>
+                  <TableRow key={employee.id} data-testid={`row-staff-${employee.id}`} className="cursor-pointer" onClick={() => handleView(employee)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -923,25 +851,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <span className="font-medium">{employee.name}</span>
                       </div>
                     </TableCell>
+                    <TableCell><Badge variant="outline" className="font-mono text-xs">{employee.employeeId}</Badge></TableCell>
                     <TableCell>{employee.role}</TableCell>
                     <TableCell>{cs}{employee.salary}</TableCell>
                     <TableCell>{employee.joined}</TableCell>
                     <TableCell>
-                      {employee.advance > 0 ? (
-                        <span className="text-red-600 font-medium">{cs}{employee.advance}</span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                      <Badge className="bg-green-600 hover:bg-green-700">{employee.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-600 hover:bg-green-700">
-                        {employee.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" title="Edit Details" onClick={() => handleEdit(employee)} data-testid={`button-edit-staff-${employee.id}`}>
-                          <Edit className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" title="View Details" onClick={() => handleView(employee)} data-testid={`button-view-staff-${employee.id}`}>
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleToggleStatus(employee.id, employee.status)}>
                           <Ban className="h-4 w-4" />
@@ -960,9 +880,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 ))}
                 {activeStaff.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No active staff members found.
-                    </TableCell>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No active staff members found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -974,8 +892,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           <Card className="bg-muted/20 border-dashed">
             <CardHeader>
               <CardTitle className="text-muted-foreground flex items-center gap-2">
-                <Ban className="h-4 w-4" />
-                Deactivated / Past Employees
+                <Ban className="h-4 w-4" /> Deactivated / Past Employees
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1004,16 +921,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <TableCell>{employee.role}</TableCell>
                       <TableCell>{cs}{employee.salary}</TableCell>
                       <TableCell>{employee.joined}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {employee.status}
-                        </Badge>
-                      </TableCell>
+                      <TableCell><Badge variant="secondary">{employee.status}</Badge></TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleToggleStatus(employee.id, employee.status)}>
-                            <Power className="h-3 w-3 mr-1" />
-                            Activate
+                            <Power className="h-3 w-3 mr-1" /> Activate
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
                             setStaffToDelete(employee.id);
@@ -1041,8 +953,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             </div>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the staff record
-              and remove their data from our servers.
+              This action cannot be undone. This will permanently delete the staff record and remove their data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

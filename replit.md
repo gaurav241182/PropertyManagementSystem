@@ -54,3 +54,7 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Settings: new page with general, security, notification, and backup settings
 - 2026-02-19: Full backend implementation - DB schema, storage layer, API routes
 - 2026-02-19: All frontend pages connected to real API data (removed mock data/localStorage)
+- 2026-02-19: Staff schema extended with 14 new fields (dob, gender, nationality, state, city, address, countryCode, basicPay, hra, transport, allowance, emergencyName/Relation/Phone, idCardNumber, policeVerification)
+- 2026-02-19: Staff dialog rewritten with view/edit/add modes - view shows read-only details, edit populates all saved fields
+- 2026-02-19: Auto-create salary record on staff onboarding with prorated calculation for mid-month joins
+- 2026-02-19: Zod validation added to POST/PATCH staff routes, welfare based on basicPay
