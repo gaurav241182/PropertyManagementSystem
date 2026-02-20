@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +11,189 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Expense, Category } from "@shared/schema";
+
+const CATEGORY_SUBS: Record<string, string[]> = {
+  "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
+  "Utility": ["Electricity", "Water", "Internet", "Cleaning", "Gas"],
+  "Maintenance": ["Plumbing", "Electrical", "Carpenter", "Painting", "AC Repair"],
+  "Staff": ["Salary", "Bonus", "Uniform", "Training", "Transport"],
+  "Asset": ["Electronics", "Furniture", "Appliances", "Machinery"],
+  "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
+};
+
+const isTaxableCategory = (cat: string) => cat === "Asset";
+
+function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting }: {
+  expense: Expense;
+  role: string;
+  onUpdate: (id: number, data: Record<string, any>) => void;
+  onDelete: (id: number) => void;
+  isDeleting: boolean;
+}) {
+  const [localItem, setLocalItem] = useState(expense.item);
+  const [localQty, setLocalQty] = useState(expense.qty);
+  const [localPrice, setLocalPrice] = useState(String(expense.price));
+  const [localTotal, setLocalTotal] = useState(String(expense.total));
+
+  useEffect(() => {
+    setLocalItem(expense.item);
+    setLocalQty(expense.qty);
+    setLocalPrice(String(expense.price));
+    setLocalTotal(String(expense.total));
+  }, [expense.item, expense.qty, expense.price, expense.total]);
+
+  const handleBlur = (field: string, value: string) => {
+    const currentVal = field === 'item' ? expense.item
+      : field === 'qty' ? expense.qty
+      : field === 'price' ? String(expense.price)
+      : String(expense.total);
+
+    if (value === currentVal) return;
+
+    const updateData: Record<string, any> = { [field]: value };
+    if (field === 'price' || field === 'qty') {
+      const p = field === 'price' ? parseFloat(value) || 0 : parseFloat(String(expense.price)) || 0;
+      const q = field === 'qty' ? parseFloat(value) || 1 : parseFloat(expense.qty) || 1;
+      const newTotal = String(p * q);
+      updateData.total = newTotal;
+      setLocalTotal(newTotal);
+    }
+    onUpdate(expense.id, updateData);
+  };
+
+  return (
+    <TableRow className="hover:bg-muted/10">
+      <TableCell className="p-2">
+        <Input
+          type="date"
+          defaultValue={expense.date}
+          onBlur={(e) => {
+            if (e.target.value !== expense.date) {
+              onUpdate(expense.id, { date: e.target.value });
+            }
+          }}
+          className="h-8 w-full"
+          data-testid={`input-date-${expense.id}`}
+        />
+      </TableCell>
+      <TableCell className="p-2">
+        <Select
+          value={expense.category}
+          onValueChange={(val) => {
+            onUpdate(expense.id, { category: val, subCategory: CATEGORY_SUBS[val]?.[0] || "" });
+          }}
+        >
+          <SelectTrigger className="h-8 w-full" data-testid={`select-category-${expense.id}`}>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(CATEGORY_SUBS).map(cat => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="p-2">
+        <Select
+          value={expense.subCategory}
+          onValueChange={(val) => onUpdate(expense.id, { subCategory: val })}
+        >
+          <SelectTrigger className="h-8 w-full" data-testid={`select-subcategory-${expense.id}`}>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {(CATEGORY_SUBS[expense.category] || []).map(sub => (
+              <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="p-2">
+        <Input
+          value={localItem}
+          onChange={(e) => setLocalItem(e.target.value)}
+          onBlur={() => handleBlur('item', localItem)}
+          className="h-8 w-full font-medium"
+          placeholder="Item Description"
+          data-testid={`input-item-${expense.id}`}
+        />
+      </TableCell>
+      <TableCell className="p-2">
+        <Input
+          value={localQty}
+          onChange={(e) => setLocalQty(e.target.value)}
+          onBlur={() => handleBlur('qty', localQty)}
+          className="h-8 w-full"
+          placeholder="1"
+          data-testid={`input-qty-${expense.id}`}
+        />
+      </TableCell>
+      <TableCell className="p-2">
+        <Input
+          type="number"
+          value={localPrice}
+          onChange={(e) => setLocalPrice(e.target.value)}
+          onBlur={() => handleBlur('price', localPrice)}
+          className="h-8 w-full"
+          placeholder="0"
+          data-testid={`input-price-${expense.id}`}
+        />
+      </TableCell>
+      <TableCell className="p-2">
+        <Input
+          type="number"
+          value={localTotal}
+          onChange={(e) => setLocalTotal(e.target.value)}
+          onBlur={() => handleBlur('total', localTotal)}
+          className="h-8 w-full bg-muted/20 font-bold"
+          placeholder="0"
+          readOnly
+          data-testid={`input-total-${expense.id}`}
+        />
+      </TableCell>
+      <TableCell className="p-2 text-center">
+        {isTaxableCategory(expense.category) && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary bg-primary/10 hover:bg-primary/20" title="Upload Tax Invoice" data-testid={`button-upload-receipt-${expense.id}`}>
+            <Upload className="h-4 w-4" />
+          </Button>
+        )}
+      </TableCell>
+      <TableCell className="p-2">
+        <Select
+          value={expense.status}
+          onValueChange={(val) => onUpdate(expense.id, { status: val })}
+          disabled={role === "manager"}
+        >
+          <SelectTrigger className={`h-8 w-full ${
+            expense.status === 'Paid' ? 'text-green-600 border-green-200 bg-green-50' :
+            expense.status === 'Pending' ? 'text-amber-600 border-amber-200 bg-amber-50' : ''
+          }`} data-testid={`select-status-${expense.id}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Paid">Paid</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="p-2 text-center">
+        {(role === "owner" || (role === "manager" && expense.status === "Pending")) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+            onClick={() => onDelete(expense.id)}
+            disabled={isDeleting}
+            data-testid={`button-delete-expense-${expense.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
@@ -63,26 +246,15 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     },
   });
 
-  const visibleExpenses = role === "owner" 
+  const visibleExpenses = role === "owner"
     ? expenses
     : expenses.filter(e => e.recordDate === filterDate);
 
   const totalAmount = visibleExpenses.reduce((sum, e) => sum + (parseFloat(e.total as string) || 0), 0);
 
-  const CATEGORY_SUBS: Record<string, string[]> = {
-    "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
-    "Utility": ["Electricity", "Water", "Internet", "Cleaning", "Gas"],
-    "Maintenance": ["Plumbing", "Electrical", "Carpenter", "Painting", "AC Repair"],
-    "Staff": ["Salary", "Bonus", "Uniform", "Training", "Transport"],
-    "Asset": ["Electronics", "Furniture", "Appliances", "Machinery"],
-    "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
-  };
-
-  const isTaxableCategory = (cat: string) => cat === "Asset";
-
   const handleAddRow = () => {
     const dateToUse = role === "owner" ? new Date().toISOString().split('T')[0] : filterDate;
-    
+
     addExpenseMutation.mutate({
       date: dateToUse,
       recordDate: dateToUse,
@@ -97,31 +269,13 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     });
   };
 
-  const handleRemoveRow = (id: number) => {
+  const handleUpdate = useCallback((id: number, data: Record<string, any>) => {
+    updateExpenseMutation.mutate({ id, ...data });
+  }, []);
+
+  const handleDelete = useCallback((id: number) => {
     deleteExpenseMutation.mutate(id);
-  };
-
-  const updateExpense = (id: number, field: string, value: any) => {
-    const expense = expenses.find(e => e.id === id);
-    if (!expense) return;
-
-    const updateData: Record<string, any> = { [field]: value };
-
-    if (field === 'price' || field === 'qty') {
-      const p = field === 'price' ? parseFloat(value) || 0 : parseFloat(expense.price as string) || 0;
-      const q = field === 'qty' ? parseFloat(value) || 1 : parseFloat(expense.qty) || 1;
-      updateData.total = String(p * q);
-    }
-
-    updateExpenseMutation.mutate({ id, ...updateData });
-  };
-
-  const handleSaveChanges = () => {
-    toast({
-      title: "Expenses Saved",
-      description: "All changes have been updated successfully.",
-    });
-  };
+  }, []);
 
   if (expensesLoading) {
     return (
@@ -138,11 +292,11 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
       <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Expenses & Purchases</h2>
+              <h2 className="text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-expenses-title">Expenses & Purchases</h2>
               <p className="text-muted-foreground">Manage daily expenditures in a spreadsheet view.</p>
             </div>
             <div className="flex gap-2">
-               <Button onClick={handleSaveChanges}>
+               <Button onClick={() => toast({ title: "Expenses Saved", description: "All changes have been updated successfully." })} data-testid="button-save-expenses">
                  <Save className="mr-2 h-4 w-4" /> Save Daily Sheet
                </Button>
             </div>
@@ -158,19 +312,20 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-sm font-medium text-muted-foreground">Record Date:</span>
-                    <Input 
-                      type="date" 
-                      defaultValue={new Date().toISOString().split('T')[0]} 
-                      className="w-40 h-8 bg-background" 
+                    <Input
+                      type="date"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-40 h-8 bg-background"
+                      data-testid="input-record-date"
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
                    <div className="flex flex-col items-end gap-1">
                       <span className="text-sm font-medium text-muted-foreground">Daily Receipts</span>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8">
+                        <Button variant="outline" size="sm" className="h-8" data-testid="button-upload-files">
                           <Upload className="mr-2 h-3.5 w-3.5" /> Upload Files
                         </Button>
                         <span className="text-xs text-muted-foreground">0 files attached</span>
@@ -179,7 +334,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                    <div className="h-10 w-px bg-border hidden md:block"></div>
                    <div className="flex flex-col items-end">
                       <span className="text-xs text-muted-foreground uppercase font-bold">Total Amount</span>
-                      <span className="text-2xl font-bold font-serif text-primary">
+                      <span className="text-2xl font-bold font-serif text-primary" data-testid="text-total-amount">
                         {totalAmount.toLocaleString()}
                       </span>
                    </div>
@@ -188,7 +343,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
             </CardHeader>
             <CardContent className="p-0">
               <div className="p-2 flex justify-end bg-muted/10 border-b">
-                 <Button variant="ghost" size="sm" onClick={handleAddRow} className="text-primary hover:text-primary hover:bg-primary/10" disabled={addExpenseMutation.isPending}>
+                 <Button variant="ghost" size="sm" onClick={handleAddRow} className="text-primary hover:text-primary hover:bg-primary/10" disabled={addExpenseMutation.isPending} data-testid="button-add-expense">
                    <Plus className="mr-2 h-4 w-4" /> Add Line Item
                  </Button>
               </div>
@@ -210,126 +365,14 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                   </TableHeader>
                   <TableBody>
                     {expenses.map((expense) => (
-                      <TableRow key={expense.id} className="hover:bg-muted/10">
-                        <TableCell className="p-2">
-                          <Input 
-                            type="date" 
-                            value={expense.date} 
-                            onChange={(e) => updateExpense(expense.id, 'date', e.target.value)}
-                            className="h-8 w-full"
-                          />
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <Select 
-                            value={expense.category} 
-                            onValueChange={(val) => {
-                               updateExpense(expense.id, 'category', val);
-                               updateExpense(expense.id, 'subCategory', CATEGORY_SUBS[val]?.[0] || "");
-                            }}
-                          >
-                            <SelectTrigger className="h-8 w-full">
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.keys(CATEGORY_SUBS).map(cat => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <Select 
-                            value={expense.subCategory} 
-                            onValueChange={(val) => updateExpense(expense.id, 'subCategory', val)}
-                          >
-                            <SelectTrigger className="h-8 w-full">
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(CATEGORY_SUBS[expense.category] || []).map(sub => (
-                                <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <Input 
-                            value={expense.item} 
-                            onChange={(e) => updateExpense(expense.id, 'item', e.target.value)}
-                            className="h-8 w-full font-medium"
-                            placeholder="Item Description"
-                          />
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <Input 
-                            value={expense.qty} 
-                            onChange={(e) => updateExpense(expense.id, 'qty', e.target.value)}
-                            className="h-8 w-full"
-                            placeholder="1"
-                          />
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <div className="relative">
-                            <Input 
-                              type="number"
-                              value={expense.price} 
-                              onChange={(e) => updateExpense(expense.id, 'price', e.target.value)}
-                              className="h-8 w-full"
-                              placeholder="0"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <div className="relative">
-                            <Input 
-                              type="number"
-                              value={expense.total} 
-                              onChange={(e) => updateExpense(expense.id, 'total', e.target.value)}
-                              className="h-8 w-full bg-muted/20 font-bold"
-                              placeholder="0"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="p-2 text-center">
-                          {isTaxableCategory(expense.category) && (
-                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary bg-primary/10 hover:bg-primary/20" title="Upload Tax Invoice">
-                               <Upload className="h-4 w-4" />
-                             </Button>
-                          )}
-                        </TableCell>
-                        <TableCell className="p-2">
-                          <Select 
-                            value={expense.status} 
-                            onValueChange={(val) => updateExpense(expense.id, 'status', val)}
-                            disabled={role === "manager"}
-                          >
-                            <SelectTrigger className={`h-8 w-full ${
-                              expense.status === 'Paid' ? 'text-green-600 border-green-200 bg-green-50' : 
-                              expense.status === 'Pending' ? 'text-amber-600 border-amber-200 bg-amber-50' : ''
-                            }`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Pending">Pending</SelectItem>
-                              <SelectItem value="Paid">Paid</SelectItem>
-                              <SelectItem value="Rejected">Rejected</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="p-2 text-center">
-                          {(role === "owner" || (role === "manager" && expense.status === "Pending")) && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
-                              onClick={() => handleRemoveRow(expense.id)}
-                              disabled={deleteExpenseMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                      <ExpenseRow
+                        key={expense.id}
+                        expense={expense}
+                        role={role}
+                        onUpdate={handleUpdate}
+                        onDelete={handleDelete}
+                        isDeleting={deleteExpenseMutation.isPending}
+                      />
                     ))}
                   </TableBody>
                 </Table>
