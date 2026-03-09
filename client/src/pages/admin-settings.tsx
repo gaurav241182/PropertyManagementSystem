@@ -430,24 +430,26 @@ export default function AdminSettings() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Configuration & Settings</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary">Configuration & Settings</h2>
           <p className="text-muted-foreground">Manage global settings, pricing rules, and categories for this branch.</p>
         </div>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="roomtypes">Room Types</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing Calendar</TabsTrigger>
-            <TabsTrigger value="categories">Categories</TabsTrigger>
-            <TabsTrigger value="facilities">Facilities</TabsTrigger>
-            <TabsTrigger value="hr">HR & Payroll</TabsTrigger>
-            <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
-            <TabsTrigger value="communication">Communication</TabsTrigger>
-            <TabsTrigger value="discounts">Discounts</TabsTrigger>
-            <TabsTrigger value="invoice">Invoice & Taxes</TabsTrigger>
-            <TabsTrigger value="devtools" className="text-amber-600">Dev Tools</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto -mx-1 px-1">
+            <TabsList className="inline-flex w-max gap-1 h-auto flex-nowrap p-1">
+              <TabsTrigger value="general" className="text-xs sm:text-sm whitespace-nowrap">General</TabsTrigger>
+              <TabsTrigger value="roomtypes" className="text-xs sm:text-sm whitespace-nowrap">Room Types</TabsTrigger>
+              <TabsTrigger value="pricing" className="text-xs sm:text-sm whitespace-nowrap">Pricing Calendar</TabsTrigger>
+              <TabsTrigger value="categories" className="text-xs sm:text-sm whitespace-nowrap">Categories</TabsTrigger>
+              <TabsTrigger value="facilities" className="text-xs sm:text-sm whitespace-nowrap">Facilities</TabsTrigger>
+              <TabsTrigger value="hr" className="text-xs sm:text-sm whitespace-nowrap">HR & Payroll</TabsTrigger>
+              <TabsTrigger value="restaurant" className="text-xs sm:text-sm whitespace-nowrap">Restaurant</TabsTrigger>
+              <TabsTrigger value="communication" className="text-xs sm:text-sm whitespace-nowrap">Communication</TabsTrigger>
+              <TabsTrigger value="discounts" className="text-xs sm:text-sm whitespace-nowrap">Discounts</TabsTrigger>
+              <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice & Taxes</TabsTrigger>
+              <TabsTrigger value="devtools" className="text-xs sm:text-sm whitespace-nowrap text-amber-600">Dev Tools</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* General Settings */}
           <TabsContent value="general" className="mt-6 space-y-6">
@@ -457,7 +459,7 @@ export default function AdminSettings() {
                 <CardDescription>Set the base currency and regional formats.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                   <div className="space-y-2">
                     <Label>Base Currency</Label>
                     <Select value={currency} onValueChange={(val) => handleSaveCurrency(val)}>
@@ -506,12 +508,14 @@ export default function AdminSettings() {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="welcome" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 mb-4">
-                    <TabsTrigger value="welcome">Welcome</TabsTrigger>
-                    <TabsTrigger value="invoice">Invoice</TabsTrigger>
-                    <TabsTrigger value="feedback">Feedback</TabsTrigger>
-                    <TabsTrigger value="promotional">Promotional</TabsTrigger>
-                  </TabsList>
+                  <div className="w-full overflow-x-auto mb-4">
+                    <TabsList className="inline-flex w-max gap-1 h-auto flex-nowrap p-1">
+                      <TabsTrigger value="welcome" className="text-xs sm:text-sm whitespace-nowrap">Welcome</TabsTrigger>
+                      <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice</TabsTrigger>
+                      <TabsTrigger value="feedback" className="text-xs sm:text-sm whitespace-nowrap">Feedback</TabsTrigger>
+                      <TabsTrigger value="promotional" className="text-xs sm:text-sm whitespace-nowrap">Promotional</TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   {["welcome", "invoice", "feedback", "promotional"].map((category) => (
                     <TabsContent key={category} value={category} className="space-y-4">
@@ -598,7 +602,7 @@ export default function AdminSettings() {
                     <ShieldCheck className="h-5 w-5" /> Role-Based Discount Limits
                   </h3>
                   <div className="grid gap-4 border p-4 rounded-lg bg-muted/20">
-                    <div className="grid grid-cols-2 gap-4 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                       <div className="space-y-1">
                         <Label className="text-base">Manager Limit</Label>
                         <p className="text-sm text-muted-foreground">Maximum discount a Manager can apply manually.</p>
@@ -608,7 +612,7 @@ export default function AdminSettings() {
                          <span className="text-sm font-medium">%</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 items-center pt-2 border-t">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2 border-t">
                       <div className="space-y-1">
                         <Label className="text-base">Receptionist Limit</Label>
                         <p className="text-sm text-muted-foreground">Maximum discount a Receptionist can apply manually.</p>
@@ -875,7 +879,7 @@ export default function AdminSettings() {
                           onChange={(e) => setNewRoomType({...newRoomType, name: e.target.value})}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Bed Configuration</Label>
                           <Input 
@@ -1009,7 +1013,7 @@ export default function AdminSettings() {
                    
                    {welfareSettings.enabled && (
                      <div className="grid gap-6 border p-4 rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                            <div className="space-y-2">
                              <Label>Contribution Type</Label>
                              <Select 
@@ -1027,7 +1031,7 @@ export default function AdminSettings() {
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                            <div className="space-y-2">
                               <Label>1st Year Contribution</Label>
                               <div className="relative">
@@ -1187,7 +1191,7 @@ export default function AdminSettings() {
                           onChange={(e) => setNewFacility({...newFacility, name: e.target.value})}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Price ({currency})</Label>
                           <Input 
@@ -1295,7 +1299,7 @@ export default function AdminSettings() {
                           onChange={(e) => setNewRestaurantItem({...newRestaurantItem, name: e.target.value})}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Category</Label>
                           <Select 
