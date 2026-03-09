@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Expense, Category } from "@shared/schema";
 
-const CATEGORY_SUBS: Record<string, string[]> = {
+const FALLBACK_CATEGORY_SUBS: Record<string, string[]> = {
   "Grocery": ["Vegetables", "Dairy", "Meat", "Spices", "Grains", "Beverages"],
   "Utility": ["Electricity", "Water", "Internet", "Cleaning", "Gas"],
   "Maintenance": ["Plumbing", "Electrical", "Carpenter", "Painting", "AC Repair"],
@@ -21,15 +21,16 @@ const CATEGORY_SUBS: Record<string, string[]> = {
   "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
 };
 
-const isTaxableCategory = (cat: string) => cat === "Asset";
-
-function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting }: {
+function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySubs, taxableTypes }: {
   expense: Expense;
   role: string;
   onUpdate: (id: number, data: Record<string, any>) => void;
   onDelete: (id: number) => void;
   isDeleting: boolean;
+  categorySubs: Record<string, string[]>;
+  taxableTypes: Set<string>;
 }) {
+  const isTaxableCategory = (cat: string) => taxableTypes.has(cat);
   const [localItem, setLocalItem] = useState(expense.item);
   const [localQty, setLocalQty] = useState(expense.qty);
   const [localPrice, setLocalPrice] = useState(String(expense.price));
@@ -80,14 +81,14 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting }: {
         <Select
           value={expense.category}
           onValueChange={(val) => {
-            onUpdate(expense.id, { category: val, subCategory: CATEGORY_SUBS[val]?.[0] || "" });
+            onUpdate(expense.id, { category: val, subCategory: categorySubs[val]?.[0] || "" });
           }}
         >
           <SelectTrigger className="h-8 w-full" data-testid={`select-category-${expense.id}`}>
             <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent>
-            {Object.keys(CATEGORY_SUBS).map(cat => (
+            {Object.keys(categorySubs).map(cat => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
@@ -102,7 +103,7 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting }: {
             <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent>
-            {(CATEGORY_SUBS[expense.category] || []).map(sub => (
+            {(categorySubs[expense.category] || []).map(sub => (
               <SelectItem key={sub} value={sub}>{sub}</SelectItem>
             ))}
           </SelectContent>
@@ -208,6 +209,27 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     queryKey: ['/api/categories'],
   });
 
+  const categorySubs = useMemo(() => {
+    if (categories.length === 0) return FALLBACK_CATEGORY_SUBS;
+    const map: Record<string, string[]> = {};
+    categories.forEach((cat: any) => {
+      if (!map[cat.type]) map[cat.type] = [];
+      if (cat.subtype && !map[cat.type].includes(cat.subtype)) {
+        map[cat.type].push(cat.subtype);
+      }
+    });
+    return map;
+  }, [categories]);
+
+  const taxableTypes = useMemo(() => {
+    if (categories.length === 0) return new Set(["Asset"]);
+    const set = new Set<string>();
+    categories.forEach((cat: any) => {
+      if (cat.taxable) set.add(cat.type);
+    });
+    return set;
+  }, [categories]);
+
   const addExpenseMutation = useMutation({
     mutationFn: async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
       const res = await apiRequest('POST', '/api/expenses', expense);
@@ -258,8 +280,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     addExpenseMutation.mutate({
       date: dateToUse,
       recordDate: dateToUse,
-      category: "Grocery",
-      subCategory: "Vegetables",
+      category: Object.keys(categorySubs)[0] || "Grocery",
+      subCategory: categorySubs[Object.keys(categorySubs)[0]]?.[0] || "",
       item: "",
       qty: "1",
       price: "0",
@@ -372,6 +394,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                         onUpdate={handleUpdate}
                         onDelete={handleDelete}
                         isDeleting={deleteExpenseMutation.isPending}
+                        categorySubs={categorySubs}
+                        taxableTypes={taxableTypes}
                       />
                     ))}
                   </TableBody>

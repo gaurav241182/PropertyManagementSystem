@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +69,8 @@ export default function AdminSettings() {
   })();
 
   const [newCategory, setNewCategory] = useState({ type: "", subtype: "", item: "", taxable: false });
+  const [editingCategory, setEditingCategory] = useState<{ id: number; type: string; subtype: string; item: string; taxable: boolean } | null>(null);
+  const [editCategoryDialogOpen, setEditCategoryDialogOpen] = useState(false);
 
   const [isRoomTypeDialogOpen, setIsRoomTypeDialogOpen] = useState(false);
   const [newRoomType, setNewRoomType] = useState<any>({
@@ -156,6 +158,15 @@ export default function AdminSettings() {
     },
   });
 
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: number; type: string; subtype: string; item: string; taxable: boolean }) => {
+      await apiRequest("PATCH", `/api/categories/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+    },
+  });
+
   const addFacilityMutation = useMutation({
     mutationFn: async (data: any) => {
       await apiRequest("POST", "/api/facilities", data);
@@ -202,17 +213,51 @@ export default function AdminSettings() {
   });
 
   const handleAddCategory = () => {
-    if (newCategory.type && newCategory.item) {
-      addCategoryMutation.mutate(
-        { type: newCategory.type, subtype: newCategory.subtype, item: newCategory.item, taxable: newCategory.taxable },
-        {
-          onSuccess: () => {
-            setNewCategory({ type: "", subtype: "", item: "", taxable: false });
-            toast({ title: "Category Added", description: "New category item has been added." });
-          },
-        }
-      );
+    if (!newCategory.type) {
+      toast({ title: "Validation Error", description: "Category type is required.", variant: "destructive" });
+      return;
     }
+    const duplicate = categories.find(
+      (c: any) => c.type.toLowerCase() === newCategory.type.toLowerCase() && c.subtype.toLowerCase() === (newCategory.subtype || "").toLowerCase()
+    );
+    if (duplicate) {
+      toast({ title: "Duplicate Category", description: "A category with the same type and subtype already exists.", variant: "destructive" });
+      return;
+    }
+    addCategoryMutation.mutate(
+      { type: newCategory.type, subtype: newCategory.subtype, item: newCategory.item, taxable: newCategory.taxable },
+      {
+        onSuccess: () => {
+          setNewCategory({ type: "", subtype: "", item: "", taxable: false });
+          toast({ title: "Category Added", description: "New category item has been added." });
+        },
+      }
+    );
+  };
+
+  const handleEditCategory = () => {
+    if (!editingCategory) return;
+    if (!editingCategory.type) {
+      toast({ title: "Validation Error", description: "Category type is required.", variant: "destructive" });
+      return;
+    }
+    const duplicate = categories.find(
+      (c: any) => c.id !== editingCategory.id && c.type.toLowerCase() === editingCategory.type.toLowerCase() && c.subtype.toLowerCase() === (editingCategory.subtype || "").toLowerCase()
+    );
+    if (duplicate) {
+      toast({ title: "Duplicate Category", description: "A category with the same type and subtype already exists.", variant: "destructive" });
+      return;
+    }
+    updateCategoryMutation.mutate(
+      { id: editingCategory.id, type: editingCategory.type, subtype: editingCategory.subtype, item: editingCategory.item, taxable: editingCategory.taxable },
+      {
+        onSuccess: () => {
+          setEditingCategory(null);
+          setEditCategoryDialogOpen(false);
+          toast({ title: "Category Updated", description: "The category has been updated." });
+        },
+      }
+    );
   };
 
   const handleAddRoomType = () => {
@@ -1127,7 +1172,10 @@ export default function AdminSettings() {
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleAddCategory}>Save</Button>
+                      <Button onClick={handleAddCategory} disabled={addCategoryMutation.isPending}>
+                        {addCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -1152,8 +1200,9 @@ export default function AdminSettings() {
                         <TableCell>
                           {cat.taxable && <Badge variant="secondary" className="bg-amber-100 text-amber-800">Taxable</Badge>}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteCategory(cat.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingCategory({ id: cat.id, type: cat.type, subtype: cat.subtype || "", item: cat.item || "", taxable: cat.taxable }); setEditCategoryDialogOpen(true); }} data-testid={`button-edit-category-${cat.id}`}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteCategory(cat.id)} data-testid={`button-delete-category-${cat.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1161,6 +1210,40 @@ export default function AdminSettings() {
                 </Table>
               </CardContent>
             </Card>
+
+            <Dialog open={editCategoryDialogOpen} onOpenChange={setEditCategoryDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Category</DialogTitle>
+                </DialogHeader>
+                {editingCategory && (
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Input value={editingCategory.type} onChange={(e) => setEditingCategory({ ...editingCategory, type: e.target.value })} data-testid="input-edit-category-type" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Subtype</Label>
+                      <Input value={editingCategory.subtype} onChange={(e) => setEditingCategory({ ...editingCategory, subtype: e.target.value })} data-testid="input-edit-category-subtype" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Default Item Name</Label>
+                      <Input value={editingCategory.item} onChange={(e) => setEditingCategory({ ...editingCategory, item: e.target.value })} data-testid="input-edit-category-item" />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox id="edit-cat-taxable" checked={editingCategory.taxable} onCheckedChange={(checked) => setEditingCategory({ ...editingCategory, taxable: checked === true })} />
+                      <Label htmlFor="edit-cat-taxable">Taxable Item (Requires Invoice)</Label>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={handleEditCategory} disabled={updateCategoryMutation.isPending} data-testid="button-save-edit-category">
+                    {updateCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
           
           {/* Facilities */}
