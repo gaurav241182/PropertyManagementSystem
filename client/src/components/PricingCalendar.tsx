@@ -131,25 +131,35 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const endDate = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: startDate, end: endDate });
 
+  const pricingVersion = useMemo(() => {
+    return allPricing.map((p) => `${p.id}:${p.price}:${p.isLocked}`).join(",");
+  }, [allPricing]);
+
+  const monthKey = format(currentDate, "yyyy-MM");
+
   useEffect(() => {
     if (!selectedRoomTypeId) return;
+    const mStart = startOfMonth(currentDate);
+    const mEnd = endOfMonth(currentDate);
+    const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
+    const bp = basePrice;
     const newPrices: Record<string, string> = {};
     const newLocks: Record<string, boolean> = {};
-    days.forEach((day) => {
+    mDays.forEach((day) => {
       const dateKey = format(day, "yyyy-MM-dd");
       const existing = pricingMap[selectedRoomTypeId]?.[dateKey];
       if (existing) {
         newPrices[dateKey] = String(existing.price);
         newLocks[dateKey] = existing.isLocked;
       } else {
-        newPrices[dateKey] = basePrice;
+        newPrices[dateKey] = bp;
         newLocks[dateKey] = false;
       }
     });
     setLocalPrices(newPrices);
     setLocalLocks(newLocks);
     setDirtyKeys(new Set());
-  }, [selectedRoomTypeId, currentDate, allPricing]);
+  }, [selectedRoomTypeId, monthKey, pricingVersion]);
 
   const handlePriceChange = useCallback((dateKey: string, value: string) => {
     setLocalPrices((prev) => ({ ...prev, [dateKey]: value }));
