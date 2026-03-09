@@ -265,6 +265,20 @@ export const insertSalarySchema = createInsertSchema(salaries).omit({ id: true, 
 export type InsertSalary = z.infer<typeof insertSalarySchema>;
 export type Salary = typeof salaries.$inferSelect;
 
+// ============= ROOM PRICING (Per-date rates) =============
+export const roomPricing = pgTable("room_pricing", {
+  id: serial("id").primaryKey(),
+  roomTypeId: integer("room_type_id").notNull(),
+  date: date("date").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
+  isLocked: boolean("is_locked").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRoomPricingSchema = createInsertSchema(roomPricing).omit({ id: true, createdAt: true });
+export type InsertRoomPricing = z.infer<typeof insertRoomPricingSchema>;
+export type RoomPricing = typeof roomPricing.$inferSelect;
+
 // ============= BOOKING CHARGES (Auto-linked from orders) =============
 export const bookingCharges = pgTable("booking_charges", {
   id: serial("id").primaryKey(),

@@ -575,5 +575,64 @@ export async function registerRoutes(
     res.status(201).json(data);
   });
 
+  // ============= ROOM PRICING =============
+  app.get("/api/room-pricing", async (req, res) => {
+    const roomTypeId = req.query.roomTypeId ? Number(req.query.roomTypeId) : undefined;
+    const data = await storage.getRoomPricing(roomTypeId);
+    res.json(data);
+  });
+
+  app.post("/api/room-pricing", async (req, res) => {
+    try {
+      const { roomTypeId, date, price, isLocked } = req.body;
+      if (!roomTypeId || !date || price === undefined) {
+        return res.status(400).json({ message: "roomTypeId, date, and price are required" });
+      }
+      const result = await storage.upsertRoomPricing({
+        roomTypeId,
+        date,
+        price: String(price),
+        isLocked: isLocked ?? false,
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/room-pricing/bulk", async (req, res) => {
+    try {
+      const items = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Request body must be a non-empty array" });
+      }
+      const mapped = items.map((item: any) => ({
+        roomTypeId: item.roomTypeId,
+        date: item.date,
+        price: String(item.price),
+        isLocked: item.isLocked ?? false,
+      }));
+      const results = await storage.bulkUpsertRoomPricing(mapped);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/room-pricing/:id/lock", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { isLocked } = req.body;
+      if (typeof isLocked !== "boolean") {
+        return res.status(400).json({ message: "isLocked must be a boolean" });
+      }
+      const result = await storage.updateRoomPricingLock(id, isLocked);
+      if (!result) return res.status(404).json({ message: "Pricing record not found" });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

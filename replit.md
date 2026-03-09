@@ -30,7 +30,7 @@ client/src/components/ - Reusable UI components
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table
 
 ## Database Tables
-hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges
+hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing
 
 ## Authentication
 - Session-based auth using express-session (in-memory store)
@@ -63,3 +63,9 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
 - 2026-02-19: Salary schema extended with advanceAmount and dueDate fields
 - 2026-02-19: Due date auto-set to end of month when salary record is created
 - 2026-02-19: Advance payment system: POST /api/salaries/:id/advance - records advance, auto-marks paid when advance >= salary, overflows to next month
+- 2026-03-09: Room Pricing system - new `room_pricing` table (roomTypeId, date, price, isLocked)
+  - API: GET /api/room-pricing, POST /api/room-pricing, POST /api/room-pricing/bulk, PATCH /api/room-pricing/:id/lock
+  - PricingCalendar redesigned: card-based monthly grid (7-col calendar), room type selector, per-day price editing
+  - Lock/unlock rates per day (locked rates cannot be overwritten by bulk updates)
+  - Bulk Update dialog: select multiple months, set separate weekday/weekend prices, respects locked dates
+  - Save Changes persists only dirty (changed) prices to database via bulk upsert

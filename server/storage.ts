@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, facilities, orders, orderItems, settings, salaries,
-  bookingCharges,
+  bookingCharges, roomPricing,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -19,6 +19,7 @@ import {
   type InsertSetting, type Setting,
   type InsertSalary, type Salary,
   type InsertBookingCharge, type BookingCharge,
+  type InsertRoomPricing, type RoomPricing,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -114,6 +115,12 @@ export interface IStorage {
   // Booking Charges
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
   createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge>;
+
+  // Room Pricing
+  getRoomPricing(roomTypeId?: number): Promise<RoomPricing[]>;
+  upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing>;
+  bulkUpsertRoomPricing(data: InsertRoomPricing[]): Promise<RoomPricing[]>;
+  updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -382,6 +389,42 @@ export class DatabaseStorage implements IStorage {
   }
   async createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge> {
     const [result] = await db.insert(bookingCharges).values(data).returning();
+    return result;
+  }
+
+  // Room Pricing
+  async getRoomPricing(roomTypeId?: number): Promise<RoomPricing[]> {
+    if (roomTypeId) {
+      return db.select().from(roomPricing).where(eq(roomPricing.roomTypeId, roomTypeId)).orderBy(roomPricing.date);
+    }
+    return db.select().from(roomPricing).orderBy(roomPricing.roomTypeId, roomPricing.date);
+  }
+
+  async upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing> {
+    const [existing] = await db.select().from(roomPricing)
+      .where(and(eq(roomPricing.roomTypeId, data.roomTypeId), eq(roomPricing.date, data.date)));
+    if (existing) {
+      const [result] = await db.update(roomPricing)
+        .set({ price: data.price, isLocked: data.isLocked })
+        .where(eq(roomPricing.id, existing.id))
+        .returning();
+      return result;
+    }
+    const [result] = await db.insert(roomPricing).values(data).returning();
+    return result;
+  }
+
+  async bulkUpsertRoomPricing(dataArr: InsertRoomPricing[]): Promise<RoomPricing[]> {
+    const results: RoomPricing[] = [];
+    for (const data of dataArr) {
+      const result = await this.upsertRoomPricing(data);
+      results.push(result);
+    }
+    return results;
+  }
+
+  async updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined> {
+    const [result] = await db.update(roomPricing).set({ isLocked }).where(eq(roomPricing.id, id)).returning();
     return result;
   }
 }
