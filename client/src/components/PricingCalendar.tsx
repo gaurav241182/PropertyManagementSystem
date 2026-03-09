@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,24 +25,26 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  // Mock initial data (if empty)
-  if (Object.keys(prices).length === 0) {
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (initialized.current || roomTypes.length === 0) return;
+    initialized.current = true;
+
     const initialPrices: Record<string, Record<string, number>> = {};
     const initialAvail: Record<string, Record<string, number>> = {};
-    
+
     roomTypes.forEach(room => {
       initialPrices[room.id] = {};
       initialAvail[room.id] = {};
       days.forEach(day => {
         const dateKey = format(day, 'yyyy-MM-dd');
-        // Higher prices on weekends
         initialPrices[room.id][dateKey] = isWeekend(day) ? room.price * 1.2 : room.price;
-        initialAvail[room.id][dateKey] = Math.floor(Math.random() * room.capacity) + 1; // Random availability
+        initialAvail[room.id][dateKey] = Math.floor(Math.random() * room.capacity) + 1;
       });
     });
     setPrices(initialPrices);
     setAvailability(initialAvail);
-  }
+  }, [roomTypes]);
 
   const updatePrice = (roomId: string, date: string, newPrice: number) => {
     setPrices(prev => ({
