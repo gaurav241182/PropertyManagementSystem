@@ -72,8 +72,12 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
 - 2026-03-09: Categories tab redesigned with grouped category management
   - Category type is unique — each type has multiple subtypes with optional item names
   - Add Category form: enter type once + taxable flag, then add multiple subtypes via "+" button
-  - Edit Category: opens dialog with all subtypes for that type, add/remove subtypes, save syncs changes
+  - Each subtype can have multiple item names via nested "+" Add Item buttons
+  - Edit Category: opens dialog with all subtypes for that type, add/remove subtypes and items, save syncs changes
   - Table display groups rows by type with rowSpan, actions (edit/delete) per type group
   - Backend: POST /api/categories/bulk (create type with subtypes), PUT /api/categories/sync (sync subtypes), DELETE /api/categories/type/:type
   - Expenses page uses dynamic categories from DB (falls back to defaults if no DB categories exist)
+  - Expenses: Item Description is a dropdown populated from category items; shows text input when subcategory is "Others"
+  - Every category automatically gets "Others" as a subcategory option in expenses
   - Duplicate type prevention on both add and edit
+  - Subtype uniqueness enforced within a category type

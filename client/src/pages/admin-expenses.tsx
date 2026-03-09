@@ -21,13 +21,14 @@ const FALLBACK_CATEGORY_SUBS: Record<string, string[]> = {
   "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
 };
 
-function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySubs, taxableTypes }: {
+function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySubs, categoryItems, taxableTypes }: {
   expense: Expense;
   role: string;
   onUpdate: (id: number, data: Record<string, any>) => void;
   onDelete: (id: number) => void;
   isDeleting: boolean;
   categorySubs: Record<string, string[]>;
+  categoryItems: Record<string, Record<string, string[]>>;
   taxableTypes: Set<string>;
 }) {
   const isTaxableCategory = (cat: string) => taxableTypes.has(cat);
@@ -97,7 +98,7 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
       <TableCell className="p-2">
         <Select
           value={expense.subCategory}
-          onValueChange={(val) => onUpdate(expense.id, { subCategory: val })}
+          onValueChange={(val) => { setLocalItem(""); onUpdate(expense.id, { subCategory: val, item: "" }); }}
         >
           <SelectTrigger className="h-8 w-full" data-testid={`select-subcategory-${expense.id}`}>
             <SelectValue placeholder="Select" />
@@ -110,14 +111,30 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
         </Select>
       </TableCell>
       <TableCell className="p-2">
-        <Input
-          value={localItem}
-          onChange={(e) => setLocalItem(e.target.value)}
-          onBlur={() => handleBlur('item', localItem)}
-          className="h-8 w-full font-medium"
-          placeholder="Item Description"
-          data-testid={`input-item-${expense.id}`}
-        />
+        {expense.subCategory === "Others" || !(categoryItems[expense.category]?.[expense.subCategory]?.length) ? (
+          <Input
+            value={localItem}
+            onChange={(e) => setLocalItem(e.target.value)}
+            onBlur={() => handleBlur('item', localItem)}
+            className="h-8 w-full font-medium"
+            placeholder="Item Description"
+            data-testid={`input-item-${expense.id}`}
+          />
+        ) : (
+          <Select
+            value={expense.item || ""}
+            onValueChange={(val) => { setLocalItem(val); onUpdate(expense.id, { item: val }); }}
+          >
+            <SelectTrigger className="h-8 w-full font-medium" data-testid={`select-item-${expense.id}`}>
+              <SelectValue placeholder="Select item" />
+            </SelectTrigger>
+            <SelectContent>
+              {(categoryItems[expense.category]?.[expense.subCategory] || []).map(item => (
+                <SelectItem key={item} value={item}>{item}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </TableCell>
       <TableCell className="p-2">
         <Input
@@ -216,6 +233,21 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
       if (!map[cat.type]) map[cat.type] = [];
       if (cat.subtype && !map[cat.type].includes(cat.subtype)) {
         map[cat.type].push(cat.subtype);
+      }
+    });
+    Object.keys(map).forEach(type => {
+      if (!map[type].includes("Others")) map[type].push("Others");
+    });
+    return map;
+  }, [categories]);
+
+  const categoryItems = useMemo(() => {
+    const map: Record<string, Record<string, string[]>> = {};
+    categories.forEach((cat: any) => {
+      if (!map[cat.type]) map[cat.type] = {};
+      if (!map[cat.type][cat.subtype]) map[cat.type][cat.subtype] = [];
+      if (cat.item && !map[cat.type][cat.subtype].includes(cat.item)) {
+        map[cat.type][cat.subtype].push(cat.item);
       }
     });
     return map;
@@ -395,6 +427,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                         onDelete={handleDelete}
                         isDeleting={deleteExpenseMutation.isPending}
                         categorySubs={categorySubs}
+                        categoryItems={categoryItems}
                         taxableTypes={taxableTypes}
                       />
                     ))}

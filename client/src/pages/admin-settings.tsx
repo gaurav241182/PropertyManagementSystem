@@ -71,12 +71,12 @@ export default function AdminSettings() {
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [newCategoryType, setNewCategoryType] = useState("");
   const [newCategoryTaxable, setNewCategoryTaxable] = useState(false);
-  const [newCategorySubtypes, setNewCategorySubtypes] = useState<Array<{ subtype: string; item: string }>>([{ subtype: "", item: "" }]);
+  const [newCategorySubtypes, setNewCategorySubtypes] = useState<Array<{ subtype: string; items: string[] }>>([{ subtype: "", items: [""] }]);
   const [editCategoryDialogOpen, setEditCategoryDialogOpen] = useState(false);
   const [editCategoryType, setEditCategoryType] = useState("");
   const [editCategoryOriginalType, setEditCategoryOriginalType] = useState("");
   const [editCategoryTaxable, setEditCategoryTaxable] = useState(false);
-  const [editCategorySubtypes, setEditCategorySubtypes] = useState<Array<{ id?: number; subtype: string; item: string }>>([]);
+  const [editCategorySubtypes, setEditCategorySubtypes] = useState<Array<{ subtype: string; items: Array<{ id?: number; name: string }> }>>([]);
 
   const [isRoomTypeDialogOpen, setIsRoomTypeDialogOpen] = useState(false);
   const [newRoomType, setNewRoomType] = useState<any>({
@@ -235,13 +235,23 @@ export default function AdminSettings() {
       toast({ title: "Validation Error", description: "Add at least one subtype.", variant: "destructive" });
       return;
     }
+    const subtypeNames = validSubtypes.map(s => s.subtype.trim().toLowerCase());
+    if (new Set(subtypeNames).size !== subtypeNames.length) {
+      toast({ title: "Duplicate Subtype", description: "Each subtype must be unique within a category.", variant: "destructive" });
+      return;
+    }
+    const flatSubtypes = validSubtypes.flatMap(s => {
+      const validItems = s.items.filter(i => i.trim());
+      if (validItems.length === 0) return [{ subtype: s.subtype.trim(), item: "" }];
+      return validItems.map(i => ({ subtype: s.subtype.trim(), item: i.trim() }));
+    });
     bulkAddCategoryMutation.mutate(
-      { type: newCategoryType.trim(), taxable: newCategoryTaxable, subtypes: validSubtypes },
+      { type: newCategoryType.trim(), taxable: newCategoryTaxable, subtypes: flatSubtypes },
       {
         onSuccess: () => {
           setNewCategoryType("");
           setNewCategoryTaxable(false);
-          setNewCategorySubtypes([{ subtype: "", item: "" }]);
+          setNewCategorySubtypes([{ subtype: "", items: [""] }]);
           setAddCategoryDialogOpen(false);
           toast({ title: "Category Added", description: "New category has been added." });
         },
@@ -259,8 +269,18 @@ export default function AdminSettings() {
       toast({ title: "Validation Error", description: "Add at least one subtype.", variant: "destructive" });
       return;
     }
+    const subtypeNames = validSubtypes.map(s => s.subtype.trim().toLowerCase());
+    if (new Set(subtypeNames).size !== subtypeNames.length) {
+      toast({ title: "Duplicate Subtype", description: "Each subtype must be unique within a category.", variant: "destructive" });
+      return;
+    }
+    const flatSubtypes = validSubtypes.flatMap(s => {
+      const validItems = s.items.filter(i => i.name.trim());
+      if (validItems.length === 0) return [{ id: s.items[0]?.id, subtype: s.subtype.trim(), item: "" }];
+      return validItems.map(i => ({ id: i.id, subtype: s.subtype.trim(), item: i.name.trim() }));
+    });
     syncCategoryMutation.mutate(
-      { type: editCategoryType.trim(), taxable: editCategoryTaxable, subtypes: validSubtypes },
+      { type: editCategoryType.trim(), taxable: editCategoryTaxable, subtypes: flatSubtypes },
       {
         onSuccess: () => {
           setEditCategoryDialogOpen(false);
@@ -284,7 +304,13 @@ export default function AdminSettings() {
     setEditCategoryOriginalType(type);
     setEditCategoryType(type);
     setEditCategoryTaxable(typeCategories[0].taxable);
-    setEditCategorySubtypes(typeCategories.map((c: any) => ({ id: c.id, subtype: c.subtype || "", item: c.item || "" })));
+    const subtypeMap: Record<string, Array<{ id?: number; name: string }>> = {};
+    typeCategories.forEach((c: any) => {
+      const st = c.subtype || "";
+      if (!subtypeMap[st]) subtypeMap[st] = [];
+      subtypeMap[st].push({ id: c.id, name: c.item || "" });
+    });
+    setEditCategorySubtypes(Object.entries(subtypeMap).map(([subtype, items]) => ({ subtype, items })));
     setEditCategoryDialogOpen(true);
   };
 
@@ -1147,7 +1173,7 @@ export default function AdminSettings() {
                   <CardTitle>Expense & Inventory Categories</CardTitle>
                   <CardDescription>Manage types, subtypes, and standard items.</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => { setNewCategoryType(""); setNewCategoryTaxable(false); setNewCategorySubtypes([{ subtype: "", item: "" }]); setAddCategoryDialogOpen(true); }} data-testid="button-add-category">
+                <Button size="sm" onClick={() => { setNewCategoryType(""); setNewCategoryTaxable(false); setNewCategorySubtypes([{ subtype: "", items: [""] }]); setAddCategoryDialogOpen(true); }} data-testid="button-add-category">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Category
                 </Button>
@@ -1199,7 +1225,7 @@ export default function AdminSettings() {
             </Card>
 
             <Dialog open={addCategoryDialogOpen} onOpenChange={setAddCategoryDialogOpen}>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Category</DialogTitle>
                 </DialogHeader>
@@ -1212,22 +1238,36 @@ export default function AdminSettings() {
                     <Checkbox id="new-cat-taxable" checked={newCategoryTaxable} onCheckedChange={(checked) => setNewCategoryTaxable(checked === true)} />
                     <Label htmlFor="new-cat-taxable">Taxable Category (Requires Invoice)</Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Subtypes</Label>
-                    <div className="space-y-2">
-                      {newCategorySubtypes.map((st, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Input placeholder="Subtype" value={st.subtype} onChange={(e) => { const updated = [...newCategorySubtypes]; updated[idx] = { ...updated[idx], subtype: e.target.value }; setNewCategorySubtypes(updated); }} className="flex-1" data-testid={`input-new-subtype-${idx}`} />
-                          <Input placeholder="Item name (optional)" value={st.item} onChange={(e) => { const updated = [...newCategorySubtypes]; updated[idx] = { ...updated[idx], item: e.target.value }; setNewCategorySubtypes(updated); }} className="flex-1" data-testid={`input-new-item-${idx}`} />
+                  <div className="space-y-3">
+                    <Label>Subtypes & Items</Label>
+                    {newCategorySubtypes.map((st, stIdx) => (
+                      <div key={stIdx} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Input placeholder="Subtype name" value={st.subtype} onChange={(e) => { const u = [...newCategorySubtypes]; u[stIdx] = { ...u[stIdx], subtype: e.target.value }; setNewCategorySubtypes(u); }} className="flex-1 font-medium" data-testid={`input-new-subtype-${stIdx}`} />
                           {newCategorySubtypes.length > 1 && (
-                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0" onClick={() => setNewCategorySubtypes(newCategorySubtypes.filter((_, i) => i !== idx))} data-testid={`button-remove-subtype-${idx}`}>
+                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0 h-8 w-8" onClick={() => setNewCategorySubtypes(newCategorySubtypes.filter((_, i) => i !== stIdx))} data-testid={`button-remove-subtype-${stIdx}`}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
-                      ))}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setNewCategorySubtypes([...newCategorySubtypes, { subtype: "", item: "" }])} data-testid="button-add-subtype">
+                        <div className="pl-4 space-y-1">
+                          {st.items.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex items-center gap-2">
+                              <Input placeholder="Item name (optional)" value={item} onChange={(e) => { const u = [...newCategorySubtypes]; const items = [...u[stIdx].items]; items[itemIdx] = e.target.value; u[stIdx] = { ...u[stIdx], items }; setNewCategorySubtypes(u); }} className="flex-1 h-8 text-sm" data-testid={`input-new-item-${stIdx}-${itemIdx}`} />
+                              {st.items.length > 1 && (
+                                <Button variant="ghost" size="icon" className="text-muted-foreground shrink-0 h-6 w-6" onClick={() => { const u = [...newCategorySubtypes]; u[stIdx] = { ...u[stIdx], items: u[stIdx].items.filter((_, i) => i !== itemIdx) }; setNewCategorySubtypes(u); }}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { const u = [...newCategorySubtypes]; u[stIdx] = { ...u[stIdx], items: [...u[stIdx].items, ""] }; setNewCategorySubtypes(u); }}>
+                            <Plus className="mr-1 h-3 w-3" /> Add Item
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setNewCategorySubtypes([...newCategorySubtypes, { subtype: "", items: [""] }])} data-testid="button-add-subtype">
                       <Plus className="mr-1 h-3 w-3" /> Add Subtype
                     </Button>
                   </div>
@@ -1242,7 +1282,7 @@ export default function AdminSettings() {
             </Dialog>
 
             <Dialog open={editCategoryDialogOpen} onOpenChange={setEditCategoryDialogOpen}>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[550px] max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Edit Category</DialogTitle>
                 </DialogHeader>
@@ -1255,22 +1295,36 @@ export default function AdminSettings() {
                     <Checkbox id="edit-cat-taxable" checked={editCategoryTaxable} onCheckedChange={(checked) => setEditCategoryTaxable(checked === true)} />
                     <Label htmlFor="edit-cat-taxable">Taxable Category (Requires Invoice)</Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Subtypes</Label>
-                    <div className="space-y-2">
-                      {editCategorySubtypes.map((st, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Input placeholder="Subtype" value={st.subtype} onChange={(e) => { const updated = [...editCategorySubtypes]; updated[idx] = { ...updated[idx], subtype: e.target.value }; setEditCategorySubtypes(updated); }} className="flex-1" data-testid={`input-edit-subtype-${idx}`} />
-                          <Input placeholder="Item name (optional)" value={st.item} onChange={(e) => { const updated = [...editCategorySubtypes]; updated[idx] = { ...updated[idx], item: e.target.value }; setEditCategorySubtypes(updated); }} className="flex-1" data-testid={`input-edit-item-${idx}`} />
+                  <div className="space-y-3">
+                    <Label>Subtypes & Items</Label>
+                    {editCategorySubtypes.map((st, stIdx) => (
+                      <div key={stIdx} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Input placeholder="Subtype name" value={st.subtype} onChange={(e) => { const u = [...editCategorySubtypes]; u[stIdx] = { ...u[stIdx], subtype: e.target.value }; setEditCategorySubtypes(u); }} className="flex-1 font-medium" data-testid={`input-edit-subtype-${stIdx}`} />
                           {editCategorySubtypes.length > 1 && (
-                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0" onClick={() => setEditCategorySubtypes(editCategorySubtypes.filter((_, i) => i !== idx))} data-testid={`button-remove-edit-subtype-${idx}`}>
+                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0 h-8 w-8" onClick={() => setEditCategorySubtypes(editCategorySubtypes.filter((_, i) => i !== stIdx))} data-testid={`button-remove-edit-subtype-${stIdx}`}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
-                      ))}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setEditCategorySubtypes([...editCategorySubtypes, { subtype: "", item: "" }])} data-testid="button-add-edit-subtype">
+                        <div className="pl-4 space-y-1">
+                          {st.items.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex items-center gap-2">
+                              <Input placeholder="Item name (optional)" value={item.name} onChange={(e) => { const u = [...editCategorySubtypes]; const items = [...u[stIdx].items]; items[itemIdx] = { ...items[itemIdx], name: e.target.value }; u[stIdx] = { ...u[stIdx], items }; setEditCategorySubtypes(u); }} className="flex-1 h-8 text-sm" data-testid={`input-edit-item-${stIdx}-${itemIdx}`} />
+                              {st.items.length > 1 && (
+                                <Button variant="ghost" size="icon" className="text-muted-foreground shrink-0 h-6 w-6" onClick={() => { const u = [...editCategorySubtypes]; u[stIdx] = { ...u[stIdx], items: u[stIdx].items.filter((_, i) => i !== itemIdx) }; setEditCategorySubtypes(u); }}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { const u = [...editCategorySubtypes]; u[stIdx] = { ...u[stIdx], items: [...u[stIdx].items, { name: "" }] }; setEditCategorySubtypes(u); }}>
+                            <Plus className="mr-1 h-3 w-3" /> Add Item
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => setEditCategorySubtypes([...editCategorySubtypes, { subtype: "", items: [{ name: "" }] }])} data-testid="button-add-edit-subtype">
                       <Plus className="mr-1 h-3 w-3" /> Add Subtype
                     </Button>
                   </div>
