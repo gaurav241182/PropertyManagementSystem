@@ -351,10 +351,39 @@ export async function registerRoutes(
     res.status(201).json(data);
   });
 
+  app.post("/api/categories/bulk", async (req, res) => {
+    const { type, taxable, subtypes } = req.body;
+    if (!type || !Array.isArray(subtypes)) {
+      return res.status(400).json({ message: "type and subtypes array required" });
+    }
+    const items = subtypes.map((s: any) => ({
+      type,
+      subtype: s.subtype || "",
+      item: s.item || "",
+      taxable: taxable || false,
+    }));
+    const data = await storage.createCategoriesBulk(items);
+    res.status(201).json(data);
+  });
+
+  app.put("/api/categories/sync", async (req, res) => {
+    const { type, taxable, subtypes } = req.body;
+    if (!type || !Array.isArray(subtypes)) {
+      return res.status(400).json({ message: "type and subtypes array required" });
+    }
+    const data = await storage.syncCategoryType(type, taxable || false, subtypes);
+    res.json(data);
+  });
+
   app.patch("/api/categories/:id", async (req, res) => {
     const data = await storage.updateCategory(Number(req.params.id), req.body);
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
+  });
+
+  app.delete("/api/categories/type/:type", async (req, res) => {
+    await storage.deleteCategoryByType(req.params.type);
+    res.status(204).send();
   });
 
   app.delete("/api/categories/:id", async (req, res) => {

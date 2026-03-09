@@ -69,9 +69,11 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Lock/unlock rates per day (locked rates cannot be overwritten by bulk updates)
   - Bulk Update dialog: select multiple months, set separate weekday/weekend prices, respects locked dates
   - Save Changes persists only dirty (changed) prices to database via bulk upsert
-- 2026-03-09: Categories tab improvements
-  - Duplicate prevention: cannot add category with same type+subtype combination
-  - Default Item Name field is now optional when adding/editing categories
-  - Save button shows loading spinner while saving
-  - Edit button added to each category row (opens edit dialog with PATCH /api/categories/:id)
-  - Expenses page now uses dynamic categories from DB instead of hardcoded CATEGORY_SUBS (falls back to defaults if no DB categories exist)
+- 2026-03-09: Categories tab redesigned with grouped category management
+  - Category type is unique — each type has multiple subtypes with optional item names
+  - Add Category form: enter type once + taxable flag, then add multiple subtypes via "+" button
+  - Edit Category: opens dialog with all subtypes for that type, add/remove subtypes, save syncs changes
+  - Table display groups rows by type with rowSpan, actions (edit/delete) per type group
+  - Backend: POST /api/categories/bulk (create type with subtypes), PUT /api/categories/sync (sync subtypes), DELETE /api/categories/type/:type
+  - Expenses page uses dynamic categories from DB (falls back to defaults if no DB categories exist)
+  - Duplicate type prevention on both add and edit

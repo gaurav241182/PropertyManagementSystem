@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -68,9 +68,15 @@ export default function AdminSettings() {
     }
   })();
 
-  const [newCategory, setNewCategory] = useState({ type: "", subtype: "", item: "", taxable: false });
-  const [editingCategory, setEditingCategory] = useState<{ id: number; type: string; subtype: string; item: string; taxable: boolean } | null>(null);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [newCategoryType, setNewCategoryType] = useState("");
+  const [newCategoryTaxable, setNewCategoryTaxable] = useState(false);
+  const [newCategorySubtypes, setNewCategorySubtypes] = useState<Array<{ subtype: string; item: string }>>([{ subtype: "", item: "" }]);
   const [editCategoryDialogOpen, setEditCategoryDialogOpen] = useState(false);
+  const [editCategoryType, setEditCategoryType] = useState("");
+  const [editCategoryOriginalType, setEditCategoryOriginalType] = useState("");
+  const [editCategoryTaxable, setEditCategoryTaxable] = useState(false);
+  const [editCategorySubtypes, setEditCategorySubtypes] = useState<Array<{ id?: number; subtype: string; item: string }>>([]);
 
   const [isRoomTypeDialogOpen, setIsRoomTypeDialogOpen] = useState(false);
   const [newRoomType, setNewRoomType] = useState<any>({
@@ -140,27 +146,27 @@ export default function AdminSettings() {
     },
   });
 
-  const addCategoryMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await apiRequest("POST", "/api/categories", data);
+  const bulkAddCategoryMutation = useMutation({
+    mutationFn: async (data: { type: string; taxable: boolean; subtypes: Array<{ subtype: string; item: string }> }) => {
+      await apiRequest("POST", "/api/categories/bulk", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
     },
   });
 
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/categories/${id}`);
+  const syncCategoryMutation = useMutation({
+    mutationFn: async (data: { type: string; taxable: boolean; subtypes: Array<{ id?: number; subtype: string; item: string }> }) => {
+      await apiRequest("PUT", "/api/categories/sync", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
     },
   });
 
-  const updateCategoryMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: number; type: string; subtype: string; item: string; taxable: boolean }) => {
-      await apiRequest("PATCH", `/api/categories/${id}`, data);
+  const deleteCategoryTypeMutation = useMutation({
+    mutationFn: async (type: string) => {
+      await apiRequest("DELETE", `/api/categories/type/${encodeURIComponent(type)}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
@@ -213,51 +219,73 @@ export default function AdminSettings() {
   });
 
   const handleAddCategory = () => {
-    if (!newCategory.type) {
+    if (!newCategoryType.trim()) {
       toast({ title: "Validation Error", description: "Category type is required.", variant: "destructive" });
       return;
     }
     const duplicate = categories.find(
-      (c: any) => c.type.toLowerCase() === newCategory.type.toLowerCase()
+      (c: any) => c.type.toLowerCase() === newCategoryType.trim().toLowerCase()
     );
     if (duplicate) {
-      toast({ title: "Duplicate Category", description: `A category with type "${newCategory.type}" already exists.`, variant: "destructive" });
+      toast({ title: "Duplicate Category", description: `A category with type "${newCategoryType}" already exists.`, variant: "destructive" });
       return;
     }
-    addCategoryMutation.mutate(
-      { type: newCategory.type, subtype: newCategory.subtype, item: newCategory.item, taxable: newCategory.taxable },
+    const validSubtypes = newCategorySubtypes.filter(s => s.subtype.trim());
+    if (validSubtypes.length === 0) {
+      toast({ title: "Validation Error", description: "Add at least one subtype.", variant: "destructive" });
+      return;
+    }
+    bulkAddCategoryMutation.mutate(
+      { type: newCategoryType.trim(), taxable: newCategoryTaxable, subtypes: validSubtypes },
       {
         onSuccess: () => {
-          setNewCategory({ type: "", subtype: "", item: "", taxable: false });
-          toast({ title: "Category Added", description: "New category item has been added." });
+          setNewCategoryType("");
+          setNewCategoryTaxable(false);
+          setNewCategorySubtypes([{ subtype: "", item: "" }]);
+          setAddCategoryDialogOpen(false);
+          toast({ title: "Category Added", description: "New category has been added." });
         },
       }
     );
   };
 
   const handleEditCategory = () => {
-    if (!editingCategory) return;
-    if (!editingCategory.type) {
+    if (!editCategoryType.trim()) {
       toast({ title: "Validation Error", description: "Category type is required.", variant: "destructive" });
       return;
     }
-    const duplicate = categories.find(
-      (c: any) => c.id !== editingCategory.id && c.type.toLowerCase() === editingCategory.type.toLowerCase()
-    );
-    if (duplicate) {
-      toast({ title: "Duplicate Category", description: `A category with type "${editingCategory.type}" already exists.`, variant: "destructive" });
+    const validSubtypes = editCategorySubtypes.filter(s => s.subtype.trim());
+    if (validSubtypes.length === 0) {
+      toast({ title: "Validation Error", description: "Add at least one subtype.", variant: "destructive" });
       return;
     }
-    updateCategoryMutation.mutate(
-      { id: editingCategory.id, type: editingCategory.type, subtype: editingCategory.subtype, item: editingCategory.item, taxable: editingCategory.taxable },
+    syncCategoryMutation.mutate(
+      { type: editCategoryType.trim(), taxable: editCategoryTaxable, subtypes: validSubtypes },
       {
         onSuccess: () => {
-          setEditingCategory(null);
           setEditCategoryDialogOpen(false);
-          toast({ title: "Category Updated", description: "The category has been updated." });
+          toast({ title: "Category Updated", description: "Category has been updated." });
         },
       }
     );
+  };
+
+  const handleDeleteCategoryType = (type: string) => {
+    deleteCategoryTypeMutation.mutate(type, {
+      onSuccess: () => {
+        toast({ title: "Category Removed", description: `All "${type}" categories have been removed.` });
+      },
+    });
+  };
+
+  const handleOpenEditCategory = (type: string) => {
+    const typeCategories = categories.filter((c: any) => c.type === type);
+    if (typeCategories.length === 0) return;
+    setEditCategoryOriginalType(type);
+    setEditCategoryType(type);
+    setEditCategoryTaxable(typeCategories[0].taxable);
+    setEditCategorySubtypes(typeCategories.map((c: any) => ({ id: c.id, subtype: c.subtype || "", item: c.item || "" })));
+    setEditCategoryDialogOpen(true);
   };
 
   const handleAddRoomType = () => {
@@ -401,13 +429,6 @@ export default function AdminSettings() {
     });
   };
 
-  const handleDeleteCategory = (id: number) => {
-    deleteCategoryMutation.mutate(id, {
-      onSuccess: () => {
-        toast({ title: "Category Removed", description: "The category has been removed." });
-      },
-    });
-  };
 
   const handleSaveCurrency = (newCurrency: string) => {
     saveSettingMutation.mutate(
@@ -1126,59 +1147,10 @@ export default function AdminSettings() {
                   <CardTitle>Expense & Inventory Categories</CardTitle>
                   <CardDescription>Manage types, subtypes, and standard items.</CardDescription>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                     <Button size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Category
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Category Item</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Type</Label>
-                        <Input 
-                          placeholder="e.g. Grocery" 
-                          value={newCategory.type}
-                          onChange={(e) => setNewCategory({...newCategory, type: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Subtype</Label>
-                        <Input 
-                          placeholder="e.g. Vegetables" 
-                          value={newCategory.subtype}
-                          onChange={(e) => setNewCategory({...newCategory, subtype: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                         <Label>Default Item Name</Label>
-                         <Input 
-                           placeholder="e.g. Onion" 
-                           value={newCategory.item}
-                           onChange={(e) => setNewCategory({...newCategory, item: e.target.value})}
-                         />
-                      </div>
-                      <div className="flex items-center space-x-2 pt-2">
-                        <Checkbox 
-                          id="cat-taxable" 
-                          checked={newCategory.taxable}
-                          onCheckedChange={(checked) => setNewCategory({...newCategory, taxable: checked === true})}
-                        />
-                        <Label htmlFor="cat-taxable">Taxable Item (Requires Invoice)</Label>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleAddCategory} disabled={addCategoryMutation.isPending}>
-                        {addCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button size="sm" onClick={() => { setNewCategoryType(""); setNewCategoryTaxable(false); setNewCategorySubtypes([{ subtype: "", item: "" }]); setAddCategoryDialogOpen(true); }} data-testid="button-add-category">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Category
+                </Button>
               </CardHeader>
               <CardContent>
                   <Table>
@@ -1192,53 +1164,120 @@ export default function AdminSettings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((cat: any) => (
-                      <TableRow key={cat.id}>
-                        <TableCell>{cat.type}</TableCell>
-                        <TableCell>{cat.subtype}</TableCell>
-                        <TableCell className="font-medium">{cat.item}</TableCell>
-                        <TableCell>
-                          {cat.taxable && <Badge variant="secondary" className="bg-amber-100 text-amber-800">Taxable</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" onClick={() => { setEditingCategory({ id: cat.id, type: cat.type, subtype: cat.subtype || "", item: cat.item || "", taxable: cat.taxable }); setEditCategoryDialogOpen(true); }} data-testid={`button-edit-category-${cat.id}`}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteCategory(cat.id)} data-testid={`button-delete-category-${cat.id}`}><Trash2 className="h-4 w-4" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {(() => {
+                      const grouped: Record<string, any[]> = {};
+                      categories.forEach((cat: any) => {
+                        if (!grouped[cat.type]) grouped[cat.type] = [];
+                        grouped[cat.type].push(cat);
+                      });
+                      return Object.entries(grouped).map(([type, items]) => (
+                        items.map((cat: any, idx: number) => (
+                          <TableRow key={cat.id}>
+                            {idx === 0 ? (
+                              <TableCell rowSpan={items.length} className="align-top font-semibold border-r">{type}</TableCell>
+                            ) : null}
+                            <TableCell>{cat.subtype}</TableCell>
+                            <TableCell className="font-medium">{cat.item}</TableCell>
+                            {idx === 0 ? (
+                              <TableCell rowSpan={items.length} className="align-top border-l">
+                                {cat.taxable && <Badge variant="secondary" className="bg-amber-100 text-amber-800">Taxable</Badge>}
+                              </TableCell>
+                            ) : null}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={items.length} className="text-right align-top border-l space-x-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenEditCategory(type)} data-testid={`button-edit-category-${type}`}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteCategoryType(type)} data-testid={`button-delete-category-${type}`}><Trash2 className="h-4 w-4" /></Button>
+                              </TableCell>
+                            ) : null}
+                          </TableRow>
+                        ))
+                      ));
+                    })()}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
 
+            <Dialog open={addCategoryDialogOpen} onOpenChange={setAddCategoryDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Category</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Category Type</Label>
+                    <Input placeholder="e.g. Grocery" value={newCategoryType} onChange={(e) => setNewCategoryType(e.target.value)} data-testid="input-new-category-type" />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="new-cat-taxable" checked={newCategoryTaxable} onCheckedChange={(checked) => setNewCategoryTaxable(checked === true)} />
+                    <Label htmlFor="new-cat-taxable">Taxable Category (Requires Invoice)</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subtypes</Label>
+                    <div className="space-y-2">
+                      {newCategorySubtypes.map((st, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Input placeholder="Subtype" value={st.subtype} onChange={(e) => { const updated = [...newCategorySubtypes]; updated[idx] = { ...updated[idx], subtype: e.target.value }; setNewCategorySubtypes(updated); }} className="flex-1" data-testid={`input-new-subtype-${idx}`} />
+                          <Input placeholder="Item name (optional)" value={st.item} onChange={(e) => { const updated = [...newCategorySubtypes]; updated[idx] = { ...updated[idx], item: e.target.value }; setNewCategorySubtypes(updated); }} className="flex-1" data-testid={`input-new-item-${idx}`} />
+                          {newCategorySubtypes.length > 1 && (
+                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0" onClick={() => setNewCategorySubtypes(newCategorySubtypes.filter((_, i) => i !== idx))} data-testid={`button-remove-subtype-${idx}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setNewCategorySubtypes([...newCategorySubtypes, { subtype: "", item: "" }])} data-testid="button-add-subtype">
+                      <Plus className="mr-1 h-3 w-3" /> Add Subtype
+                    </Button>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleAddCategory} disabled={bulkAddCategoryMutation.isPending} data-testid="button-save-category">
+                    {bulkAddCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={editCategoryDialogOpen} onOpenChange={setEditCategoryDialogOpen}>
-              <DialogContent>
+              <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Edit Category</DialogTitle>
                 </DialogHeader>
-                {editingCategory && (
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Type</Label>
-                      <Input value={editingCategory.type} onChange={(e) => setEditingCategory({ ...editingCategory, type: e.target.value })} data-testid="input-edit-category-type" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Subtype</Label>
-                      <Input value={editingCategory.subtype} onChange={(e) => setEditingCategory({ ...editingCategory, subtype: e.target.value })} data-testid="input-edit-category-subtype" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Default Item Name</Label>
-                      <Input value={editingCategory.item} onChange={(e) => setEditingCategory({ ...editingCategory, item: e.target.value })} data-testid="input-edit-category-item" />
-                    </div>
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox id="edit-cat-taxable" checked={editingCategory.taxable} onCheckedChange={(checked) => setEditingCategory({ ...editingCategory, taxable: checked === true })} />
-                      <Label htmlFor="edit-cat-taxable">Taxable Item (Requires Invoice)</Label>
-                    </div>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Category Type</Label>
+                    <Input value={editCategoryType} onChange={(e) => setEditCategoryType(e.target.value)} data-testid="input-edit-category-type" />
                   </div>
-                )}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="edit-cat-taxable" checked={editCategoryTaxable} onCheckedChange={(checked) => setEditCategoryTaxable(checked === true)} />
+                    <Label htmlFor="edit-cat-taxable">Taxable Category (Requires Invoice)</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subtypes</Label>
+                    <div className="space-y-2">
+                      {editCategorySubtypes.map((st, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Input placeholder="Subtype" value={st.subtype} onChange={(e) => { const updated = [...editCategorySubtypes]; updated[idx] = { ...updated[idx], subtype: e.target.value }; setEditCategorySubtypes(updated); }} className="flex-1" data-testid={`input-edit-subtype-${idx}`} />
+                          <Input placeholder="Item name (optional)" value={st.item} onChange={(e) => { const updated = [...editCategorySubtypes]; updated[idx] = { ...updated[idx], item: e.target.value }; setEditCategorySubtypes(updated); }} className="flex-1" data-testid={`input-edit-item-${idx}`} />
+                          {editCategorySubtypes.length > 1 && (
+                            <Button variant="ghost" size="icon" className="text-red-500 shrink-0" onClick={() => setEditCategorySubtypes(editCategorySubtypes.filter((_, i) => i !== idx))} data-testid={`button-remove-edit-subtype-${idx}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setEditCategorySubtypes([...editCategorySubtypes, { subtype: "", item: "" }])} data-testid="button-add-edit-subtype">
+                      <Plus className="mr-1 h-3 w-3" /> Add Subtype
+                    </Button>
+                  </div>
+                </div>
                 <DialogFooter>
-                  <Button onClick={handleEditCategory} disabled={updateCategoryMutation.isPending} data-testid="button-save-edit-category">
-                    {updateCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleEditCategory} disabled={syncCategoryMutation.isPending} data-testid="button-save-edit-category">
+                    {syncCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes
                   </Button>
                 </DialogFooter>

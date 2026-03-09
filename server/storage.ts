@@ -75,8 +75,11 @@ export interface IStorage {
   // Categories
   getCategories(): Promise<Category[]>;
   createCategory(data: InsertCategory): Promise<Category>;
+  createCategoriesBulk(items: InsertCategory[]): Promise<Category[]>;
   updateCategory(id: number, data: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<void>;
+  deleteCategoryByType(type: string): Promise<void>;
+  syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>): Promise<Category[]>;
 
   // Menu Items
   getMenuItems(): Promise<MenuItem[]>;
@@ -285,8 +288,34 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
     return result;
   }
+  async createCategoriesBulk(items: InsertCategory[]): Promise<Category[]> {
+    if (items.length === 0) return [];
+    return db.insert(categories).values(items).returning();
+  }
   async deleteCategory(id: number): Promise<void> {
     await db.delete(categories).where(eq(categories.id, id));
+  }
+  async deleteCategoryByType(type: string): Promise<void> {
+    await db.delete(categories).where(eq(categories.type, type));
+  }
+  async syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>): Promise<Category[]> {
+    const existing = await db.select().from(categories).where(eq(categories.type, type));
+    const existingIds = existing.map(e => e.id);
+    const incomingIds = subtypes.filter(s => s.id).map(s => s.id!);
+    const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        await db.delete(categories).where(eq(categories.id, id));
+      }
+    }
+    for (const s of subtypes) {
+      if (s.id) {
+        await db.update(categories).set({ subtype: s.subtype, item: s.item, taxable }).where(eq(categories.id, s.id));
+      } else {
+        await db.insert(categories).values({ type, subtype: s.subtype, item: s.item, taxable });
+      }
+    }
+    return db.select().from(categories).where(eq(categories.type, type));
   }
 
   // Menu Items
