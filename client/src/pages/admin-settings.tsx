@@ -218,10 +218,10 @@ export default function AdminSettings() {
       return;
     }
     const duplicate = categories.find(
-      (c: any) => c.type.toLowerCase() === newCategory.type.toLowerCase() && c.subtype.toLowerCase() === (newCategory.subtype || "").toLowerCase()
+      (c: any) => c.type.toLowerCase() === newCategory.type.toLowerCase()
     );
     if (duplicate) {
-      toast({ title: "Duplicate Category", description: "A category with the same type and subtype already exists.", variant: "destructive" });
+      toast({ title: "Duplicate Category", description: `A category with type "${newCategory.type}" already exists.`, variant: "destructive" });
       return;
     }
     addCategoryMutation.mutate(
@@ -242,10 +242,10 @@ export default function AdminSettings() {
       return;
     }
     const duplicate = categories.find(
-      (c: any) => c.id !== editingCategory.id && c.type.toLowerCase() === editingCategory.type.toLowerCase() && c.subtype.toLowerCase() === (editingCategory.subtype || "").toLowerCase()
+      (c: any) => c.id !== editingCategory.id && c.type.toLowerCase() === editingCategory.type.toLowerCase()
     );
     if (duplicate) {
-      toast({ title: "Duplicate Category", description: "A category with the same type and subtype already exists.", variant: "destructive" });
+      toast({ title: "Duplicate Category", description: `A category with type "${editingCategory.type}" already exists.`, variant: "destructive" });
       return;
     }
     updateCategoryMutation.mutate(
