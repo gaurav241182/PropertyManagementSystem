@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, gt, ne, or, inArray, notInArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
@@ -58,6 +58,7 @@ export interface IStorage {
   createBooking(data: InsertBooking): Promise<Booking>;
   updateBooking(id: number, data: Partial<InsertBooking>): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<void>;
+  getOverlappingBookings(roomId: number, checkIn: string, checkOut: string): Promise<Booking[]>;
 
   // Staff
   getStaff(): Promise<Staff[]>;
@@ -238,6 +239,17 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteBooking(id: number): Promise<void> {
     await db.delete(bookings).where(eq(bookings.id, id));
+  }
+  async getOverlappingBookings(roomId: number, checkIn: string, checkOut: string): Promise<Booking[]> {
+    return db.select().from(bookings).where(
+      and(
+        eq(bookings.roomId, roomId),
+        lt(bookings.checkIn, checkOut),
+        gt(bookings.checkOut, checkIn),
+        ne(bookings.status, "cancelled"),
+        ne(bookings.status, "checked_out")
+      )
+    );
   }
 
   // Staff

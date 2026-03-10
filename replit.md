@@ -96,6 +96,17 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - After selecting room type, booking form shows "Included (Free)" facilities and "Paid Add-ons" with checkboxes
   - Paid facility costs calculated per unit (night/person/item) and added to booking total
   - Selected paid facilities saved as booking_charges (category: "Facility") on booking creation
+- 2026-03-10: New Reservation redesigned as multi-step wizard (Booking.com style)
+  - Step 1: Dates & Guests — check-in/out with auto nights count, Adults/Children/Rooms +/- counters, child age dropdowns, pets toggle
+  - Step 2: Room Selection — rooms grouped by type, availability-based (greyed out if booked), multi-room selection with running total
+  - Step 3: Guest Details — name/phone/email required with inline validation, country code dropdown, paid facility add-ons, accompanying guests
+  - Step 4: Summary & Confirm — review all details before booking
+  - API: GET /api/rooms/availability?checkIn=&checkOut= returns rooms with availability status
+  - Backend validation: required fields return 400, duplicate room+date bookings return 409
+  - Storage: getOverlappingBookings(roomId, checkIn, checkOut) checks for booking conflicts
+  - Phone field: digits only, 9-16 length validation, country code Select dropdown (20 countries)
+  - Multiple rooms create individual booking records per room
+- 2026-03-10: Mobile card view for bookings list (block md:hidden), desktop table (hidden md:block)
 - 2026-03-10: Room inventory enhancements
   - Rooms schema: added `roomName` and `description` text fields
   - Add Room dialog: includes Room Name field alongside Room Number

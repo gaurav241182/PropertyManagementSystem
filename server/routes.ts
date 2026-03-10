@@ -199,8 +199,45 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.get("/api/rooms/availability", async (req, res) => {
+    const { checkIn, checkOut } = req.query;
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({ message: "checkIn and checkOut query parameters are required" });
+    }
+    const allRooms = await storage.getRooms();
+    const allBookings = await storage.getBookings();
+    const bookedRoomIds = new Set<number>();
+    for (const b of allBookings) {
+      if (b.status === "cancelled" || b.status === "checked_out") continue;
+      if (b.checkIn < (checkOut as string) && b.checkOut > (checkIn as string)) {
+        bookedRoomIds.add(b.roomId);
+      }
+    }
+    const result = allRooms.map(room => ({
+      ...room,
+      available: !bookedRoomIds.has(room.id) && room.status === "available"
+    }));
+    res.json(result);
+  });
+
   app.post("/api/bookings", async (req, res) => {
     const { facilityCharges, ...bookingData } = req.body;
+    const errors: string[] = [];
+    if (!bookingData.guestName) errors.push("Guest name is required");
+    if (!bookingData.roomId) errors.push("Room selection is required");
+    if (!bookingData.roomTypeId) errors.push("Room type is required");
+    if (!bookingData.checkIn) errors.push("Check-in date is required");
+    if (!bookingData.checkOut) errors.push("Check-out date is required");
+    if (bookingData.checkIn && bookingData.checkOut && bookingData.checkIn >= bookingData.checkOut) {
+      errors.push("Check-out date must be after check-in date");
+    }
+    if (errors.length > 0) {
+      return res.status(400).json({ message: errors.join(". ") });
+    }
+    const overlaps = await storage.getOverlappingBookings(bookingData.roomId, bookingData.checkIn, bookingData.checkOut);
+    if (overlaps.length > 0) {
+      return res.status(409).json({ message: `Room is already booked for the selected dates (conflicts with booking ${overlaps[0].bookingId})` });
+    }
     const data = await storage.createBooking(bookingData);
     if (facilityCharges && Array.isArray(facilityCharges) && facilityCharges.length > 0) {
       for (const charge of facilityCharges) {
