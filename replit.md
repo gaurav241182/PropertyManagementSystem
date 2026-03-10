@@ -110,7 +110,10 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
 - 2026-03-10: Mobile card view for bookings list (block md:hidden), desktop table (hidden md:block)
 - 2026-03-10: Booking status & invoice enhancements
   - Status labels: "Active" renamed to "Checked In", "Paid" badge shown alongside "Checked Out"
-  - Status reversals: Checked In → Booked (revert), Checked Out → Checked In (undo checkout), Payment reversal
+  - Status reversals: sequential order — Payment Reversal first, then Undo Checkout; Checked In → Booked (revert)
+  - All reversals require password verification via POST /api/auth/verify-password with warning dialog
+  - Check-in/check-out timestamps: `checkedInAt` and `checkedOutAt` columns on bookings table, auto-set on status change
+  - Timestamps shown in mobile cards, desktop table, view dialog, and checkout/invoice dialog
   - Delete button disabled for Checked In and Checked Out bookings
   - Booking charges: DELETE /api/booking-charges/:id endpoint, trash icon per charge in checkout dialog, live updates
   - Tax calculation: per-category rates (Room 12%, Food 5%, Facility 18%) from settings, tax breakdown in checkout

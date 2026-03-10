@@ -55,6 +55,21 @@ export async function registerRoutes(
     res.json(req.session.user);
   });
 
+  app.post("/api/auth/verify-password", async (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" });
+    }
+    const user = await storage.getPlatformUserByEmail(req.session.user.email);
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+    res.json({ verified: true });
+  });
+
   app.post("/api/auth/seed", async (_req, res) => {
     try {
       const existingAdmin = await storage.getPlatformUserByEmail("admin@yellowberry.com");
@@ -253,7 +268,18 @@ export async function registerRoutes(
   });
 
   app.patch("/api/bookings/:id", async (req, res) => {
-    const data = await storage.updateBooking(Number(req.params.id), req.body);
+    const updates = { ...req.body };
+    if (updates.status === "checked_in" && !updates.checkedInAt) {
+      updates.checkedInAt = new Date();
+    }
+    if (updates.status === "checked_out" && !updates.checkedOutAt) {
+      updates.checkedOutAt = new Date();
+    }
+    if (updates.status === "confirmed") {
+      updates.checkedInAt = null;
+      updates.checkedOutAt = null;
+    }
+    const data = await storage.updateBooking(Number(req.params.id), updates);
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
   });

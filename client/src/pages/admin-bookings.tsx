@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -41,7 +42,9 @@ import {
   Undo2,
   RotateCcw,
   BadgeDollarSign,
-  FileCheck
+  FileCheck,
+  Clock,
+  ShieldAlert
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,7 +53,14 @@ import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const [isReversalDialogOpen, setIsReversalDialogOpen] = useState(false);
+  const [reversalPassword, setReversalPassword] = useState("");
+  const [reversalError, setReversalError] = useState("");
+  const [reversalVerifying, setReversalVerifying] = useState(false);
+  const [pendingReversal, setPendingReversal] = useState<{ booking: any; type: "payment" | "checkout" | "revert_booked" } | null>(null);
   
   const { data: bookingsData = [], isLoading: bookingsLoading } = useQuery<any[]>({ queryKey: ['/api/bookings'] });
   const { data: roomsData = [] } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
@@ -131,6 +141,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
       paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
       accompanyingGuests: [],
+      checkedInAt: b.checkedInAt,
+      checkedOutAt: b.checkedOutAt,
       status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Checked In" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
     };
   });
@@ -322,53 +334,97 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     );
   };
 
-  const handleRevertToBooked = (booking: any) => {
-    updateBookingMutation.mutate(
-      { id: booking.id, data: { status: "confirmed" } },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Status Reverted",
-            description: `Booking ${booking.bookingId} has been reverted to Booked status.`,
-          });
-        }
-      }
-    );
+  const openReversalDialog = (booking: any, type: "payment" | "checkout" | "revert_booked") => {
+    setPendingReversal({ booking, type });
+    setReversalPassword("");
+    setReversalError("");
+    setIsReversalDialogOpen(true);
   };
 
-  const handleRevertToCheckedIn = (booking: any) => {
-    updateBookingMutation.mutate(
-      { id: booking.id, data: { status: "checked_in" } },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Checkout Reversed",
-            description: `Booking ${booking.bookingId} has been reverted to Checked In.`,
-          });
-          if (checkoutBooking?.id === booking.id) {
-            setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
-          }
-        }
-      }
-    );
+  const getReversalWarning = () => {
+    if (!pendingReversal) return { title: "", description: "" };
+    const { type, booking } = pendingReversal;
+    if (type === "payment") return {
+      title: "Reverse Payment",
+      description: `This will reverse the payment for booking ${booking.bookingId} and set the status back to "Checked In". The guest's payment record will be undone. This action should only be performed if the payment was made in error or needs correction.`
+    };
+    if (type === "checkout") return {
+      title: "Undo Checkout",
+      description: `This will reverse the checkout for booking ${booking.bookingId} and set the status back to "Checked In". The checkout timestamp will be cleared and the room will be marked as occupied again.`
+    };
+    return {
+      title: "Revert to Booked",
+      description: `This will revert booking ${booking.bookingId} back to "Booked" status. The check-in timestamp will be cleared and the room will be released. Use this only if the guest has not actually arrived.`
+    };
   };
 
-  const handlePaymentReversal = (booking: any) => {
-    updateBookingMutation.mutate(
-      { id: booking.id, data: { status: "checked_in" } },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Payment Reversed",
-            description: `Payment for booking ${booking.bookingId} has been reversed. Status set back to Checked In.`,
-          });
-          if (checkoutBooking?.id === booking.id) {
-            setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
-          }
-          setIsCheckoutDialogOpen(false);
-        }
+  const executeReversal = async () => {
+    if (!pendingReversal) return;
+    setReversalVerifying(true);
+    setReversalError("");
+    try {
+      const res = await apiRequest("POST", "/api/auth/verify-password", { password: reversalPassword });
+      if (!res.ok) {
+        const err = await res.json();
+        setReversalError(err.message || "Incorrect password");
+        setReversalVerifying(false);
+        return;
       }
-    );
+    } catch {
+      setReversalError("Verification failed. Please try again.");
+      setReversalVerifying(false);
+      return;
+    }
+
+    const { booking, type } = pendingReversal;
+
+    if (type === "payment") {
+      updateBookingMutation.mutate(
+        { id: booking.id, data: { status: "checked_in", checkedOutAt: null } },
+        {
+          onSuccess: () => {
+            toast({ title: "Payment Reversed", description: `Payment for booking ${booking.bookingId} has been reversed. Status set back to Checked In.` });
+            if (checkoutBooking?.id === booking.id) {
+              setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
+            }
+            setIsCheckoutDialogOpen(false);
+            setIsReversalDialogOpen(false);
+            setPendingReversal(null);
+            setReversalVerifying(false);
+          },
+          onError: () => { setReversalVerifying(false); }
+        }
+      );
+    } else if (type === "checkout") {
+      updateBookingMutation.mutate(
+        { id: booking.id, data: { status: "checked_in", checkedOutAt: null } },
+        {
+          onSuccess: () => {
+            toast({ title: "Checkout Reversed", description: `Booking ${booking.bookingId} has been reverted to Checked In.` });
+            if (checkoutBooking?.id === booking.id) {
+              setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
+            }
+            setIsReversalDialogOpen(false);
+            setPendingReversal(null);
+            setReversalVerifying(false);
+          },
+          onError: () => { setReversalVerifying(false); }
+        }
+      );
+    } else {
+      updateBookingMutation.mutate(
+        { id: booking.id, data: { status: "confirmed" } },
+        {
+          onSuccess: () => {
+            toast({ title: "Status Reverted", description: `Booking ${booking.bookingId} has been reverted to Booked status.` });
+            setIsReversalDialogOpen(false);
+            setPendingReversal(null);
+            setReversalVerifying(false);
+          },
+          onError: () => { setReversalVerifying(false); }
+        }
+      );
+    }
   };
 
   const openChargeDialog = (id: string) => {
@@ -1168,6 +1224,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         <div className="truncate"><span className="text-muted-foreground">Type:</span> {booking.type}</div>
                         <div><span className="text-muted-foreground">In:</span> {booking.checkIn}</div>
                         <div><span className="text-muted-foreground">Out:</span> {booking.checkOut}</div>
+                        {booking.checkedInAt && (
+                          <div className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</div>
+                        )}
+                        {booking.checkedOutAt && (
+                          <div className="text-gray-500 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</div>
+                        )}
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <div>
@@ -1192,18 +1254,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <Button size="sm" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
                               <LogOut className="h-3 w-3 mr-1" /> Out
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => handleRevertToBooked(booking)}>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => openReversalDialog(booking, "revert_booked")}>
                               <Undo2 className="h-3 w-3 mr-1" /> Revert
                             </Button>
                           </>
                         )}
                         {booking.status === "Checked Out" && (
                           <>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => handleRevertToCheckedIn(booking)}>
-                              <RotateCcw className="h-3 w-3 mr-1" /> Undo
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-red-600" onClick={() => openReversalDialog(booking, "payment")}>
+                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse Pay
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-red-600" onClick={() => handlePaymentReversal(booking)}>
-                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => openReversalDialog(booking, "checkout")}>
+                              <RotateCcw className="h-3 w-3 mr-1" /> Undo Out
                             </Button>
                             <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
                               <FileCheck className="h-3 w-3 mr-1" /> Invoice
@@ -1269,6 +1331,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <div className="flex flex-col text-sm">
                               <span>In: {booking.checkIn}</span>
                               <span className="text-muted-foreground">Out: {booking.checkOut}</span>
+                              {booking.checkedInAt && (
+                                <span className="text-[10px] text-green-600 flex items-center gap-0.5 mt-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                              )}
+                              {booking.checkedOutAt && (
+                                <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1310,18 +1378,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                   <Button size="sm" className="h-8" onClick={() => openCheckoutDialog(booking)}>
                                     <LogOut className="h-3 w-3 mr-1" /> Out
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => handleRevertToBooked(booking)} title="Revert to Booked">
+                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => openReversalDialog(booking, "revert_booked")} title="Revert to Booked">
                                     <Undo2 className="h-3 w-3" />
                                   </Button>
                                 </>
                               )}
                               {booking.status === "Checked Out" && (
                                 <>
-                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => handleRevertToCheckedIn(booking)} title="Undo Checkout">
-                                    <RotateCcw className="h-3 w-3" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-8 text-red-600" onClick={() => handlePaymentReversal(booking)} title="Reverse Payment">
+                                  <Button size="sm" variant="ghost" className="h-8 text-red-600" onClick={() => openReversalDialog(booking, "payment")} title="Reverse Payment">
                                     <BadgeDollarSign className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => openReversalDialog(booking, "checkout")} title="Undo Checkout">
+                                    <RotateCcw className="h-3 w-3" />
                                   </Button>
                                   <Button size="sm" variant="outline" className="h-8" onClick={() => openCheckoutDialog(booking)} title="View Invoice">
                                     <FileCheck className="h-3 w-3 mr-1" /> Invoice
@@ -1442,6 +1510,27 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      )}
                   </div>
                 </div>
+
+                {(viewingBooking.checkedInAt || viewingBooking.checkedOutAt) && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewingBooking.checkedInAt && (
+                      <div className="space-y-1">
+                        <Label className="flex items-center gap-1"><Clock className="h-3 w-3" /> Check-In Time</Label>
+                        <div className="font-medium text-sm text-green-700">
+                          {new Date(viewingBooking.checkedInAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                        </div>
+                      </div>
+                    )}
+                    {viewingBooking.checkedOutAt && (
+                      <div className="space-y-1">
+                        <Label className="flex items-center gap-1"><Clock className="h-3 w-3" /> Check-Out Time</Label>
+                        <div className="font-medium text-sm text-gray-600">
+                          {new Date(viewingBooking.checkedOutAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Accompanying Guests */}
                 <div className="border-t pt-4">
@@ -1665,6 +1754,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    <div className="text-right">
                      <p className="text-sm font-medium">{checkoutBooking.checkIn} to {checkoutBooking.checkOut}</p>
                      <p className="text-xs text-muted-foreground">{checkoutBooking.nights || Math.ceil((new Date(checkoutBooking.checkOut).getTime() - new Date(checkoutBooking.checkIn).getTime()) / (1000 * 3600 * 24))} Nights</p>
+                     {checkoutBooking.checkedInAt && (
+                       <p className="text-xs text-green-600 mt-1 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> In: {new Date(checkoutBooking.checkedInAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</p>
+                     )}
+                     {checkoutBooking.checkedOutAt && (
+                       <p className="text-xs text-gray-500 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> Out: {new Date(checkoutBooking.checkedOutAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</p>
+                     )}
                    </div>
                 </div>
 
@@ -1828,7 +1923,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      </div>
 
                      <div className="border-t pt-3 mt-2">
-                       <Button variant="outline" size="sm" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={() => handlePaymentReversal(checkoutBooking)} data-testid="button-reverse-payment">
+                       <Button variant="outline" size="sm" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={() => openReversalDialog(checkoutBooking, "payment")} data-testid="button-reverse-payment">
                          <RotateCcw className="mr-2 h-4 w-4" /> Reverse Payment & Revert to Checked In
                        </Button>
                      </div>
@@ -1846,6 +1941,49 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   Pay & Checkout
                 </Button>
               )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isReversalDialogOpen} onOpenChange={(open) => { if (!open) { setIsReversalDialogOpen(false); setPendingReversal(null); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <ShieldAlert className="h-5 w-5" />
+                {getReversalWarning().title}
+              </DialogTitle>
+              <DialogDescription className="text-left pt-2">
+                {getReversalWarning().description}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                <p className="text-sm text-amber-800 font-medium">This action cannot be easily undone. Please verify your identity to proceed.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reversal-password">Enter your password to confirm</Label>
+                <Input
+                  id="reversal-password"
+                  type="password"
+                  placeholder="Your account password"
+                  value={reversalPassword}
+                  onChange={(e) => { setReversalPassword(e.target.value); setReversalError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && reversalPassword) executeReversal(); }}
+                  data-testid="input-reversal-password"
+                />
+                {reversalError && <p className="text-sm text-red-500">{reversalError}</p>}
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => { setIsReversalDialogOpen(false); setPendingReversal(null); }}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={executeReversal}
+                disabled={!reversalPassword || reversalVerifying}
+                data-testid="button-confirm-reversal"
+              >
+                {reversalVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm {getReversalWarning().title}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

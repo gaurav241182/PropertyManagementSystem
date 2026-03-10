@@ -97,10 +97,12 @@ export const bookings = pgTable("bookings", {
   advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   paymentMethod: text("payment_method").default("Cash"), // Cash, Card, UPI
   notes: text("notes"),
+  checkedInAt: timestamp("checked_in_at"),
+  checkedOutAt: timestamp("checked_out_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
+export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true, checkedInAt: true, checkedOutAt: true });
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
 
