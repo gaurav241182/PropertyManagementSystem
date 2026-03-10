@@ -1213,7 +1213,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             {booking.status}
                           </Badge>
                           {booking.status === "Checked Out" && (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 font-medium">
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 font-medium">
                               Paid
                             </Badge>
                           )}
@@ -1222,14 +1222,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <div className="grid grid-cols-2 gap-1 text-xs">
                         <div><span className="text-muted-foreground">Room:</span> {booking.room}</div>
                         <div className="truncate"><span className="text-muted-foreground">Type:</span> {booking.type}</div>
-                        <div><span className="text-muted-foreground">In:</span> {booking.checkIn}</div>
-                        <div><span className="text-muted-foreground">Out:</span> {booking.checkOut}</div>
-                        {booking.checkedInAt && (
-                          <div className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</div>
-                        )}
-                        {booking.checkedOutAt && (
-                          <div className="text-gray-500 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">In:</span> {booking.checkIn}
+                          {booking.checkedInAt && (
+                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Out:</span> {booking.checkOut}
+                          {booking.checkedOutAt && (
+                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <div>
@@ -1329,14 +1333,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col text-sm">
-                              <span>In: {booking.checkIn}</span>
-                              <span className="text-muted-foreground">Out: {booking.checkOut}</span>
-                              {booking.checkedInAt && (
-                                <span className="text-[10px] text-green-600 flex items-center gap-0.5 mt-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
-                              )}
-                              {booking.checkedOutAt && (
-                                <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
-                              )}
+                              <span className="flex items-center gap-1.5">
+                                In: {booking.checkIn}
+                                {booking.checkedInAt && (
+                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                                )}
+                              </span>
+                              <span className="text-muted-foreground flex items-center gap-1.5">
+                                Out: {booking.checkOut}
+                                {booking.checkedOutAt && (
+                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                                )}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1354,7 +1362,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                 {booking.status}
                               </Badge>
                               {booking.status === "Checked Out" && (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-medium">
+                                <Badge variant="secondary" className="bg-green-100 text-green-700 font-medium">
                                   <BadgeDollarSign className="h-3 w-3 mr-0.5" /> Paid
                                 </Badge>
                               )}
