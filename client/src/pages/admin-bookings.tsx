@@ -61,6 +61,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const [reversalError, setReversalError] = useState("");
   const [reversalVerifying, setReversalVerifying] = useState(false);
   const [pendingReversal, setPendingReversal] = useState<{ booking: any; type: "payment" | "checkout" | "revert_booked" } | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("default");
   
   const { data: bookingsData = [], isLoading: bookingsLoading } = useQuery<any[]>({ queryKey: ['/api/bookings'] });
   const { data: roomsData = [] } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
@@ -146,6 +150,35 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Checked In" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
     };
   });
+
+  const filteredBookings = bookings
+    .filter((b: any) => {
+      if (statusFilter !== "all") {
+        if (statusFilter === "confirmed" && b.status !== "Confirmed") return false;
+        if (statusFilter === "active" && b.status !== "Checked In") return false;
+        if (statusFilter === "checkout" && b.status !== "Checked Out") return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          (b.guest || "").toLowerCase().includes(q) ||
+          (b.bookingId || "").toLowerCase().includes(q) ||
+          (b.room || "").toLowerCase().includes(q) ||
+          (b.type || "").toLowerCase().includes(q) ||
+          (b.email || "").toLowerCase().includes(q) ||
+          (b.phone || "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a: any, b: any) => {
+      if (sortBy === "guest") return (a.guest || "").localeCompare(b.guest || "");
+      if (sortBy === "checkin") return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
+      if (sortBy === "checkout") return new Date(a.checkOut).getTime() - new Date(b.checkOut).getTime();
+      if (sortBy === "status") return (a.status || "").localeCompare(b.status || "");
+      if (sortBy === "room") return (a.room || "").localeCompare(b.room || "", undefined, { numeric: true });
+      return (b.id || 0) - (a.id || 0);
+    });
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -451,6 +484,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   };
 
   const handleDownloadInvoice = async (booking: any) => {
+    setIsDownloadingPdf(true);
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const html = generateInvoiceHTML(booking);
 
@@ -495,6 +529,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       }
     } finally {
       document.body.removeChild(iframe);
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -1362,10 +1397,16 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
                   <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search guest or booking ID..." className="pl-8 w-full sm:w-[250px]" />
+                  <Input
+                    placeholder="Search name, ID, room..."
+                    className="pl-8 w-full sm:w-[250px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    data-testid="input-search-bookings"
+                  />
                 </div>
-                <Select defaultValue="all">
-                  <SelectTrigger className="w-[120px] sm:w-[150px] shrink-0">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[120px] sm:w-[150px] shrink-0" data-testid="select-status-filter">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1386,7 +1427,24 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             ) : (
             <>
               <div className="block md:hidden space-y-3">
-                {bookings.map((booking: any) => {
+                <div className="flex items-center gap-2 pb-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Sort by:</span>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="h-8 text-xs w-[140px]" data-testid="select-sort-mobile">
+                      <SelectValue placeholder="Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="guest">Guest Name</SelectItem>
+                      <SelectItem value="room">Room</SelectItem>
+                      <SelectItem value="checkin">Check-in Date</SelectItem>
+                      <SelectItem value="checkout">Check-out Date</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs text-muted-foreground ml-auto">{filteredBookings.length} booking{filteredBookings.length !== 1 ? "s" : ""}</span>
+                </div>
+                {filteredBookings.map((booking: any) => {
                   const totals = calculateTotals(booking);
                   return (
                     <div key={booking.id} className="border rounded-lg p-3 space-y-2" data-testid={`card-booking-${booking.id}`}>
@@ -1502,7 +1560,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bookings.map((booking: any) => {
+                    {filteredBookings.map((booking: any) => {
                       const totals = calculateTotals(booking);
                       return (
                         <TableRow key={booking.id}>
@@ -2112,8 +2170,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         <Button variant="outline" size="sm" className="flex-1" onClick={() => handlePrintInvoice(checkoutBooking)} data-testid="button-print-invoice">
                           <Printer className="mr-2 h-4 w-4" /> Print Invoice
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(checkoutBooking)} data-testid="button-download-invoice">
-                          <Download className="mr-2 h-4 w-4" /> Download PDF
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(checkoutBooking)} disabled={isDownloadingPdf} data-testid="button-download-invoice">
+                          {isDownloadingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                          {isDownloadingPdf ? "Generating..." : "Download PDF"}
                         </Button>
                      </div>
                   </div>
