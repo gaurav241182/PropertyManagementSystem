@@ -642,6 +642,11 @@ export async function registerRoutes(
   });
 
   // ============= BOOKING CHARGES =============
+  app.get("/api/booking-charges", async (req, res) => {
+    const data = await storage.getAllBookingCharges();
+    res.json(data);
+  });
+
   app.get("/api/booking-charges/:bookingId", async (req, res) => {
     const data = await storage.getBookingCharges(req.params.bookingId);
     res.json(data);

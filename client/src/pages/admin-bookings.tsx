@@ -54,6 +54,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const { data: menuItemsData = [] } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
   const { data: facilitiesData = [] } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
   const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
+  const { data: allChargesData = [] } = useQuery<any[]>({ queryKey: ['/api/booking-charges'] });
 
   const getRoomNumber = (roomId: number) => {
     const room = roomsData.find((r: any) => r.id === roomId);
@@ -97,24 +98,35 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     price: parseFloat(item.price) || 0
   }));
 
-  const bookings = bookingsData.map((b: any) => ({
-    ...b,
-    amount: parseFloat(b.totalAmount) || 0,
-    advance: parseFloat(b.advanceAmount) || 0,
-    guest: `${b.guestName}${b.guestLastName ? ' ' + b.guestLastName : ''}`,
-    room: getRoomNumber(b.roomId),
-    type: getRoomTypeName(b.roomTypeId),
-    email: b.guestEmail || "",
-    phone: b.guestPhone || "",
-    phoneCountry: "+91",
-    taxes: (parseFloat(b.totalAmount) || 0) * 0.1,
-    charges: [] as any[],
-    source: "Direct",
-    bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
-    paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
-    accompanyingGuests: [],
-    status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Active" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
-  }));
+  const bookings = bookingsData.map((b: any) => {
+    const bookingCharges = allChargesData
+      .filter((c: any) => c.bookingId === b.bookingId)
+      .map((c: any) => ({
+        ...c,
+        item: c.description,
+        type: c.category,
+        amount: parseFloat(c.amount) || 0,
+        quantity: 1
+      }));
+    return {
+      ...b,
+      amount: parseFloat(b.totalAmount) || 0,
+      advance: parseFloat(b.advanceAmount) || 0,
+      guest: `${b.guestName}${b.guestLastName ? ' ' + b.guestLastName : ''}`,
+      room: getRoomNumber(b.roomId),
+      type: getRoomTypeName(b.roomTypeId),
+      email: b.guestEmail || "",
+      phone: b.guestPhone || "",
+      phoneCountry: "+91",
+      taxes: (parseFloat(b.totalAmount) || 0) * 0.1,
+      charges: bookingCharges,
+      source: "Direct",
+      bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
+      paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
+      accompanyingGuests: [],
+      status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Active" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
+    };
+  });
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {

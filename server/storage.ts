@@ -118,6 +118,7 @@ export interface IStorage {
 
   // Booking Charges
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
+  getAllBookingCharges(): Promise<BookingCharge[]>;
   createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge>;
 
   // Room Pricing
@@ -427,6 +428,9 @@ export class DatabaseStorage implements IStorage {
   // Booking Charges
   async getBookingCharges(bookingId: string): Promise<BookingCharge[]> {
     return db.select().from(bookingCharges).where(eq(bookingCharges.bookingId, bookingId)).orderBy(bookingCharges.createdAt);
+  }
+  async getAllBookingCharges(): Promise<BookingCharge[]> {
+    return db.select().from(bookingCharges).orderBy(bookingCharges.createdAt);
   }
   async createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge> {
     const [result] = await db.insert(bookingCharges).values(data).returning();
