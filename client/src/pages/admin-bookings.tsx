@@ -70,16 +70,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     return (settingsData as Record<string, string>)?.[key] || defaultValue;
   };
 
+  const currency = (settingsData as Record<string, string>)?.currency || "USD";
+  const taxes: any[] = (() => { try { return JSON.parse(getSetting('taxes', '[]')); } catch { return []; } })();
+  const parsedInvoiceSettings = (() => { try { return JSON.parse(getSetting('invoiceSettings', '{}')); } catch { return {}; } })();
   const invoiceSettings = {
     taxableItems: {
-      room: true,
-      food: true,
-      facility: true,
-      other: false
+      room: parsedInvoiceSettings?.taxableItems?.room ?? true,
+      food: parsedInvoiceSettings?.taxableItems?.food ?? true,
+      facility: parsedInvoiceSettings?.taxableItems?.facility ?? true,
+      other: parsedInvoiceSettings?.taxableItems?.other ?? false
     },
     autoSend: {
-      email: true,
-      whatsapp: false
+      email: parsedInvoiceSettings?.autoSend?.email ?? true,
+      whatsapp: parsedInvoiceSettings?.autoSend?.whatsapp ?? false
     }
   };
 
@@ -440,42 +443,73 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
+  const getTaxRateForCategory = (category: string): number => {
+    const matchedTax = taxes.find((t: any) => t.appliedTo === category);
+    if (matchedTax) return matchedTax.rate || 0;
+    const allTax = taxes.find((t: any) => t.appliedTo === "All");
+    if (allTax) return allTax.rate || 0;
+    if (category === "Room") return 12;
+    if (category === "Food") return 5;
+    if (category === "Facility") return 18;
+    return 0;
+  };
+
   const calculateTotals = (booking: any) => {
-    if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, tax: 0, total: 0, due: 0 };
+    if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, taxBreakdown: [], tax: 0, total: 0, due: 0 };
     
     const roomTotal = booking.amount;
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
     
-    let tax = 0;
+    const taxBreakdown: Array<{ label: string; amount: number; rate: number; baseAmount: number; taxable: boolean }> = [];
     
-    if (invoiceSettings.taxableItems.room) {
-      tax += booking.taxes;
-    }
+    const roomTaxRate = getTaxRateForCategory("Room");
+    const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
+    const roomTaxAmount = isRoomTaxable ? roomTotal * (roomTaxRate / 100) : 0;
+    taxBreakdown.push({
+      label: "Room Charges",
+      amount: roomTaxAmount,
+      rate: roomTaxRate,
+      baseAmount: roomTotal,
+      taxable: isRoomTaxable
+    });
 
     if (booking.charges) {
       booking.charges.forEach((charge: any) => {
         let isTaxable = false;
-        if (charge.type === 'Food' && invoiceSettings.taxableItems.food) isTaxable = true;
-        if (charge.type === 'Facility') {
+        let category = charge.type || "Other";
+        
+        if (category === 'Food' && invoiceSettings.taxableItems.food) {
+          isTaxable = true;
+        } else if (category === 'Facility') {
           const matchedFacility = facilitiesData.find((f: any) => charge.item && charge.item.includes(f.name));
           if (matchedFacility && matchedFacility.taxable) {
             isTaxable = true;
           } else if (!matchedFacility && invoiceSettings.taxableItems.facility) {
             isTaxable = true;
           }
+        } else if (category === 'Other' && invoiceSettings.taxableItems.other) {
+          isTaxable = true;
         }
         
-        if (isTaxable) {
-           tax += (charge.amount * 0.1);
-        }
+        const rate = getTaxRateForCategory(category);
+        const taxAmount = isTaxable && rate > 0 ? charge.amount * (rate / 100) : 0;
+        
+        taxBreakdown.push({
+          label: charge.item || category,
+          amount: taxAmount,
+          rate: rate,
+          baseAmount: charge.amount,
+          taxable: isTaxable && rate > 0
+        });
       });
     }
 
+    const tax = taxBreakdown.reduce((acc, item) => acc + item.amount, 0);
     const total = subtotal + tax;
     const due = total - booking.advance;
 
-    return { roomTotal, chargesTotal, subtotal, tax, total, due };
+    return { roomTotal, chargesTotal, subtotal, taxBreakdown, tax, total, due };
   };
 
   const openCheckoutDialog = (booking: any) => {
@@ -1540,7 +1574,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    {/* Room Charges */}
                    <div className="flex justify-between text-sm">
                       <span>Room Charges ({checkoutBooking.type})</span>
-                      <span className="font-medium">${checkoutBooking.amount.toFixed(2)}</span>
+                      <span className="font-medium">{currency} {checkoutBooking.amount.toFixed(2)}</span>
                    </div>
 
                    {/* Extra Charges */}
@@ -1561,7 +1595,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                               )}
                               {charge.item} (x{charge.quantity})
                             </span>
-                            <span>${charge.amount.toFixed(2)}</span>
+                            <span>{currency} {charge.amount.toFixed(2)}</span>
                          </div>
                        ))}
                      </div>
@@ -1571,20 +1605,47 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
                    <div className="flex justify-between text-sm">
                       <span>Subtotal</span>
-                      <span>${totals.subtotal.toFixed(2)}</span>
+                      <span>{currency} {totals.subtotal.toFixed(2)}</span>
                    </div>
-                   <div className="flex justify-between text-sm">
-                      <span>Taxes & Fees {(!invoiceSettings.taxableItems.room || !invoiceSettings.taxableItems.food) && <span className="text-xs text-muted-foreground">(Adjusted)</span>}</span>
-                      <span>${totals.tax.toFixed(2)}</span>
+
+                   {/* Tax Breakdown */}
+                   <div className="space-y-1 border-l-2 border-orange-200 pl-3 my-2">
+                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Tax Breakdown</p>
+                     {totals.taxBreakdown.filter((t: any) => t.taxable).length > 0 ? (
+                       totals.taxBreakdown.filter((t: any) => t.taxable).map((t: any, i: number) => (
+                         <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                           <span>{t.label} @ {t.rate}%</span>
+                           <span>{currency} {t.amount.toFixed(2)}</span>
+                         </div>
+                       ))
+                     ) : (
+                       <p className="text-xs text-muted-foreground">No taxable items</p>
+                     )}
+                     {totals.taxBreakdown.filter((t: any) => !t.taxable).length > 0 && (
+                       <>
+                         <p className="text-xs text-muted-foreground italic mt-1">Non-taxable:</p>
+                         {totals.taxBreakdown.filter((t: any) => !t.taxable).map((t: any, i: number) => (
+                           <div key={i} className="flex justify-between text-xs text-muted-foreground/60">
+                             <span>{t.label}</span>
+                             <span>--</span>
+                           </div>
+                         ))}
+                       </>
+                     )}
+                   </div>
+
+                   <div className="flex justify-between text-sm font-medium">
+                      <span>Total Tax</span>
+                      <span>{currency} {totals.tax.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm text-green-600">
                       <span>Advance Payment</span>
-                      <span>-${checkoutBooking.advance.toFixed(2)}</span>
+                      <span>-{currency} {checkoutBooking.advance.toFixed(2)}</span>
                    </div>
 
                    <div className="border-t pt-2 mt-2 flex justify-between items-center bg-muted/20 p-2 rounded">
                       <span className="font-bold text-lg">Total Due</span>
-                      <span className="font-bold text-lg text-primary">${totals.due.toFixed(2)}</span>
+                      <span className="font-bold text-lg text-primary">{currency} {totals.due.toFixed(2)}</span>
                    </div>
 
                    {/* Payment Method - Only show if not checked out */}
