@@ -115,6 +115,9 @@ export default function AdminSettings() {
     active: true
   });
 
+  const [isEditFacilityDialogOpen, setIsEditFacilityDialogOpen] = useState(false);
+  const [editFacility, setEditFacility] = useState<any>(null);
+
   const [isRestaurantItemDialogOpen, setIsRestaurantItemDialogOpen] = useState(false);
   const [newRestaurantItem, setNewRestaurantItem] = useState({
     name: "",
@@ -419,6 +422,45 @@ export default function AdminSettings() {
           setNewFacility({ name: "", price: 0, unit: "item", isFree: true, isDefault: false, taxable: false, active: true });
           toast({ title: "Facility Added", description: `${newFacility.name} is now available for booking.` });
         },
+      }
+    );
+  };
+
+  const openEditFacility = (facility: any) => {
+    setEditFacility({
+      id: facility.id,
+      name: facility.name,
+      price: parseFloat(facility.price) || 0,
+      unit: facility.unit || "item",
+      isFree: facility.isFree,
+      isDefault: facility.isDefault,
+      taxable: facility.taxable || false,
+      active: facility.active
+    });
+    setIsEditFacilityDialogOpen(true);
+  };
+
+  const handleSaveEditFacility = () => {
+    if (!editFacility) return;
+    updateFacilityMutation.mutate(
+      {
+        id: editFacility.id,
+        data: {
+          name: editFacility.name,
+          price: editFacility.isFree ? "0" : String(editFacility.price),
+          unit: editFacility.isFree ? "item" : editFacility.unit,
+          isFree: editFacility.isFree,
+          isDefault: editFacility.isDefault,
+          taxable: editFacility.taxable,
+          active: editFacility.active,
+        }
+      },
+      {
+        onSuccess: () => {
+          setIsEditFacilityDialogOpen(false);
+          setEditFacility(null);
+          toast({ title: "Facility Updated", description: `${editFacility.name} has been updated.` });
+        }
       }
     );
   };
@@ -1528,6 +1570,9 @@ export default function AdminSettings() {
                          </div>
                        </div>
                        <div className="flex items-center gap-2">
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditFacility(facility)} data-testid={`button-edit-facility-${facility.id}`}>
+                           <Pencil className="h-4 w-4" />
+                         </Button>
                          <Switch 
                             checked={facility.active} 
                             onCheckedChange={() => toggleFacility(facility.id)}
@@ -1547,6 +1592,65 @@ export default function AdminSettings() {
                 </div>
               </CardContent>
             </Card>
+
+            <Dialog open={isEditFacilityDialogOpen} onOpenChange={setIsEditFacilityDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Edit Facility</DialogTitle>
+                  <DialogDescription>Update facility details.</DialogDescription>
+                </DialogHeader>
+                {editFacility && (
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Facility Name</Label>
+                      <Input value={editFacility.name} onChange={(e) => setEditFacility({...editFacility, name: e.target.value})} data-testid="input-edit-facility-name" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch checked={editFacility.isDefault} onCheckedChange={(checked) => setEditFacility({...editFacility, isDefault: !!checked})} data-testid="switch-edit-facility-default" />
+                        <Label>Default (auto-included)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch checked={!editFacility.isFree} onCheckedChange={(checked) => setEditFacility({...editFacility, isFree: !checked})} data-testid="switch-edit-facility-paid" />
+                        <Label>Paid</Label>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="edit-facility-taxable" checked={editFacility.taxable} onCheckedChange={(checked) => setEditFacility({...editFacility, taxable: !!checked})} data-testid="checkbox-edit-facility-taxable" />
+                      <Label htmlFor="edit-facility-taxable">Taxable (tax will be applied during checkout)</Label>
+                    </div>
+                    {!editFacility.isFree && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Price ({currency})</Label>
+                          <Input type="number" placeholder="0.00" value={editFacility.price} onChange={(e) => setEditFacility({...editFacility, price: parseFloat(e.target.value)})} data-testid="input-edit-facility-price" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Unit</Label>
+                          <Select value={editFacility.unit} onValueChange={(val) => setEditFacility({...editFacility, unit: val})}>
+                            <SelectTrigger data-testid="select-edit-facility-unit"><SelectValue placeholder="Select Unit" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="item">Per Item</SelectItem>
+                              <SelectItem value="person">Per Person</SelectItem>
+                              <SelectItem value="night">Per Night</SelectItem>
+                              <SelectItem value="stay">Per Stay</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch checked={editFacility.active} onCheckedChange={(checked) => setEditFacility({...editFacility, active: !!checked})} data-testid="switch-edit-facility-active" />
+                      <Label>Active</Label>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsEditFacilityDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSaveEditFacility} data-testid="button-save-edit-facility">Save Changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
           
           {/* Restaurant Items */}
