@@ -695,11 +695,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
   return (
     <AdminLayout role={role}>
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-x-hidden">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Bookings & Reservations</h2>
-            <p className="text-muted-foreground">Manage guest reservations, charges, and checkouts.</p>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary">Bookings & Reservations</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">Manage guest reservations, charges, and checkouts.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
@@ -1110,19 +1110,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle>Active Bookings</CardTitle>
                 <CardDescription>View and manage all reservations.</CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none">
                   <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search guest or booking ID..." className="pl-8 w-[250px]" />
+                  <Input placeholder="Search guest or booking ID..." className="pl-8 w-full sm:w-[250px]" />
                 </div>
                 <Select defaultValue="all">
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[120px] sm:w-[150px] shrink-0">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1146,66 +1146,66 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                 {bookings.map((booking: any) => {
                   const totals = calculateTotals(booking);
                   return (
-                    <div key={booking.id} className="border rounded-lg p-4 space-y-3" data-testid={`card-booking-${booking.id}`}>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-medium">{booking.guest}</div>
+                    <div key={booking.id} className="border rounded-lg p-3 space-y-2" data-testid={`card-booking-${booking.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm truncate">{booking.guest}</div>
                           <div className="text-xs text-muted-foreground">{booking.bookingId}</div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="secondary" className={`font-medium text-xs ${booking.status === "Checked In" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge variant="secondary" className={`font-medium text-[10px] px-1.5 py-0.5 ${booking.status === "Checked In" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
                             {booking.status}
                           </Badge>
                           {booking.status === "Checked Out" && (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs font-medium">
-                              <BadgeDollarSign className="h-3 w-3 mr-0.5" /> Paid
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 font-medium">
+                              Paid
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-2 gap-1 text-xs">
                         <div><span className="text-muted-foreground">Room:</span> {booking.room}</div>
-                        <div><span className="text-muted-foreground">Type:</span> {booking.type}</div>
+                        <div className="truncate"><span className="text-muted-foreground">Type:</span> {booking.type}</div>
                         <div><span className="text-muted-foreground">In:</span> {booking.checkIn}</div>
                         <div><span className="text-muted-foreground">Out:</span> {booking.checkOut}</div>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-xs">
                         <div>
                           <span className="text-muted-foreground">Balance:</span> <span className="font-medium">{currency} {totals.due.toFixed(2)}</span>
                         </div>
-                        <Badge variant="outline">{booking.source}</Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{booking.source}</Badge>
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-1 border-t">
-                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openViewDialog(booking)}>
+                      <div className="flex flex-wrap gap-1.5 pt-1.5 border-t">
+                        <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2" onClick={() => openViewDialog(booking)}>
                           <Eye className="h-3 w-3 mr-1" /> View
                         </Button>
                         {booking.status === "Confirmed" && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs border-green-200 text-green-700" onClick={() => handleCheckIn(booking)}>
+                          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 border-green-200 text-green-700" onClick={() => handleCheckIn(booking)}>
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Check In
                           </Button>
                         )}
                         {booking.status === "Checked In" && (
                           <>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openChargeDialog(booking.bookingId)}>
+                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openChargeDialog(booking.bookingId)}>
                               <Plus className="h-3 w-3 mr-1" /> Charge
                             </Button>
-                            <Button size="sm" className="h-7 text-xs" onClick={() => openCheckoutDialog(booking)}>
+                            <Button size="sm" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
                               <LogOut className="h-3 w-3 mr-1" /> Out
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" onClick={() => handleRevertToBooked(booking)}>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => handleRevertToBooked(booking)}>
                               <Undo2 className="h-3 w-3 mr-1" /> Revert
                             </Button>
                           </>
                         )}
                         {booking.status === "Checked Out" && (
                           <>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" onClick={() => handleRevertToCheckedIn(booking)}>
-                              <RotateCcw className="h-3 w-3 mr-1" /> Undo Checkout
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => handleRevertToCheckedIn(booking)}>
+                              <RotateCcw className="h-3 w-3 mr-1" /> Undo
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => handlePaymentReversal(booking)}>
-                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse Payment
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-red-600" onClick={() => handlePaymentReversal(booking)}>
+                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openCheckoutDialog(booking)}>
+                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
                               <FileCheck className="h-3 w-3 mr-1" /> Invoice
                             </Button>
                           </>
@@ -1213,7 +1213,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         {role === "owner" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </AlertDialogTrigger>
