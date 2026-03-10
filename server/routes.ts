@@ -657,6 +657,11 @@ export async function registerRoutes(
     res.status(201).json(data);
   });
 
+  app.delete("/api/booking-charges/:id", async (req, res) => {
+    await storage.deleteBookingCharge(Number(req.params.id));
+    res.json({ success: true });
+  });
+
   // ============= ROOM PRICING =============
   app.get("/api/room-pricing", async (req, res) => {
     const roomTypeId = req.query.roomTypeId ? Number(req.query.roomTypeId) : undefined;

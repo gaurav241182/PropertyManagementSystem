@@ -182,6 +182,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   });
 
+  const deleteChargeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/booking-charges/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/booking-charges'] });
+      toast({ title: "Charge Removed", description: "The charge has been removed from this booking." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
   const [chargeType, setChargeType] = useState<"Restaurant" | "Facility">("Restaurant");
@@ -1522,8 +1535,20 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    {checkoutBooking.charges.length > 0 && (
                      <div className="space-y-2 border-l-2 pl-3 my-2">
                        {checkoutBooking.charges.map((charge: any, idx: number) => (
-                         <div key={idx} className="flex justify-between text-sm text-muted-foreground">
-                            <span>{charge.item} (x{charge.quantity})</span>
+                         <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground group">
+                            <span className="flex items-center gap-1">
+                              {charge.item} (x{charge.quantity})
+                              {checkoutBooking.status !== "Checked Out" && (
+                                <button
+                                  onClick={() => deleteChargeMutation.mutate(charge.id)}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 ml-1"
+                                  title="Remove this charge"
+                                  data-testid={`button-delete-charge-${charge.id}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </span>
                             <span>${charge.amount.toFixed(2)}</span>
                          </div>
                        ))}

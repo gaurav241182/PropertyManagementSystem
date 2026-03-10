@@ -436,6 +436,9 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.insert(bookingCharges).values(data).returning();
     return result;
   }
+  async deleteBookingCharge(id: number): Promise<void> {
+    await db.delete(bookingCharges).where(eq(bookingCharges.id, id));
+  }
 
   // Room Pricing
   async getRoomPricing(roomTypeId?: number): Promise<RoomPricing[]> {
