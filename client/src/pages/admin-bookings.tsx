@@ -311,6 +311,157 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }, 2000);
   };
 
+  const hotelName = getSetting("hotelName", "YellowBerry Hotel");
+  const hotelAddress = getSetting("hotelAddress", "");
+  const hotelPhone = getSetting("hotelPhone", "");
+  const hotelEmail = getSetting("hotelEmail", "");
+  const hotelGst = getSetting("hotelGst", "");
+
+  const generateInvoiceHTML = (booking: any) => {
+    const totals = calculateTotals(booking);
+    const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
+    const nights = booking.nights || Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 3600 * 24));
+    const checkedInStr = booking.checkedInAt ? new Date(booking.checkedInAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+    const checkedOutStr = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+    const invoiceDate = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleDateString(undefined, { dateStyle: "long" }) : new Date().toLocaleDateString(undefined, { dateStyle: "long" });
+
+    const chargeRows = [
+      { desc: `Room Charges — ${booking.type} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: booking.amount },
+      ...booking.charges.map((c: any) => ({ desc: `${c.type}: ${c.item}`, amount: c.amount }))
+    ];
+    const subtotal = chargeRows.reduce((s: number, r: any) => s + r.amount, 0);
+
+    const taxRows = totals.taxBreakdown.filter((t: any) => t.taxable);
+    const totalTax = totals.tax;
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Invoice ${invoiceNo}</title>
+<style>
+  @page { size: A4; margin: 15mm 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
+  .invoice { max-width: 800px; margin: 0 auto; padding: 30px 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a5632; padding-bottom: 20px; margin-bottom: 24px; }
+  .hotel-info h1 { font-size: 24px; color: #1a5632; margin-bottom: 2px; }
+  .hotel-info p { font-size: 11px; color: #666; }
+  .invoice-title { text-align: right; }
+  .invoice-title h2 { font-size: 28px; font-weight: 700; color: #1a5632; letter-spacing: 2px; text-transform: uppercase; }
+  .invoice-title p { font-size: 12px; color: #555; margin-top: 2px; }
+  .meta-section { display: flex; justify-content: space-between; margin-bottom: 24px; }
+  .meta-box { background: #f8faf9; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 18px; width: 48%; }
+  .meta-box h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin-bottom: 6px; }
+  .meta-box p { font-size: 12px; margin-bottom: 1px; }
+  .meta-box .val { font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  thead th { background: #1a5632; color: #fff; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; text-align: left; }
+  thead th:last-child { text-align: right; }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid #eee; font-size: 12px; }
+  tbody td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .totals { width: 320px; margin-left: auto; margin-bottom: 24px; }
+  .totals .row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; }
+  .totals .row.sub { border-top: 1px solid #ddd; padding-top: 8px; margin-top: 4px; }
+  .totals .row.grand { border-top: 2px solid #1a5632; padding-top: 10px; margin-top: 8px; font-size: 16px; font-weight: 700; color: #1a5632; }
+  .totals .row .label { color: #555; }
+  .totals .row.tax { font-size: 11px; color: #777; padding-left: 10px; }
+  .footer { border-top: 1px solid #ddd; padding-top: 16px; margin-top: 30px; display: flex; justify-content: space-between; }
+  .footer-left { font-size: 11px; color: #888; max-width: 55%; }
+  .footer-right { text-align: right; font-size: 11px; color: #888; }
+  .stamp { margin-top: 40px; text-align: right; }
+  .stamp p { font-size: 11px; color: #999; border-top: 1px solid #ccc; display: inline-block; padding-top: 4px; min-width: 180px; }
+  .stay-info { display: flex; gap: 30px; margin-bottom: 10px; font-size: 12px; color: #555; }
+  .stay-info span { display: flex; align-items: center; gap: 4px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+<div class="invoice">
+  <div class="header">
+    <div class="hotel-info">
+      <h1>${hotelName}</h1>
+      ${hotelAddress ? `<p>${hotelAddress}</p>` : ""}
+      ${hotelPhone ? `<p>Tel: ${hotelPhone}</p>` : ""}
+      ${hotelEmail ? `<p>${hotelEmail}</p>` : ""}
+      ${hotelGst ? `<p>GSTIN: ${hotelGst}</p>` : ""}
+    </div>
+    <div class="invoice-title">
+      <h2>Invoice</h2>
+      <p><strong>${invoiceNo}</strong></p>
+      <p>Date: ${invoiceDate}</p>
+    </div>
+  </div>
+
+  <div class="meta-section">
+    <div class="meta-box">
+      <h4>Bill To</h4>
+      <p class="val">${booking.guest}</p>
+      ${booking.email ? `<p>${booking.email}</p>` : ""}
+      ${booking.phone ? `<p>${booking.phone}</p>` : ""}
+    </div>
+    <div class="meta-box">
+      <h4>Stay Details</h4>
+      <p>Room: <span class="val">${booking.room}</span> — ${booking.type}</p>
+      <p>Check-in: <span class="val">${booking.checkIn}</span>${checkedInStr ? ` at ${checkedInStr.split(", ").pop()}` : ""}</p>
+      <p>Check-out: <span class="val">${booking.checkOut}</span>${checkedOutStr ? ` at ${checkedOutStr.split(", ").pop()}` : ""}</p>
+      <p>Duration: <span class="val">${nights} Night${nights !== 1 ? "s" : ""}</span> · ${booking.adults || 1} Adult${(booking.adults || 1) > 1 ? "s" : ""}${booking.children ? ` · ${booking.children} Child${booking.children > 1 ? "ren" : ""}` : ""}</p>
+      <p>Booking ID: <span class="val">${booking.bookingId}</span></p>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>#</th><th>Description</th><th>Amount (${currency})</th></tr></thead>
+    <tbody>
+      ${chargeRows.map((r: any, i: number) => `<tr><td>${i + 1}</td><td>${r.desc}</td><td>${r.amount.toFixed(2)}</td></tr>`).join("")}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row sub"><span class="label">Subtotal</span><span>${currency} ${subtotal.toFixed(2)}</span></div>
+    ${taxRows.map((t: any) => `<div class="row tax"><span class="label">${t.label} @ ${t.rate}%</span><span>${currency} ${t.amount.toFixed(2)}</span></div>`).join("")}
+    <div class="row"><span class="label">Total Tax</span><span>${currency} ${totalTax.toFixed(2)}</span></div>
+    ${booking.advance > 0 ? `<div class="row"><span class="label">Advance Paid</span><span>- ${currency} ${booking.advance.toFixed(2)}</span></div>` : ""}
+    <div class="row grand"><span>Total Due</span><span>${currency} ${totals.due.toFixed(2)}</span></div>
+    ${booking.paymentMethod ? `<div class="row" style="font-size:11px;color:#888;"><span class="label">Payment Method</span><span>${booking.paymentMethod}</span></div>` : ""}
+  </div>
+
+  <div class="stamp">
+    <p>Authorized Signature</p>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <p>Thank you for staying with us. We look forward to welcoming you again.</p>
+      <p style="margin-top:4px;">This is a computer-generated invoice. No signature is required.</p>
+    </div>
+    <div class="footer-right">
+      <p>${hotelName}</p>
+      ${hotelPhone ? `<p>${hotelPhone}</p>` : ""}
+    </div>
+  </div>
+</div>
+</body></html>`;
+  };
+
+  const handlePrintInvoice = (booking: any) => {
+    const html = generateInvoiceHTML(booking);
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.print(); }, 300);
+    }
+  };
+
+  const handleDownloadInvoice = (booking: any) => {
+    const html = generateInvoiceHTML(booking);
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    }
+  };
+
   const calculateAge = (dob: string) => {
     if (!dob) return "";
     try {
@@ -1922,18 +2073,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      </div>
 
                      <div className="flex gap-2 justify-center pt-2">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => { window.print(); }} data-testid="button-print-invoice">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handlePrintInvoice(checkoutBooking)} data-testid="button-print-invoice">
                           <Printer className="mr-2 h-4 w-4" /> Print Invoice
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1" data-testid="button-download-invoice">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownloadInvoice(checkoutBooking)} data-testid="button-download-invoice">
                           <Download className="mr-2 h-4 w-4" /> Download PDF
                         </Button>
-                     </div>
-
-                     <div className="border-t pt-3 mt-2">
-                       <Button variant="outline" size="sm" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={() => openReversalDialog(checkoutBooking, "payment")} data-testid="button-reverse-payment">
-                         <RotateCcw className="mr-2 h-4 w-4" /> Reverse Payment & Revert to Checked In
-                       </Button>
                      </div>
                   </div>
                 )}
