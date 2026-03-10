@@ -64,8 +64,10 @@ export type RoomType = typeof roomTypes.$inferSelect;
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
   roomNumber: text("room_number").notNull().unique(),
+  roomName: text("room_name").notNull().default(""),
   roomTypeId: integer("room_type_id").notNull(),
   floor: integer("floor").notNull().default(1),
+  description: text("description").notNull().default(""),
   status: text("status").notNull().default("available"), // available, occupied, maintenance, blocked
   createdAt: timestamp("created_at").defaultNow(),
 });

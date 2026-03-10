@@ -96,3 +96,8 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - After selecting room type, booking form shows "Included (Free)" facilities and "Paid Add-ons" with checkboxes
   - Paid facility costs calculated per unit (night/person/item) and added to booking total
   - Selected paid facilities saved as booking_charges (category: "Facility") on booking creation
+- 2026-03-10: Room inventory enhancements
+  - Rooms schema: added `roomName` and `description` text fields
+  - Add Room dialog: includes Room Name field alongside Room Number
+  - Edit Room dialog: shows room number as header (not dropdown), includes name, status, floor, description, photos, room properties with facilities
+  - Mobile card view for rooms (visible on small screens), desktop table view on md+

@@ -43,6 +43,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   const [selectedTypeData, setSelectedTypeData] = useState<any>(null);
 
   const [newRoomNumber, setNewRoomNumber] = useState("");
+  const [newRoomName, setNewRoomName] = useState("");
   const [newRoomFloor, setNewRoomFloor] = useState(1);
   const [newRoomDescription, setNewRoomDescription] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -65,17 +66,23 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     return roomTypes.find(t => t.id === roomTypeId);
   };
 
+  const getFacilitiesForRoomType = (roomTypeId: number) => {
+    const typeData = getRoomTypeData(roomTypeId);
+    if (!typeData) return [];
+    const rtFacilityIds: number[] = (() => { try { return JSON.parse(typeData.facilityIds || "[]"); } catch { return []; } })();
+    const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
+    const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
+    return allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id && f.active)).filter(Boolean);
+  };
+
   const createRoomMutation = useMutation({
-    mutationFn: async (data: { roomNumber: string; roomTypeId: number; floor: number; status: string }) => {
+    mutationFn: async (data: any) => {
       await apiRequest('POST', '/api/rooms', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
       setAddDialogOpen(false);
-      setNewRoomNumber("");
-      setRoomType("");
-      setNewRoomFloor(1);
-      setNewRoomDescription("");
+      resetAddForm();
       toast({ title: "Room Created", description: "New room has been added to the inventory." });
     },
     onError: (error: Error) => {
@@ -84,7 +91,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Room> }) => {
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
       await apiRequest('PATCH', `/api/rooms/${id}`, data);
     },
     onSuccess: () => {
@@ -110,6 +117,15 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     },
   });
 
+  const resetAddForm = () => {
+    setNewRoomNumber("");
+    setNewRoomName("");
+    setRoomType("");
+    setSelectedTypeData(null);
+    setNewRoomFloor(1);
+    setNewRoomDescription("");
+  };
+
   const handleBlockRoom = () => {
     if (!selectedRoom) return;
     setBlockDialogOpen(false);
@@ -121,7 +137,11 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   };
 
   const openEditDialog = (room: Room) => {
-    setEditingRoom({ ...room });
+    setEditingRoom({
+      ...room,
+      roomName: (room as any).roomName || "",
+      description: (room as any).description || "",
+    });
     setEditDialogOpen(true);
   };
 
@@ -131,9 +151,11 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
       id: editingRoom.id,
       data: {
         roomNumber: editingRoom.roomNumber,
+        roomName: editingRoom.roomName || "",
         roomTypeId: editingRoom.roomTypeId,
         floor: editingRoom.floor,
         status: editingRoom.status,
+        description: editingRoom.description || "",
       },
     });
   };
@@ -142,8 +164,10 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     if (!newRoomNumber || !roomType) return;
     createRoomMutation.mutate({
       roomNumber: newRoomNumber,
+      roomName: newRoomName,
       roomTypeId: Number(roomType),
       floor: newRoomFloor,
+      description: newRoomDescription,
       status: "available",
     });
   };
@@ -157,6 +181,60 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
       reserved: "Reserved",
     };
     return map[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const map: Record<string, string> = {
+      available: "bg-green-100 text-green-800 border-green-200",
+      occupied: "bg-blue-100 text-blue-800 border-blue-200",
+      maintenance: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      blocked: "bg-red-100 text-red-800 border-red-200",
+      reserved: "bg-purple-100 text-purple-800 border-purple-200",
+    };
+    return map[status] || "";
+  };
+
+  const renderFacilityBadges = (roomTypeId: number) => {
+    const assigned = getFacilitiesForRoomType(roomTypeId);
+    if (assigned.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {assigned.map((f: any) => (
+          <span key={f.id} className={`text-[10px] px-1.5 py-0.5 rounded ${f.isFree ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+            {f.name}{!f.isFree && ` (₹${Number(f.price).toFixed(0)}/${f.unit})`}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const renderRoomProperties = (typeData: any) => {
+    if (!typeData) return null;
+    return (
+      <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
+        <h4 className="font-medium text-sm flex items-center gap-2">
+          <BedDouble className="h-4 w-4" />
+          Room Properties
+        </h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Bed Configuration:</span>
+            <span className="font-medium">{typeData.beds}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Max Capacity:</span>
+            <span className="font-medium">{typeData.capacity} Persons</span>
+          </div>
+          {typeData.size && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Room Size:</span>
+              <span className="font-medium">{typeData.size}</span>
+            </div>
+          )}
+        </div>
+        {renderFacilityBadges(typeData.id)}
+      </div>
+    );
   };
 
   const isLoading = roomsLoading || roomTypesLoading;
@@ -182,13 +260,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
           
           {role === "owner" && (
           <Dialog open={addDialogOpen} onOpenChange={(open) => {
-              if (!open) {
-                setNewRoomNumber("");
-                setRoomType("");
-                setSelectedTypeData(null);
-                setNewRoomFloor(1);
-                setNewRoomDescription("");
-              }
+              if (!open) resetAddForm();
               setAddDialogOpen(open);
             }}>
             <DialogTrigger asChild>
@@ -203,11 +275,18 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                 <CardDescription>Create a new room in the inventory.</CardDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="roomNumber">Room Number</Label>
-                    <Input id="roomNumber" placeholder="e.g. 104" value={newRoomNumber} onChange={(e) => setNewRoomNumber(e.target.value)} />
+                    <Input id="roomNumber" placeholder="e.g. 104" value={newRoomNumber} onChange={(e) => setNewRoomNumber(e.target.value)} data-testid="input-room-number" />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="roomName">Room Name</Label>
+                    <Input id="roomName" placeholder="e.g. Ocean View Suite" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} data-testid="input-room-name" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">Room Type</Label>
                     <Select value={roomType} onValueChange={(val) => setRoomType(val)}>
@@ -221,64 +300,22 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-
-                {selectedTypeData && (
-                  <div className="bg-muted/30 p-4 rounded-lg space-y-3 border">
-                    <h4 className="font-medium text-sm flex items-center gap-2">
-                      <BedDouble className="h-4 w-4" />
-                      Room Properties
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bed Configuration:</span>
-                        <span className="font-medium">{selectedTypeData.beds}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Max Capacity:</span>
-                        <span className="font-medium">{selectedTypeData.capacity} Persons</span>
-                      </div>
-                      {selectedTypeData.size && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Room Size:</span>
-                          <span className="font-medium">{selectedTypeData.size}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {(() => {
-                      const rtFacilityIds: number[] = (() => { try { return JSON.parse(selectedTypeData.facilityIds || "[]"); } catch { return []; } })();
-                      const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
-                      const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
-                      const assignedFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id && f.active)).filter(Boolean);
-                      if (assignedFacilities.length === 0) return null;
-                      return (
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {assignedFacilities.map((f: any) => (
-                            <span key={f.id} className={`text-xs px-2 py-1 rounded-md ${f.isFree ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                              {f.name}{!f.isFree && ` (₹${Number(f.price).toFixed(0)}/${f.unit})`}
-                            </span>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Base Price ($/Night)</Label>
-                    <Input id="price" type="number" value={selectedTypeData ? Number(selectedTypeData.basePrice) : ""} disabled placeholder="0.00" />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="floor">Floor</Label>
                     <Input id="floor" type="number" value={newRoomFloor} onChange={(e) => setNewRoomFloor(parseInt(e.target.value) || 1)} placeholder="1" />
                   </div>
                 </div>
 
+                {renderRoomProperties(selectedTypeData)}
+
+                <div className="space-y-2">
+                  <Label>Base Price ($/Night)</Label>
+                  <Input type="number" value={selectedTypeData ? Number(selectedTypeData.basePrice) : ""} disabled placeholder="Set via Room Type" />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" placeholder="Room features and view..." value={newRoomDescription} onChange={(e) => setNewRoomDescription(e.target.value)} />
+                  <Textarea id="description" placeholder="Room features and view..." value={newRoomDescription} onChange={(e) => setNewRoomDescription(e.target.value)} data-testid="input-room-description" />
                 </div>
 
                 <div className="space-y-2">
@@ -291,7 +328,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateRoom} disabled={createRoomMutation.isPending}>
+                <Button onClick={handleCreateRoom} disabled={createRoomMutation.isPending} data-testid="button-create-room">
                   {createRoomMutation.isPending ? "Creating..." : "Create Room"}
                 </Button>
               </DialogFooter>
@@ -353,18 +390,26 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
             </DialogContent>
           </Dialog>
 
-          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
+          <Dialog open={editDialogOpen} onOpenChange={(open) => {
+            if (!open) setEditingRoom(null);
+            setEditDialogOpen(open);
+          }}>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Edit Room Details</DialogTitle>
-                <CardDescription>Update configuration for Room {editingRoom?.roomNumber}</CardDescription>
+                <DialogTitle>Edit Room {editingRoom?.roomNumber}</DialogTitle>
+                <CardDescription>Update details for Room {editingRoom?.roomNumber}</CardDescription>
               </DialogHeader>
               {editingRoom && (
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Room Number</Label>
-                      <Input value={editingRoom.roomNumber} disabled />
+                      <Label>Room Name</Label>
+                      <Input
+                        placeholder="e.g. Ocean View Suite"
+                        value={editingRoom.roomName || ""}
+                        onChange={(e) => setEditingRoom({...editingRoom, roomName: e.target.value})}
+                        data-testid="input-edit-room-name"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Status</Label>
@@ -384,25 +429,10 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                       </Select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Room Type</Label>
-                    <Select 
-                      value={String(editingRoom.roomTypeId)} 
-                      onValueChange={(val) => {
-                         setEditingRoom({...editingRoom, roomTypeId: Number(val)});
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roomTypes.map((rt) => (
-                          <SelectItem key={rt.id} value={String(rt.id)}>{rt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  {renderRoomProperties(getRoomTypeData(editingRoom.roomTypeId))}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Base Price ($/Night)</Label>
                       <Input 
@@ -420,6 +450,24 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      placeholder="Room features and view..."
+                      value={editingRoom.description || ""}
+                      onChange={(e) => setEditingRoom({...editingRoom, description: e.target.value})}
+                      data-testid="input-edit-room-description"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Room Photos</Label>
+                    <div className="border-2 border-dashed border-input rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                      <span className="text-xs text-muted-foreground">Click to upload photos</span>
+                    </div>
+                  </div>
                 </div>
               )}
               <DialogFooter>
@@ -433,7 +481,87 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
           </Dialog>
         </div>
 
-        <Card>
+        {/* Mobile Card View */}
+        <div className="block md:hidden space-y-3">
+          {rooms.map((room) => {
+            const typeData = getRoomTypeData(room.roomTypeId);
+            return (
+              <Card key={room.id} data-testid={`card-room-${room.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <BedDouble className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-bold text-lg">{room.roomNumber}</span>
+                        {(room as any).roomName && (
+                          <span className="text-sm text-muted-foreground">· {(room as any).roomName}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">{getRoomTypeName(room.roomTypeId)}</p>
+                    </div>
+                    <Badge className={getStatusColor(room.status)}>
+                      {getStatusDisplay(room.status)}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                    <div>
+                      <span className="text-muted-foreground">Capacity: </span>
+                      <span className="font-medium">{typeData?.capacity || "-"} Guests</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Floor: </span>
+                      <span className="font-medium">{room.floor}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Price: </span>
+                      <span className="font-medium">₹{typeData ? Number(typeData.basePrice) : 0}/night</span>
+                    </div>
+                    {typeData?.size && (
+                      <div>
+                        <span className="text-muted-foreground">Size: </span>
+                        <span className="font-medium">{typeData.size}</span>
+                      </div>
+                    )}
+                  </div>
+                  {renderFacilityBadges(room.roomTypeId)}
+                  <div className="flex justify-end gap-2 mt-3 pt-3 border-t">
+                    {room.status === "blocked" || room.status === "maintenance" ? (
+                      <Button variant="ghost" size="sm" onClick={() => handleUnblockRoom(room)} className="text-green-600 hover:text-green-700 hover:bg-green-50">
+                        <Unlock className="h-4 w-4 mr-1" />
+                        Unblock
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedRoom(room); setBlockDialogOpen(true); }} className="text-amber-600 hover:text-amber-700 hover:bg-amber-50">
+                        <CalendarX className="h-4 w-4 mr-1" />
+                        Block
+                      </Button>
+                    )}
+                    {role === "owner" && (
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(room)}>
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                    {role === "owner" && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteRoomMutation.mutate(room.id)}>
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {rooms.length === 0 && (
+            <div className="py-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+              No rooms added yet. Click "Add New Room" to get started.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <Card className="hidden md:block">
           <CardHeader>
             <CardTitle>All Rooms</CardTitle>
             <CardDescription>Manage your property's physical inventory.</CardDescription>
@@ -442,10 +570,11 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Room No.</TableHead>
+                  <TableHead>Room</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Base Price</TableHead>
+                  <TableHead>Floor</TableHead>
                   <TableHead>Current Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -454,18 +583,24 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                 {rooms.map((room) => {
                   const typeData = getRoomTypeData(room.roomTypeId);
                   return (
-                  <TableRow key={room.id}>
+                  <TableRow key={room.id} data-testid={`row-room-${room.id}`}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <BedDouble className="h-4 w-4 text-muted-foreground" />
-                        {room.roomNumber}
+                        <div>
+                          <div>{room.roomNumber}</div>
+                          {(room as any).roomName && (
+                            <div className="text-xs text-muted-foreground">{(room as any).roomName}</div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{getRoomTypeName(room.roomTypeId)}</TableCell>
                     <TableCell>{typeData?.capacity || "-"} Guests</TableCell>
-                    <TableCell>${typeData ? Number(typeData.basePrice) : 0}</TableCell>
+                    <TableCell>₹{typeData ? Number(typeData.basePrice) : 0}</TableCell>
+                    <TableCell>{room.floor}</TableCell>
                     <TableCell>
-                      <Badge variant={room.status === "available" ? "outline" : "secondary"} className={room.status === "blocked" ? "bg-red-100 text-red-800" : ""}>
+                      <Badge className={getStatusColor(room.status)}>
                         {getStatusDisplay(room.status)}
                       </Badge>
                     </TableCell>
