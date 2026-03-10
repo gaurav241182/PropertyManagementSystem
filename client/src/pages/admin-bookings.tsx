@@ -426,7 +426,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const rtFacilityIds: number[] = (() => { try { return JSON.parse(selectedRoomType.facilityIds || "[]"); } catch { return []; } })();
     const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
     const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
-    const allFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id)).filter(Boolean);
+    const allFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id && f.active)).filter(Boolean);
     const included = allFacilities.filter((f: any) => f.isFree);
     const paidOptional = allFacilities.filter((f: any) => !f.isFree);
     return { included, paidOptional };

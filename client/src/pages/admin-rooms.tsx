@@ -250,7 +250,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                       const rtFacilityIds: number[] = (() => { try { return JSON.parse(selectedTypeData.facilityIds || "[]"); } catch { return []; } })();
                       const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
                       const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
-                      const assignedFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id)).filter(Boolean);
+                      const assignedFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id && f.active)).filter(Boolean);
                       if (assignedFacilities.length === 0) return null;
                       return (
                         <div className="flex flex-wrap gap-2 pt-2">
