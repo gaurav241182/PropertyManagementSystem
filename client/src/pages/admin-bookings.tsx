@@ -450,15 +450,44 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  const handleDownloadInvoice = (booking: any) => {
+  const handleDownloadInvoice = async (booking: any) => {
+    const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const html = generateInvoiceHTML(booking);
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      setTimeout(() => {
-        printWindow.print();
-      }, 300);
+
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "800px";
+    container.style.background = "#fff";
+    container.innerHTML = html.replace(/<!DOCTYPE html>[\s\S]*?<body>/, "").replace(/<\/body>[\s\S]*<\/html>/, "");
+    const styleTag = document.createElement("style");
+    const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+    if (styleMatch) styleTag.textContent = styleMatch[1];
+    container.prepend(styleTag);
+    document.body.appendChild(container);
+
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const { default: jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${invoiceNo}.pdf`);
+    } catch {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        setTimeout(() => { printWindow.print(); }, 300);
+      }
+    } finally {
+      document.body.removeChild(container);
     }
   };
 
