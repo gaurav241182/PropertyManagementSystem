@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import type { Room, RoomType } from "@shared/schema";
+import type { Room, RoomType, Facility } from "@shared/schema";
 
 export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
@@ -26,6 +26,10 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
 
   const { data: roomTypes = [], isLoading: roomTypesLoading } = useQuery<RoomType[]>({
     queryKey: ['/api/room-types'],
+  });
+
+  const { data: facilitiesData = [] } = useQuery<Facility[]>({
+    queryKey: ['/api/facilities'],
   });
 
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
@@ -177,7 +181,15 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
           </div>
           
           {role === "owner" && (
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <Dialog open={addDialogOpen} onOpenChange={(open) => {
+              if (!open) {
+                setNewRoomNumber("");
+                setRoomType("");
+                setNewRoomFloor(1);
+                setNewRoomDescription("");
+              }
+              setAddDialogOpen(open);
+            }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -225,22 +237,30 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                         <span className="text-muted-foreground">Max Capacity:</span>
                         <span className="font-medium">{selectedTypeData.capacity} Persons</span>
                       </div>
+                      {selectedTypeData.size && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Room Size:</span>
+                          <span className="font-medium">{selectedTypeData.size}</span>
+                        </div>
+                      )}
                     </div>
                     
-                    <div className="flex flex-wrap gap-4 pt-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="cot" defaultChecked={selectedTypeData.allowsCots} disabled />
-                        <label htmlFor="cot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Extra Cot Allowed
-                        </label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox id="infant" defaultChecked={selectedTypeData.infantFriendly} disabled />
-                        <label htmlFor="infant" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                          Infant Friendly
-                        </label>
-                      </div>
-                    </div>
+                    {(() => {
+                      const rtFacilityIds: number[] = (() => { try { return JSON.parse(selectedTypeData.facilityIds || "[]"); } catch { return []; } })();
+                      const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
+                      const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
+                      const assignedFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id)).filter(Boolean);
+                      if (assignedFacilities.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {assignedFacilities.map((f: any) => (
+                            <span key={f.id} className={`text-xs px-2 py-1 rounded-md ${f.isFree ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                              {f.name}{!f.isFree && ` (₹${Number(f.price).toFixed(0)}/${f.unit})`}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
