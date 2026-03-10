@@ -454,24 +454,31 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const html = generateInvoiceHTML(booking);
 
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-9999px";
-    container.style.top = "0";
-    container.style.width = "800px";
-    container.style.background = "#fff";
-    container.innerHTML = html.replace(/<!DOCTYPE html>[\s\S]*?<body>/, "").replace(/<\/body>[\s\S]*<\/html>/, "");
-    const styleTag = document.createElement("style");
-    const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
-    if (styleMatch) styleTag.textContent = styleMatch[1];
-    container.prepend(styleTag);
-    document.body.appendChild(container);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "absolute";
+    iframe.style.width = "800px";
+    iframe.style.height = "1200px";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "-10000px";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.overflow = "hidden";
+    document.body.appendChild(iframe);
 
     try {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) throw new Error("Cannot access iframe");
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      await new Promise(r => setTimeout(r, 200));
+
       const { default: html2canvas } = await import("html2canvas");
       const { default: jsPDF } = await import("jspdf");
 
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const target = iframeDoc.querySelector(".invoice") as HTMLElement || iframeDoc.body;
+      const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       const imgData = canvas.toDataURL("image/png");
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -487,7 +494,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         setTimeout(() => { printWindow.print(); }, 300);
       }
     } finally {
-      document.body.removeChild(container);
+      document.body.removeChild(iframe);
     }
   };
 
