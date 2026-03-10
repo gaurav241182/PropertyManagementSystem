@@ -1508,7 +1508,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
               <DialogTitle>Guest Checkout & Invoice</DialogTitle>
               <CardDescription>Review final charges, configure invoice, and process payment.</CardDescription>
             </DialogHeader>
-            {checkoutBooking && (
+            {checkoutBooking && (() => {
+              const liveCharges = allChargesData
+                .filter((c: any) => c.bookingId === checkoutBooking.bookingId)
+                .map((c: any) => ({
+                  ...c,
+                  item: c.description,
+                  type: c.category,
+                  amount: parseFloat(c.amount) || 0,
+                  quantity: 1
+                }));
+              const liveBooking = { ...checkoutBooking, charges: liveCharges };
+              const totals = calculateTotals(liveBooking);
+              return (
               <div className="space-y-6 py-4">
                 <div className="flex justify-between items-start border-b pb-4">
                    <div>
@@ -1532,9 +1544,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    </div>
 
                    {/* Extra Charges */}
-                   {checkoutBooking.charges.length > 0 && (
+                   {liveCharges.length > 0 && (
                      <div className="space-y-2 border-l-2 pl-3 my-2">
-                       {checkoutBooking.charges.map((charge: any, idx: number) => (
+                       {liveCharges.map((charge: any, idx: number) => (
                          <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
                             <span className="flex items-center gap-2">
                               {checkoutBooking.status !== "Checked Out" && (
@@ -1559,11 +1571,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
                    <div className="flex justify-between text-sm">
                       <span>Subtotal</span>
-                      <span>${calculateTotals(checkoutBooking).subtotal.toFixed(2)}</span>
+                      <span>${totals.subtotal.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm">
                       <span>Taxes & Fees {(!invoiceSettings.taxableItems.room || !invoiceSettings.taxableItems.food) && <span className="text-xs text-muted-foreground">(Adjusted)</span>}</span>
-                      <span>${calculateTotals(checkoutBooking).tax.toFixed(2)}</span>
+                      <span>${totals.tax.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm text-green-600">
                       <span>Advance Payment</span>
@@ -1572,7 +1584,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
                    <div className="border-t pt-2 mt-2 flex justify-between items-center bg-muted/20 p-2 rounded">
                       <span className="font-bold text-lg">Total Due</span>
-                      <span className="font-bold text-lg text-primary">${calculateTotals(checkoutBooking).due.toFixed(2)}</span>
+                      <span className="font-bold text-lg text-primary">${totals.due.toFixed(2)}</span>
                    </div>
 
                    {/* Payment Method - Only show if not checked out */}
@@ -1633,7 +1645,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   </div>
                 )}
               </div>
-            )}
+            );
+            })()}
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Close</Button>
               {checkoutBooking && checkoutBooking.status !== "Checked Out" && (
