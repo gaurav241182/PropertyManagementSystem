@@ -37,7 +37,11 @@ import {
   Globe,
   Printer,
   Download,
-  MessageCircle
+  MessageCircle,
+  Undo2,
+  RotateCcw,
+  BadgeDollarSign,
+  FileCheck
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -127,7 +131,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
       paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
       accompanyingGuests: [],
-      status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Active" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
+      status: b.status === "confirmed" ? "Confirmed" : b.status === "checked_in" ? "Checked In" : b.status === "checked_out" ? "Checked Out" : b.status === "cancelled" ? "Cancelled" : b.status
     };
   });
 
@@ -313,6 +317,55 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             title: "Check-in Successful",
             description: `Guest for booking ${booking.bookingId} has been checked in.`,
           });
+        }
+      }
+    );
+  };
+
+  const handleRevertToBooked = (booking: any) => {
+    updateBookingMutation.mutate(
+      { id: booking.id, data: { status: "confirmed" } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Status Reverted",
+            description: `Booking ${booking.bookingId} has been reverted to Booked status.`,
+          });
+        }
+      }
+    );
+  };
+
+  const handleRevertToCheckedIn = (booking: any) => {
+    updateBookingMutation.mutate(
+      { id: booking.id, data: { status: "checked_in" } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Checkout Reversed",
+            description: `Booking ${booking.bookingId} has been reverted to Checked In.`,
+          });
+          if (checkoutBooking?.id === booking.id) {
+            setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
+          }
+        }
+      }
+    );
+  };
+
+  const handlePaymentReversal = (booking: any) => {
+    updateBookingMutation.mutate(
+      { id: booking.id, data: { status: "checked_in" } },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Payment Reversed",
+            description: `Payment for booking ${booking.bookingId} has been reversed. Status set back to Checked In.`,
+          });
+          if (checkoutBooking?.id === booking.id) {
+            setCheckoutBooking({ ...checkoutBooking, status: "Checked In" });
+          }
+          setIsCheckoutDialogOpen(false);
         }
       }
     );
@@ -1074,8 +1127,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="active">Active (Checked In)</SelectItem>
+                    <SelectItem value="confirmed">Booked</SelectItem>
+                    <SelectItem value="active">Checked In</SelectItem>
                     <SelectItem value="checkout">Checked Out</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1099,9 +1152,16 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                           <div className="font-medium">{booking.guest}</div>
                           <div className="text-xs text-muted-foreground">{booking.bookingId}</div>
                         </div>
-                        <Badge variant="secondary" className={`font-medium text-xs ${booking.status === "Active" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
-                          {booking.status}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className={`font-medium text-xs ${booking.status === "Checked In" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
+                            {booking.status}
+                          </Badge>
+                          {booking.status === "Checked Out" && (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs font-medium">
+                              <BadgeDollarSign className="h-3 w-3 mr-0.5" /> Paid
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="text-muted-foreground">Room:</span> {booking.room}</div>
@@ -1111,7 +1171,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <div>
-                          <span className="text-muted-foreground">Balance:</span> <span className="font-medium">₹{totals.due.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Balance:</span> <span className="font-medium">{currency} {totals.due.toFixed(2)}</span>
                         </div>
                         <Badge variant="outline">{booking.source}</Badge>
                       </div>
@@ -1124,7 +1184,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <CheckCircle2 className="h-3 w-3 mr-1" /> Check In
                           </Button>
                         )}
-                        {booking.status === "Active" && (
+                        {booking.status === "Checked In" && (
                           <>
                             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openChargeDialog(booking.bookingId)}>
                               <Plus className="h-3 w-3 mr-1" /> Charge
@@ -1132,12 +1192,28 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <Button size="sm" className="h-7 text-xs" onClick={() => openCheckoutDialog(booking)}>
                               <LogOut className="h-3 w-3 mr-1" /> Out
                             </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" onClick={() => handleRevertToBooked(booking)}>
+                              <Undo2 className="h-3 w-3 mr-1" /> Revert
+                            </Button>
+                          </>
+                        )}
+                        {booking.status === "Checked Out" && (
+                          <>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" onClick={() => handleRevertToCheckedIn(booking)}>
+                              <RotateCcw className="h-3 w-3 mr-1" /> Undo Checkout
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => handlePaymentReversal(booking)}>
+                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse Payment
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openCheckoutDialog(booking)}>
+                              <FileCheck className="h-3 w-3 mr-1" /> Invoice
+                            </Button>
                           </>
                         )}
                         {role === "owner" && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </AlertDialogTrigger>
@@ -1200,25 +1276,33 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">₹{totals.due.toFixed(2)}</span>
+                              <span className="font-medium">{currency} {totals.due.toFixed(2)}</span>
                               <span className="text-xs text-muted-foreground">{booking.charges.length} extra charges</span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className={`font-medium ${booking.status === "Active" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
-                              {booking.status}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="secondary" className={`font-medium ${booking.status === "Checked In" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
+                                {booking.status}
+                              </Badge>
+                              {booking.status === "Checked Out" && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-medium">
+                                  <BadgeDollarSign className="h-3 w-3 mr-0.5" /> Paid
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-1">
                               <Button size="sm" variant="ghost" className="h-8" onClick={() => openViewDialog(booking)}>
                                 <Eye className="h-3 w-3 mr-1" /> View/Edit
                               </Button>
-                              {booking.status === "Confirmed" ? (
+                              {booking.status === "Confirmed" && (
                                 <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => handleCheckIn(booking)}>
                                   <CheckCircle2 className="h-3 w-3 mr-1" /> Check In
                                 </Button>
-                              ) : booking.status === "Active" ? (
+                              )}
+                              {booking.status === "Checked In" && (
                                 <>
                                   <Button size="sm" variant="outline" className="h-8" onClick={() => openChargeDialog(booking.bookingId)}>
                                     <Plus className="h-3 w-3 mr-1" /> Charge
@@ -1226,12 +1310,28 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                   <Button size="sm" className="h-8" onClick={() => openCheckoutDialog(booking)}>
                                     <LogOut className="h-3 w-3 mr-1" /> Out
                                   </Button>
+                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => handleRevertToBooked(booking)} title="Revert to Booked">
+                                    <Undo2 className="h-3 w-3" />
+                                  </Button>
                                 </>
-                              ) : null}
+                              )}
+                              {booking.status === "Checked Out" && (
+                                <>
+                                  <Button size="sm" variant="ghost" className="h-8 text-orange-600" onClick={() => handleRevertToCheckedIn(booking)} title="Undo Checkout">
+                                    <RotateCcw className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-8 text-red-600" onClick={() => handlePaymentReversal(booking)} title="Reverse Payment">
+                                    <BadgeDollarSign className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-8" onClick={() => openCheckoutDialog(booking)} title="View Invoice">
+                                    <FileCheck className="h-3 w-3 mr-1" /> Invoice
+                                  </Button>
+                                </>
+                              )}
                               {role === "owner" && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </AlertDialogTrigger>
@@ -1583,7 +1683,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                        {liveCharges.map((charge: any, idx: number) => (
                          <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
                             <span className="flex items-center gap-2">
-                              {checkoutBooking.status !== "Checked Out" && (
+                              {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
                                 <button
                                   onClick={() => deleteChargeMutation.mutate(charge.id)}
                                   className="text-red-400 hover:text-red-600 transition-colors shrink-0"
@@ -1649,7 +1749,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    </div>
 
                    {/* Payment Method - Only show if not checked out */}
-                   {checkoutBooking.status !== "Checked Out" && (
+                   {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
                      <div className="pt-4 space-y-2">
                         <Label>Payment Method</Label>
                         <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -1667,11 +1767,34 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    )}
                 </div>
 
-                {/* Automation & Actions - Only show if Checked Out */}
-                {checkoutBooking.status === "Checked Out" && (
+                {/* Invoice Actions - Only show if Checked Out */}
+                {(checkoutBooking.status === "Checked Out" || checkoutBooking.status === "checked_out") && (
                   <div className="space-y-4 pt-2">
-                     <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Invoice Actions</h4>
+                     <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Invoice (Taxable Items Only)</h4>
                      
+                     {/* Taxable items invoice summary */}
+                     <div className="bg-muted/10 border rounded-md p-4 space-y-2">
+                       {totals.taxBreakdown.filter((t: any) => t.taxable).length > 0 ? (
+                         <>
+                           {totals.taxBreakdown.filter((t: any) => t.taxable).map((t: any, i: number) => (
+                             <div key={i} className="flex justify-between text-sm">
+                               <span>{t.label}</span>
+                               <div className="text-right">
+                                 <span>{currency} {t.baseAmount.toFixed(2)}</span>
+                                 <span className="text-xs text-muted-foreground ml-1">(+{t.rate}% = {currency} {t.amount.toFixed(2)})</span>
+                               </div>
+                             </div>
+                           ))}
+                           <div className="border-t pt-2 mt-2 flex justify-between font-medium text-sm">
+                             <span>Taxable Total (incl. tax)</span>
+                             <span>{currency} {(totals.taxBreakdown.filter((t: any) => t.taxable).reduce((acc: number, t: any) => acc + t.baseAmount + t.amount, 0)).toFixed(2)}</span>
+                           </div>
+                         </>
+                       ) : (
+                         <p className="text-sm text-muted-foreground text-center">No taxable items in this booking.</p>
+                       )}
+                     </div>
+
                      <div className="grid grid-cols-2 gap-4 bg-muted/10 p-4 rounded-md">
                         <div className="flex items-center space-x-2">
                           <Checkbox 
@@ -1680,7 +1803,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, email: !!checked})}
                           />
                           <Label htmlFor="auto-email" className="flex items-center gap-2 cursor-pointer">
-                            <Mail className="h-4 w-4 text-muted-foreground" /> Auto-Email Invoice
+                            <Mail className="h-4 w-4 text-muted-foreground" /> Email Invoice
                           </Label>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1690,18 +1813,24 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             onCheckedChange={(checked) => setCheckoutOptions({...checkoutOptions, whatsapp: !!checked})}
                           />
                           <Label htmlFor="auto-whatsapp" className="flex items-center gap-2 cursor-pointer">
-                            <MessageCircle className="h-4 w-4 text-muted-foreground" /> Auto-WhatsApp
+                            <MessageCircle className="h-4 w-4 text-muted-foreground" /> WhatsApp
                           </Label>
                         </div>
                      </div>
 
                      <div className="flex gap-2 justify-center pt-2">
-                        <Button variant="outline" size="sm" className="flex-1">
-                          <Printer className="mr-2 h-4 w-4" /> Print
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => { window.print(); }} data-testid="button-print-invoice">
+                          <Printer className="mr-2 h-4 w-4" /> Print Invoice
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1">
+                        <Button variant="outline" size="sm" className="flex-1" data-testid="button-download-invoice">
                           <Download className="mr-2 h-4 w-4" /> Download PDF
                         </Button>
+                     </div>
+
+                     <div className="border-t pt-3 mt-2">
+                       <Button variant="outline" size="sm" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={() => handlePaymentReversal(checkoutBooking)} data-testid="button-reverse-payment">
+                         <RotateCcw className="mr-2 h-4 w-4" /> Reverse Payment & Revert to Checked In
+                       </Button>
                      </div>
                   </div>
                 )}
@@ -1710,7 +1839,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             })()}
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setIsCheckoutDialogOpen(false)}>Close</Button>
-              {checkoutBooking && checkoutBooking.status !== "Checked Out" && (
+              {checkoutBooking && checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
                 <Button onClick={handleCheckout} className="bg-green-600 hover:bg-green-700" disabled={updateBookingMutation.isPending}>
                   {updateBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <CreditCard className="mr-2 h-4 w-4" />

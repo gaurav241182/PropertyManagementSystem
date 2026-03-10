@@ -108,6 +108,14 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Phone field: digits only, 9-16 length validation, country code Select dropdown (20 countries)
   - Multiple rooms create individual booking records per room
 - 2026-03-10: Mobile card view for bookings list (block md:hidden), desktop table (hidden md:block)
+- 2026-03-10: Booking status & invoice enhancements
+  - Status labels: "Active" renamed to "Checked In", "Paid" badge shown alongside "Checked Out"
+  - Status reversals: Checked In → Booked (revert), Checked Out → Checked In (undo checkout), Payment reversal
+  - Delete button disabled for Checked In and Checked Out bookings
+  - Booking charges: DELETE /api/booking-charges/:id endpoint, trash icon per charge in checkout dialog, live updates
+  - Tax calculation: per-category rates (Room 12%, Food 5%, Facility 18%) from settings, tax breakdown in checkout
+  - Invoice generation: taxable items only section, print/email/download options (post-checkout)
+  - Currency: all amounts use dynamic currency from settings instead of hardcoded $
 - 2026-03-10: Room inventory enhancements
   - Rooms schema: added `roomName` and `description` text fields
   - Add Room dialog: includes Room Name field alongside Room Number
