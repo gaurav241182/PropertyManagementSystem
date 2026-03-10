@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon, CalendarX, Lock, Unlock, Save } from "lucide-react";
+import { Plus, Edit, Trash2, BedDouble, Image as ImageIcon, CalendarX, Lock, Unlock, Save, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,7 +46,10 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomFloor, setNewRoomFloor] = useState(1);
   const [newRoomDescription, setNewRoomDescription] = useState("");
+  const [newRoomPhotos, setNewRoomPhotos] = useState<string[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const addPhotoInputRef = useRef<HTMLInputElement>(null);
+  const editPhotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (roomType) {
@@ -124,6 +127,40 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     setSelectedTypeData(null);
     setNewRoomFloor(1);
     setNewRoomDescription("");
+    setNewRoomPhotos([]);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, target: "add" | "edit") => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Max 2MB per photo.", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        if (target === "add") {
+          setNewRoomPhotos(prev => [...prev, base64]);
+        } else if (editingRoom) {
+          const existing: string[] = (() => { try { return JSON.parse(editingRoom.photos || "[]"); } catch { return []; } })();
+          setEditingRoom({ ...editingRoom, photos: JSON.stringify([...existing, base64]) });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const removePhoto = (index: number, target: "add" | "edit") => {
+    if (target === "add") {
+      setNewRoomPhotos(prev => prev.filter((_, i) => i !== index));
+    } else if (editingRoom) {
+      const existing: string[] = (() => { try { return JSON.parse(editingRoom.photos || "[]"); } catch { return []; } })();
+      const updated = existing.filter((_, i) => i !== index);
+      setEditingRoom({ ...editingRoom, photos: JSON.stringify(updated) });
+    }
   };
 
   const handleBlockRoom = () => {
@@ -156,6 +193,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
         floor: editingRoom.floor,
         status: editingRoom.status,
         description: editingRoom.description || "",
+        photos: editingRoom.photos || "[]",
       },
     });
   };
@@ -168,6 +206,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
       roomTypeId: Number(roomType),
       floor: newRoomFloor,
       description: newRoomDescription,
+      photos: JSON.stringify(newRoomPhotos),
       status: "available",
     });
   };
@@ -320,7 +359,27 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
 
                 <div className="space-y-2">
                   <Label>Room Photos</Label>
-                  <div className="border-2 border-dashed border-input rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                  <input ref={addPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handlePhotoUpload(e, "add")} />
+                  {newRoomPhotos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {newRoomPhotos.map((photo, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={photo} alt={`Room photo ${idx + 1}`} className="w-full h-20 object-cover rounded-md border" />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(idx, "add")}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div
+                    className="border-2 border-dashed border-input rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => addPhotoInputRef.current?.click()}
+                  >
                     <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
                     <span className="text-xs text-muted-foreground">Click to upload photos</span>
                   </div>
@@ -463,7 +522,30 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
 
                   <div className="space-y-2">
                     <Label>Room Photos</Label>
-                    <div className="border-2 border-dashed border-input rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input ref={editPhotoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handlePhotoUpload(e, "edit")} />
+                    {(() => {
+                      const photos: string[] = (() => { try { return JSON.parse(editingRoom.photos || "[]"); } catch { return []; } })();
+                      return photos.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          {photos.map((photo: string, idx: number) => (
+                            <div key={idx} className="relative group">
+                              <img src={photo} alt={`Room photo ${idx + 1}`} className="w-full h-20 object-cover rounded-md border" />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(idx, "edit")}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                    <div
+                      className="border-2 border-dashed border-input rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => editPhotoInputRef.current?.click()}
+                    >
                       <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
                       <span className="text-xs text-muted-foreground">Click to upload photos</span>
                     </div>
