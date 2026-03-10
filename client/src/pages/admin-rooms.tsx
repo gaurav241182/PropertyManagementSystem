@@ -185,6 +185,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
               if (!open) {
                 setNewRoomNumber("");
                 setRoomType("");
+                setSelectedTypeData(null);
                 setNewRoomFloor(1);
                 setNewRoomDescription("");
               }
@@ -209,7 +210,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="type">Room Type</Label>
-                    <Select onValueChange={(val) => setRoomType(val)}>
+                    <Select value={roomType} onValueChange={(val) => setRoomType(val)}>
                       <SelectTrigger id="type">
                         <SelectValue placeholder="Select Type" />
                       </SelectTrigger>
