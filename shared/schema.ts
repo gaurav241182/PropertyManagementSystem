@@ -51,8 +51,8 @@ export const roomTypes = pgTable("room_types", {
   beds: text("beds").notNull().default("1 Queen Bed"),
   capacity: integer("capacity").notNull().default(2),
   basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull().default("0"),
-  allowsCots: boolean("allows_cots").notNull().default(false),
-  infantFriendly: boolean("infant_friendly").notNull().default(false),
+  size: text("size").notNull().default(""),
+  facilityIds: text("facility_ids").notNull().default("[]"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -194,6 +194,8 @@ export const facilities = pgTable("facilities", {
   description: text("description").notNull().default(""),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   unit: text("unit").notNull().default("item"), // item, person, night, stay, trip, session
+  isFree: boolean("is_free").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

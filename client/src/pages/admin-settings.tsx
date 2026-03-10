@@ -84,8 +84,8 @@ export default function AdminSettings() {
     beds: "",
     capacity: 2,
     price: 0,
-    cots: false,
-    infant: false
+    size: "",
+    selectedFacilityIds: [] as number[]
   });
 
   const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
@@ -109,6 +109,8 @@ export default function AdminSettings() {
     name: "",
     price: 0,
     unit: "item",
+    isFree: true,
+    isDefault: false,
     active: true
   });
 
@@ -315,19 +317,23 @@ export default function AdminSettings() {
   };
 
   const handleAddRoomType = () => {
+    const defaultFacilityIds = facilities
+      .filter((f: any) => f.isDefault && f.active)
+      .map((f: any) => f.id);
+    const allFacilityIds = [...new Set([...defaultFacilityIds, ...newRoomType.selectedFacilityIds])];
     addRoomTypeMutation.mutate(
       {
         name: newRoomType.name,
         beds: newRoomType.beds,
         capacity: newRoomType.capacity,
         basePrice: String(newRoomType.price),
-        allowsCots: newRoomType.cots,
-        infantFriendly: newRoomType.infant,
+        size: newRoomType.size || "",
+        facilityIds: JSON.stringify(allFacilityIds),
       },
       {
         onSuccess: () => {
           setIsRoomTypeDialogOpen(false);
-          setNewRoomType({ name: "", beds: "", capacity: 2, price: 0, cots: false, infant: false });
+          setNewRoomType({ name: "", beds: "", capacity: 2, price: 0, size: "", selectedFacilityIds: [] });
           toast({ title: "Room Type Added", description: `${newRoomType.name} has been added to your configuration.` });
         },
       }
@@ -399,14 +405,16 @@ export default function AdminSettings() {
       {
         name: newFacility.name,
         description: "",
-        price: String(newFacility.price),
-        unit: newFacility.unit,
+        price: newFacility.isFree ? "0" : String(newFacility.price),
+        unit: newFacility.isFree ? "item" : newFacility.unit,
+        isFree: newFacility.isFree,
+        isDefault: newFacility.isDefault,
         active: newFacility.active,
       },
       {
         onSuccess: () => {
           setIsFacilityDialogOpen(false);
-          setNewFacility({ name: "", price: 0, unit: "item", active: true });
+          setNewFacility({ name: "", price: 0, unit: "item", isFree: true, isDefault: false, active: true });
           toast({ title: "Facility Added", description: `${newFacility.name} is now available for booking.` });
         },
       }
@@ -958,7 +966,7 @@ export default function AdminSettings() {
                       Add Room Type
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
+                  <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Add New Room Type</DialogTitle>
                     </DialogHeader>
@@ -969,6 +977,7 @@ export default function AdminSettings() {
                           placeholder="e.g. Garden Villa" 
                           value={newRoomType.name}
                           onChange={(e) => setNewRoomType({...newRoomType, name: e.target.value})}
+                          data-testid="input-roomtype-name"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -990,37 +999,80 @@ export default function AdminSettings() {
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Default Base Price ({currency})</Label>
-                        <Input 
-                          type="number" 
-                          placeholder="0.00" 
-                          value={newRoomType.price}
-                          onChange={(e) => setNewRoomType({...newRoomType, price: parseFloat(e.target.value)})}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-3 pt-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            id="new-cots" 
-                            checked={newRoomType.cots}
-                            onCheckedChange={(checked) => setNewRoomType({...newRoomType, cots: checked})}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Default Base Price ({currency})</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={newRoomType.price}
+                            onChange={(e) => setNewRoomType({...newRoomType, price: parseFloat(e.target.value)})}
                           />
-                          <label htmlFor="new-cots" className="text-sm font-medium">Allows Extra Cot</label>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            id="new-infant" 
-                            checked={newRoomType.infant}
-                            onCheckedChange={(checked) => setNewRoomType({...newRoomType, infant: checked})}
+                        <div className="space-y-2">
+                          <Label>Room Size</Label>
+                          <Input 
+                            placeholder="e.g. 350 sq ft" 
+                            value={newRoomType.size}
+                            onChange={(e) => setNewRoomType({...newRoomType, size: e.target.value})}
+                            data-testid="input-roomtype-size"
                           />
-                          <label htmlFor="new-infant" className="text-sm font-medium">Infant Friendly</label>
                         </div>
                       </div>
+                      {facilities.filter((f: any) => f.active).length > 0 && (
+                        <div className="space-y-3 pt-2">
+                          <Label className="text-sm font-semibold">Facilities</Label>
+                          {facilities.filter((f: any) => f.active && f.isDefault).length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Default (auto-included)</p>
+                              <div className="space-y-1.5">
+                                {facilities.filter((f: any) => f.active && f.isDefault).map((f: any) => (
+                                  <div key={f.id} className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md">
+                                    <Checkbox checked={true} disabled />
+                                    <span className="text-sm">{f.name}</span>
+                                    {f.isFree ? (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded ml-auto">Free</span>
+                                    ) : (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded ml-auto">{currency} {Number(f.price).toFixed(2)}/{f.unit}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {facilities.filter((f: any) => f.active && !f.isDefault).length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Optional (select to include)</p>
+                              <div className="space-y-1.5">
+                                {facilities.filter((f: any) => f.active && !f.isDefault).map((f: any) => (
+                                  <div key={f.id} className="flex items-center gap-2 px-3 py-2 border rounded-md">
+                                    <Checkbox
+                                      checked={newRoomType.selectedFacilityIds.includes(f.id)}
+                                      onCheckedChange={(checked) => {
+                                        const ids = checked
+                                          ? [...newRoomType.selectedFacilityIds, f.id]
+                                          : newRoomType.selectedFacilityIds.filter((id: number) => id !== f.id);
+                                        setNewRoomType({...newRoomType, selectedFacilityIds: ids});
+                                      }}
+                                      data-testid={`checkbox-facility-${f.id}`}
+                                    />
+                                    <span className="text-sm">{f.name}</span>
+                                    {f.isFree ? (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded ml-auto">Free</span>
+                                    ) : (
+                                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded ml-auto">{currency} {Number(f.price).toFixed(2)}/{f.unit}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsRoomTypeDialogOpen(false)}>Cancel</Button>
-                      <Button onClick={handleAddRoomType}>Save Room Type</Button>
+                      <Button onClick={handleAddRoomType} data-testid="button-save-roomtype">Save Room Type</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -1033,7 +1085,8 @@ export default function AdminSettings() {
                       <TableHead>Bedding</TableHead>
                       <TableHead>Capacity</TableHead>
                       <TableHead>Default Price</TableHead>
-                      <TableHead>Features</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Facilities</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1049,11 +1102,17 @@ export default function AdminSettings() {
                         <TableCell>{rt.beds}</TableCell>
                         <TableCell>{rt.capacity} Persons</TableCell>
                         <TableCell>{currency} {Number(rt.basePrice)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{rt.size || "—"}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {rt.allowsCots && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Cot</span>}
-                            {rt.infantFriendly && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Infant</span>}
-                          </div>
+                          {(() => {
+                            const ids: number[] = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })();
+                            const count = ids.length;
+                            return count > 0 ? (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">{count} facilities</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
@@ -1365,47 +1424,70 @@ export default function AdminSettings() {
                           placeholder="e.g. Airport Pickup" 
                           value={newFacility.name}
                           onChange={(e) => setNewFacility({...newFacility, name: e.target.value})}
+                          data-testid="input-facility-name"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Price ({currency})</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="0.00" 
-                            value={newFacility.price}
-                            onChange={(e) => setNewFacility({...newFacility, price: parseFloat(e.target.value)})}
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={newFacility.isDefault}
+                            onCheckedChange={(checked) => setNewFacility({...newFacility, isDefault: !!checked})}
+                            data-testid="switch-facility-default"
                           />
+                          <Label>Default (auto-included in all room types)</Label>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Unit</Label>
-                          <Select 
-                            value={newFacility.unit}
-                            onValueChange={(val) => setNewFacility({...newFacility, unit: val})}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="item">Per Item</SelectItem>
-                              <SelectItem value="person">Per Person</SelectItem>
-                              <SelectItem value="night">Per Night</SelectItem>
-                              <SelectItem value="stay">Per Stay</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={!newFacility.isFree}
+                            onCheckedChange={(checked) => setNewFacility({...newFacility, isFree: !checked})}
+                            data-testid="switch-facility-paid"
+                          />
+                          <Label>Paid</Label>
                         </div>
                       </div>
+                      {!newFacility.isFree && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Price ({currency})</Label>
+                            <Input 
+                              type="number" 
+                              placeholder="0.00" 
+                              value={newFacility.price}
+                              onChange={(e) => setNewFacility({...newFacility, price: parseFloat(e.target.value)})}
+                              data-testid="input-facility-price"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Unit</Label>
+                            <Select 
+                              value={newFacility.unit}
+                              onValueChange={(val) => setNewFacility({...newFacility, unit: val})}
+                            >
+                              <SelectTrigger data-testid="select-facility-unit">
+                                <SelectValue placeholder="Select Unit" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="item">Per Item</SelectItem>
+                                <SelectItem value="person">Per Person</SelectItem>
+                                <SelectItem value="night">Per Night</SelectItem>
+                                <SelectItem value="stay">Per Stay</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2 pt-2">
                          <Switch 
                             checked={newFacility.active}
-                            onCheckedChange={(checked) => setNewFacility({...newFacility, active: checked})}
+                            onCheckedChange={(checked) => setNewFacility({...newFacility, active: !!checked})}
+                            data-testid="switch-facility-active"
                          />
                          <Label>Active (Available for booking)</Label>
                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsFacilityDialogOpen(false)}>Cancel</Button>
-                      <Button onClick={handleAddFacility}>Save Facility</Button>
+                      <Button onClick={handleAddFacility} data-testid="button-save-facility">Save Facility</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -1413,15 +1495,23 @@ export default function AdminSettings() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {facilities.map((facility: any) => (
-                    <div key={facility.id} className="border rounded-lg p-4 flex items-center justify-between">
+                    <div key={facility.id} className="border rounded-lg p-4 flex items-center justify-between" data-testid={`card-facility-${facility.id}`}>
                        <div className="flex items-start gap-3">
                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
                            <Sparkles className="h-4 w-4" />
                          </div>
                          <div>
-                           <h4 className="font-bold">{facility.name}</h4>
+                           <div className="flex items-center gap-2">
+                             <h4 className="font-bold">{facility.name}</h4>
+                             {facility.isDefault && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">Default</span>}
+                             {facility.isFree ? (
+                               <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">Free</span>
+                             ) : (
+                               <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">Paid</span>
+                             )}
+                           </div>
                            <p className="text-sm text-muted-foreground">
-                             {currency} {Number(facility.price).toFixed(2)} / {facility.unit}
+                             {facility.isFree ? "Complimentary" : `${currency} ${Number(facility.price).toFixed(2)} / ${facility.unit}`}
                            </p>
                          </div>
                        </div>

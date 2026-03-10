@@ -197,7 +197,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     email: "",
     notes: "",
     advanceAmount: 0,
-    accompanyingGuests: []
+    accompanyingGuests: [],
+    selectedPaidFacilityIds: [] as number[]
   });
 
   const handleSync = () => {
@@ -418,6 +419,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     );
   };
 
+  const getSelectedRoomTypeFacilities = () => {
+    if (!newReservation.roomType) return { included: [], paidOptional: [] };
+    const selectedRoomType = roomTypesData.find((rt: any) => rt.id.toString() === newReservation.roomType);
+    if (!selectedRoomType) return { included: [], paidOptional: [] };
+    const rtFacilityIds: number[] = (() => { try { return JSON.parse(selectedRoomType.facilityIds || "[]"); } catch { return []; } })();
+    const defaultFacilities = facilitiesData.filter((f: any) => f.isDefault && f.active);
+    const allFacilityIds = [...new Set([...rtFacilityIds, ...defaultFacilities.map((f: any) => f.id)])];
+    const allFacilities = allFacilityIds.map((id: number) => facilitiesData.find((f: any) => f.id === id)).filter(Boolean);
+    const included = allFacilities.filter((f: any) => f.isFree);
+    const paidOptional = allFacilities.filter((f: any) => !f.isFree);
+    return { included, paidOptional };
+  };
+
   const handleCreateReservation = () => {
     const bookingId = `BK-${Date.now().toString().slice(-6)}`;
     const checkInDate = new Date(newReservation.checkIn);
@@ -425,7 +439,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 3600 * 24)));
 
     const selectedRoomType = roomTypesData.find((rt: any) => rt.id.toString() === newReservation.roomType);
-    const totalAmount = selectedRoomType ? (parseFloat(selectedRoomType.basePrice) || 0) * nights : 0;
+    const roomAmount = selectedRoomType ? (parseFloat(selectedRoomType.basePrice) || 0) * nights : 0;
+
+    const { paidOptional } = getSelectedRoomTypeFacilities();
+    const selectedPaidFacilities = paidOptional.filter((f: any) => newReservation.selectedPaidFacilityIds.includes(f.id));
+    const facilityTotal = selectedPaidFacilities.reduce((sum: number, f: any) => {
+      const price = parseFloat(f.price) || 0;
+      if (f.unit === "night") return sum + price * nights;
+      if (f.unit === "person") return sum + price * (newReservation.guests || 1);
+      return sum + price;
+    }, 0);
+
+    const totalAmount = roomAmount + facilityTotal;
 
     const roomsForType = roomsData.filter((r: any) => r.roomTypeId.toString() === newReservation.roomType && r.status === "available");
     const roomId = newReservation.roomId ? parseInt(newReservation.roomId) : (roomsForType.length > 0 ? roomsForType[0].id : 0);
@@ -449,6 +474,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         advanceAmount: (newReservation.advanceAmount || 0).toFixed(2),
         paymentMethod: "Cash",
         notes: newReservation.notes || "",
+        facilityCharges: selectedPaidFacilities.map((f: any) => ({
+          description: f.name,
+          category: "Facility",
+          amount: f.unit === "night" ? (parseFloat(f.price) * nights).toFixed(2) : f.unit === "person" ? (parseFloat(f.price) * (newReservation.guests || 1)).toFixed(2) : parseFloat(f.price).toFixed(2),
+        })),
       },
       {
         onSuccess: () => {
@@ -465,7 +495,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             email: "",
             notes: "",
             advanceAmount: 0,
-            accompanyingGuests: []
+            accompanyingGuests: [],
+            selectedPaidFacilityIds: []
           });
         }
       }
@@ -513,7 +544,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Room Type</Label>
-                      <Select value={newReservation.roomType} onValueChange={(val) => setNewReservation({...newReservation, roomType: val, roomId: ""})}>
+                      <Select value={newReservation.roomType} onValueChange={(val) => setNewReservation({...newReservation, roomType: val, roomId: "", selectedPaidFacilityIds: []})}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select Room Type" />
                         </SelectTrigger>
@@ -539,6 +570,52 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       </Select>
                     </div>
                   </div>
+
+                  {newReservation.roomType && (() => {
+                    const { included, paidOptional } = getSelectedRoomTypeFacilities();
+                    if (included.length === 0 && paidOptional.length === 0) return null;
+                    return (
+                      <div className="border rounded-md p-4 bg-muted/20 space-y-3" data-testid="section-booking-facilities">
+                        <Label className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          Room Facilities
+                        </Label>
+                        {included.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Included (Free)</p>
+                            <div className="flex flex-wrap gap-2">
+                              {included.map((f: any) => (
+                                <span key={f.id} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md">{f.name}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {paidOptional.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Paid Add-ons (optional)</p>
+                            <div className="space-y-1.5">
+                              {paidOptional.map((f: any) => (
+                                <div key={f.id} className="flex items-center gap-2 px-3 py-2 border rounded-md bg-white">
+                                  <Checkbox
+                                    checked={newReservation.selectedPaidFacilityIds.includes(f.id)}
+                                    onCheckedChange={(checked) => {
+                                      const ids = checked
+                                        ? [...newReservation.selectedPaidFacilityIds, f.id]
+                                        : newReservation.selectedPaidFacilityIds.filter((id: number) => id !== f.id);
+                                      setNewReservation({...newReservation, selectedPaidFacilityIds: ids});
+                                    }}
+                                    data-testid={`checkbox-booking-facility-${f.id}`}
+                                  />
+                                  <span className="text-sm flex-1">{f.name}</span>
+                                  <span className="text-xs text-amber-700 font-medium">{f.unit === "night" ? `₹${Number(f.price).toFixed(2)}/night` : f.unit === "person" ? `₹${Number(f.price).toFixed(2)}/person` : `₹${Number(f.price).toFixed(2)}`}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="space-y-2">
                     <Label>Primary Guest Name</Label>

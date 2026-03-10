@@ -81,3 +81,18 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Every category automatically gets "Others" as a subcategory option in expenses
   - Duplicate type prevention on both add and edit
   - Subtype uniqueness enforced within a category type
+- 2026-03-10: Facilities system redesign
+  - Facilities table: added `isFree` boolean (default true) and `isDefault` boolean (default false)
+  - Free facilities show as "Complimentary"; paid facilities show price/unit
+  - Default facilities are auto-included in all room types
+  - Add Facility form: name, Default toggle, Free/Paid toggle, price+unit (only if paid), active switch
+  - Facility cards show Default/Free/Paid badges
+- 2026-03-10: Room Types redesign
+  - Removed `allowsCots` and `infantFriendly` columns (now managed as facilities)
+  - Added `size` text field (e.g., "350 sq ft") and `facilityIds` JSON text field
+  - Room type form shows Default facilities (pre-checked, disabled) and Optional facilities (checkboxes)
+  - Room type table shows size column and facility count badge
+- 2026-03-10: Booking facilities integration
+  - After selecting room type, booking form shows "Included (Free)" facilities and "Paid Add-ons" with checkboxes
+  - Paid facility costs calculated per unit (night/person/item) and added to booking total
+  - Selected paid facilities saved as booking_charges (category: "Facility") on booking creation

@@ -200,7 +200,18 @@ export async function registerRoutes(
   });
 
   app.post("/api/bookings", async (req, res) => {
-    const data = await storage.createBooking(req.body);
+    const { facilityCharges, ...bookingData } = req.body;
+    const data = await storage.createBooking(bookingData);
+    if (facilityCharges && Array.isArray(facilityCharges) && facilityCharges.length > 0) {
+      for (const charge of facilityCharges) {
+        await storage.createBookingCharge({
+          bookingId: data.bookingId,
+          description: charge.description,
+          category: charge.category || "Facility",
+          amount: charge.amount,
+        });
+      }
+    }
     res.status(201).json(data);
   });
 
