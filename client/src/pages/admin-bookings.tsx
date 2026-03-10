@@ -1535,19 +1535,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    {checkoutBooking.charges.length > 0 && (
                      <div className="space-y-2 border-l-2 pl-3 my-2">
                        {checkoutBooking.charges.map((charge: any, idx: number) => (
-                         <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground group">
-                            <span className="flex items-center gap-1">
-                              {charge.item} (x{charge.quantity})
+                         <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span className="flex items-center gap-2">
                               {checkoutBooking.status !== "Checked Out" && (
                                 <button
                                   onClick={() => deleteChargeMutation.mutate(charge.id)}
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 ml-1"
+                                  className="text-red-400 hover:text-red-600 transition-colors shrink-0"
                                   title="Remove this charge"
                                   data-testid={`button-delete-charge-${charge.id}`}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               )}
+                              {charge.item} (x{charge.quantity})
                             </span>
                             <span>${charge.amount.toFixed(2)}</span>
                          </div>
