@@ -443,8 +443,15 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     if (booking.charges) {
       booking.charges.forEach((charge: any) => {
         let isTaxable = false;
-        if (charge.type === 'Restaurant' && invoiceSettings.taxableItems.food) isTaxable = true;
-        if (charge.type === 'Facility' && invoiceSettings.taxableItems.facility) isTaxable = true;
+        if (charge.type === 'Food' && invoiceSettings.taxableItems.food) isTaxable = true;
+        if (charge.type === 'Facility') {
+          const matchedFacility = facilitiesData.find((f: any) => charge.item && charge.item.includes(f.name));
+          if (matchedFacility && matchedFacility.taxable) {
+            isTaxable = true;
+          } else if (!matchedFacility && invoiceSettings.taxableItems.facility) {
+            isTaxable = true;
+          }
+        }
         
         if (isTaxable) {
            tax += (charge.amount * 0.1);

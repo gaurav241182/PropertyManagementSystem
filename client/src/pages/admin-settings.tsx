@@ -111,6 +111,7 @@ export default function AdminSettings() {
     unit: "item",
     isFree: true,
     isDefault: false,
+    taxable: false,
     active: true
   });
 
@@ -409,12 +410,13 @@ export default function AdminSettings() {
         unit: newFacility.isFree ? "item" : newFacility.unit,
         isFree: newFacility.isFree,
         isDefault: newFacility.isDefault,
+        taxable: newFacility.taxable,
         active: newFacility.active,
       },
       {
         onSuccess: () => {
           setIsFacilityDialogOpen(false);
-          setNewFacility({ name: "", price: 0, unit: "item", isFree: true, isDefault: false, active: true });
+          setNewFacility({ name: "", price: 0, unit: "item", isFree: true, isDefault: false, taxable: false, active: true });
           toast({ title: "Facility Added", description: `${newFacility.name} is now available for booking.` });
         },
       }
@@ -1445,6 +1447,15 @@ export default function AdminSettings() {
                           <Label>Paid</Label>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="facility-taxable"
+                          checked={newFacility.taxable}
+                          onCheckedChange={(checked) => setNewFacility({...newFacility, taxable: !!checked})}
+                          data-testid="checkbox-facility-taxable"
+                        />
+                        <Label htmlFor="facility-taxable">Taxable (tax will be applied during checkout)</Label>
+                      </div>
                       {!newFacility.isFree && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -1509,6 +1520,7 @@ export default function AdminSettings() {
                              ) : (
                                <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">Paid</span>
                              )}
+                             {facility.taxable && <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-medium">Taxable</span>}
                            </div>
                            <p className="text-sm text-muted-foreground">
                              {facility.isFree ? "Complimentary" : `${currency} ${Number(facility.price).toFixed(2)} / ${facility.unit}`}

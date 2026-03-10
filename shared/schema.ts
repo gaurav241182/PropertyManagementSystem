@@ -199,6 +199,7 @@ export const facilities = pgTable("facilities", {
   unit: text("unit").notNull().default("item"), // item, person, night, stay, trip, session
   isFree: boolean("is_free").notNull().default(true),
   isDefault: boolean("is_default").notNull().default(false),
+  taxable: boolean("taxable").notNull().default(false),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

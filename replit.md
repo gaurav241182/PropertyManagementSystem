@@ -82,11 +82,12 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Duplicate type prevention on both add and edit
   - Subtype uniqueness enforced within a category type
 - 2026-03-10: Facilities system redesign
-  - Facilities table: added `isFree` boolean (default true) and `isDefault` boolean (default false)
+  - Facilities table: added `isFree` boolean (default true), `isDefault` boolean (default false), `taxable` boolean (default false)
   - Free facilities show as "Complimentary"; paid facilities show price/unit
   - Default facilities are auto-included in all room types
-  - Add Facility form: name, Default toggle, Free/Paid toggle, price+unit (only if paid), active switch
-  - Facility cards show Default/Free/Paid badges
+  - Add Facility form: name, Default toggle, Free/Paid toggle, Taxable checkbox, price+unit (only if paid), active switch
+  - Facility cards show Default/Free/Paid/Taxable badges
+  - Checkout billing: tax applied per-facility based on individual `taxable` flag (not global setting)
 - 2026-03-10: Room Types redesign
   - Removed `allowsCots` and `infantFriendly` columns (now managed as facilities)
   - Added `size` text field (e.g., "350 sq ft") and `facilityIds` JSON text field
