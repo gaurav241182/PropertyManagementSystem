@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, ChevronRight, Save, Lock, Unlock, Layers, AlertTriangle, Maximize2, Minimize2, CalendarPlus } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay, addMonths, addDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 import type { RoomPricing, Room, RoomBlock } from "@shared/schema";
 
 interface PricingCalendarProps {
@@ -232,6 +233,7 @@ function MonthGrid({
   onDragEnter,
   onDragEnd,
   statusOnly = false,
+  weekendDays = [0, 6],
 }: {
   monthDate: Date;
   selectedRoomTypeId: string;
@@ -250,6 +252,7 @@ function MonthGrid({
   onDragEnter: (dateKey: string) => void;
   onDragEnd: () => void;
   statusOnly?: boolean;
+  weekendDays?: number[];
 }) {
   const startDate = startOfMonth(monthDate);
   const endDate = endOfMonth(monthDate);
@@ -271,11 +274,15 @@ function MonthGrid({
         {format(monthDate, "MMMM yyyy")}
       </div>
       <div className={`grid grid-cols-7 mb-1 ${isCompact ? "gap-0.5" : "gap-0.5 sm:gap-1"}`}>
-        {DAY_LABELS.map((label) => (
-          <div key={label} className={`text-center font-semibold ${isCompact ? "text-[8px] sm:text-[9px] py-0.5" : "text-[9px] sm:text-xs py-0.5 sm:py-1"} ${label === "Sat" || label === "Sun" ? "text-amber-600" : "text-gray-500"}`}>
-            {label}
-          </div>
-        ))}
+        {DAY_LABELS.map((label, idx) => {
+          const dayIndex = [1, 2, 3, 4, 5, 6, 0][idx];
+          const isWkend = weekendDays.includes(dayIndex);
+          return (
+            <div key={label} className={`text-center font-semibold ${isCompact ? "text-[8px] sm:text-[9px] py-0.5" : "text-[9px] sm:text-xs py-0.5 sm:py-1"} ${isWkend ? "text-amber-600" : "text-gray-500"}`}>
+              {label}
+            </div>
+          );
+        })}
       </div>
       <div className={`grid grid-cols-7 ${isCompact ? "gap-0.5" : "gap-0.5 sm:gap-1"}`}>
         {Array.from({ length: emptySlots }).map((_, i) => (
@@ -283,7 +290,7 @@ function MonthGrid({
         ))}
         {days.map((day) => {
           const dateKey = format(day, "yyyy-MM-dd");
-          const weekendDay = isWeekend(day);
+          const weekendDay = weekendDays.includes(day.getDay());
           const statusEntry = calendarStatus[dateKey];
           const roomStatus: DayStatus = (statusEntry?.status as DayStatus) || "";
           return (
@@ -318,6 +325,7 @@ function MonthGrid({
 export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { weekendDays, isWeekendDay } = useHotelSettings();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("all");
   const [selectedRoomId, setSelectedRoomId] = useState<string>("all");
@@ -651,7 +659,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
         items.push({
           roomTypeId: rtId,
           date: dateKey,
-          price: isWeekend(day) ? weekendP : weekdayP,
+          price: isWeekendDay(day) ? weekendP : weekdayP,
           isLocked: false,
         });
       });
@@ -715,17 +723,17 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
 
     if (blockWeekendsOnly) {
       const days = getDaysFromSelection(blockDateMode, blockMonths, blockDateFrom, blockDateTo);
-      const weekendDays = days.filter(d => isWeekend(d));
-      if (weekendDays.length === 0) {
+      const wkendDays = days.filter(d => isWeekendDay(d));
+      if (wkendDays.length === 0) {
         toast({ title: "No Weekends", description: "No weekend days found in the selected range.", variant: "destructive" });
         return;
       }
-      let startD = format(weekendDays[0], "yyyy-MM-dd");
+      let startD = format(wkendDays[0], "yyyy-MM-dd");
       let currentEnd = startD;
       const ranges: { start: string; end: string }[] = [];
-      for (let i = 1; i < weekendDays.length; i++) {
-        const prev = weekendDays[i - 1];
-        const curr = weekendDays[i];
+      for (let i = 1; i < wkendDays.length; i++) {
+        const prev = wkendDays[i - 1];
+        const curr = wkendDays[i];
         const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 3600 * 24);
         if (diffDays <= 1) {
           currentEnd = format(curr, "yyyy-MM-dd");
@@ -1004,6 +1012,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                   onDragEnter={handleDragEnter}
                   onDragEnd={handleDragEnd}
                   statusOnly={isAllRoomTypes}
+                  weekendDays={weekendDays}
                 />
               ))}
             </div>

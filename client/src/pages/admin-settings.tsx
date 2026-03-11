@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil, Clock, Users, CalendarDays } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,31 @@ export default function AdminSettings() {
   const currency = settingsData?.currency || "USD";
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
   const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
+
+  const checkInTime = settingsData?.checkInTime || "14:00";
+  const checkOutTime = settingsData?.checkOutTime || "11:00";
+  const ageRuleAdult = parseInt(settingsData?.ageRuleAdult || "13");
+  const ageRuleChild = parseInt(settingsData?.ageRuleChild || "3");
+  const ageRuleInfant = parseInt(settingsData?.ageRuleInfant || "2");
+  const weekendDays: number[] = (() => { try { return JSON.parse(settingsData?.weekendDays || '[0,6]'); } catch { return [0, 6]; } })();
+
+  const DAY_NAMES = [
+    { value: 0, label: "Sun" },
+    { value: 1, label: "Mon" },
+    { value: 2, label: "Tue" },
+    { value: 3, label: "Wed" },
+    { value: 4, label: "Thu" },
+    { value: 5, label: "Fri" },
+    { value: 6, label: "Sat" },
+  ];
+
+  const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+    const ampm = i >= 12 ? "PM" : "AM";
+    const hour12 = i % 12 || 12;
+    const label = `${hour12}:00 ${ampm}`;
+    const value = `${i.toString().padStart(2, "0")}:00`;
+    return { value, label };
+  });
   const invoiceSettings = (() => {
     try {
       return JSON.parse(settingsData?.invoiceSettings || '{}');
@@ -519,6 +544,39 @@ export default function AdminSettings() {
     );
   };
 
+  const handleSaveCheckInOutTimes = (newCheckIn: string, newCheckOut: string) => {
+    saveSettingMutation.mutate(
+      { checkInTime: newCheckIn, checkOutTime: newCheckOut },
+      {
+        onSuccess: () => {
+          toast({ title: "Settings Saved", description: "Check-in/Check-out times have been updated." });
+        },
+      }
+    );
+  };
+
+  const handleSaveAgeRules = (adult: number, child: number, infant: number) => {
+    saveSettingMutation.mutate(
+      { ageRuleAdult: String(adult), ageRuleChild: String(child), ageRuleInfant: String(infant) },
+      {
+        onSuccess: () => {
+          toast({ title: "Settings Saved", description: "Age classification rules have been updated." });
+        },
+      }
+    );
+  };
+
+  const handleSaveWeekendDays = (days: number[]) => {
+    saveSettingMutation.mutate(
+      { weekendDays: JSON.stringify(days) },
+      {
+        onSuccess: () => {
+          toast({ title: "Settings Saved", description: "Weekend configuration has been updated." });
+        },
+      }
+    );
+  };
+
   const handleSaveInvoiceSettings = (newSettings: any) => {
     saveSettingMutation.mutate(
       { invoiceSettings: JSON.stringify(newSettings) },
@@ -607,7 +665,7 @@ export default function AdminSettings() {
                   <div className="space-y-2">
                     <Label>Base Currency</Label>
                     <Select value={currency} onValueChange={(val) => handleSaveCurrency(val)}>
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-currency">
                         <SelectValue placeholder="Select Currency" />
                       </SelectTrigger>
                       <SelectContent>
@@ -622,7 +680,7 @@ export default function AdminSettings() {
                   <div className="space-y-2">
                     <Label>Timezone</Label>
                     <Select defaultValue="utc-5">
-                      <SelectTrigger>
+                      <SelectTrigger data-testid="select-timezone">
                         <SelectValue placeholder="Select Timezone" />
                       </SelectTrigger>
                       <SelectContent>
@@ -639,6 +697,187 @@ export default function AdminSettings() {
                     Save General Settings
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Check-in & Check-out Time
+                </CardTitle>
+                <CardDescription>Standard check-in and check-out times. Night calculations will be based on these times.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+                  <div className="space-y-2">
+                    <Label>Check-in Time</Label>
+                    <Select value={checkInTime} onValueChange={(val) => handleSaveCheckInOutTimes(val, checkOutTime)}>
+                      <SelectTrigger data-testid="select-checkin-time">
+                        <SelectValue placeholder="Select Check-in Time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HOUR_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Check-out Time</Label>
+                    <Select value={checkOutTime} onValueChange={(val) => handleSaveCheckInOutTimes(checkInTime, val)}>
+                      <SelectTrigger data-testid="select-checkout-time">
+                        <SelectValue placeholder="Select Check-out Time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {HOUR_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">These times define when guests can check in and must check out. Early check-in or late check-out may incur additional charges.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Guest Age Classification
+                </CardTitle>
+                <CardDescription>Define age thresholds to classify guests as Adult, Child, or Infant during bookings.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="space-y-2 p-4 border rounded-lg bg-blue-50/50">
+                    <Label className="text-sm font-semibold text-blue-700">Adult</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={ageRuleAdult}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 13;
+                          handleSaveAgeRules(val, ageRuleChild, ageRuleInfant);
+                        }}
+                        className="w-20"
+                        data-testid="input-age-adult"
+                      />
+                      <span className="text-sm text-muted-foreground">years & above</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{ageRuleAdult}+ years old</p>
+                  </div>
+                  <div className="space-y-2 p-4 border rounded-lg bg-amber-50/50">
+                    <Label className="text-sm font-semibold text-amber-700">Child</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={98}
+                        value={ageRuleChild}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 3;
+                          handleSaveAgeRules(ageRuleAdult, val, ageRuleInfant);
+                        }}
+                        className="w-20"
+                        data-testid="input-age-child"
+                      />
+                      <span className="text-sm text-muted-foreground">to {ageRuleAdult - 1} years</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{ageRuleChild} – {ageRuleAdult - 1} years old</p>
+                  </div>
+                  <div className="space-y-2 p-4 border rounded-lg bg-green-50/50">
+                    <Label className="text-sm font-semibold text-green-700">Infant</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">0 to</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={97}
+                        value={ageRuleInfant}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 2;
+                          handleSaveAgeRules(ageRuleAdult, ageRuleChild, val);
+                        }}
+                        className="w-20"
+                        data-testid="input-age-infant"
+                      />
+                      <span className="text-sm text-muted-foreground">years</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">0 – {ageRuleInfant} years old</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">These rules are used to classify guests by age during booking. Infant age should be less than child age, and child age should be less than adult age.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5" />
+                  Weekend Configuration
+                </CardTitle>
+                <CardDescription>Select which days of the week are considered weekends. This affects pricing (weekday vs weekend rates) and inventory operations.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {DAY_NAMES.map((day) => {
+                    const isSelected = weekendDays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => {
+                          const newDays = isSelected
+                            ? weekendDays.filter(d => d !== day.value)
+                            : [...weekendDays, day.value].sort();
+                          handleSaveWeekendDays(newDays);
+                        }}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          isSelected
+                            ? "bg-amber-100 border-amber-400 text-amber-800"
+                            : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                        }`}
+                        data-testid={`btn-weekend-${day.label.toLowerCase()}`}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:bg-amber-50"
+                    onClick={() => handleSaveWeekendDays([5, 6])}
+                    data-testid="btn-preset-fri-sat"
+                  >
+                    Preset: Fri – Sat
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:bg-amber-50"
+                    onClick={() => handleSaveWeekendDays([0, 6])}
+                    data-testid="btn-preset-sat-sun"
+                  >
+                    Preset: Sat – Sun
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:bg-amber-50"
+                    onClick={() => handleSaveWeekendDays([4, 5])}
+                    data-testid="btn-preset-thu-fri"
+                  >
+                    Preset: Thu – Fri
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Currently selected: {weekendDays.length === 0 ? "None" : weekendDays.map(d => DAY_NAMES.find(n => n.value === d)?.label).join(", ")}.
+                  Weekend rates from the pricing calendar will apply on these days.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>

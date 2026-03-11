@@ -48,12 +48,14 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 import { Switch } from "@/components/ui/switch";
 import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant } = useHotelSettings();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [isReversalDialogOpen, setIsReversalDialogOpen] = useState(false);
@@ -1053,10 +1055,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         <div className="space-y-2">
                           <Label>Check-in Date</Label>
                           <Input type="date" value={newReservation.checkIn} onChange={(e) => setNewReservation({...newReservation, checkIn: e.target.value})} data-testid="input-checkin" />
+                          <p className="text-xs text-muted-foreground" data-testid="text-checkin-time">Check-in from {checkInTimeFormatted}</p>
                         </div>
                         <div className="space-y-2">
                           <Label>Check-out Date</Label>
                           <Input type="date" value={newReservation.checkOut} min={newReservation.checkIn || undefined} onChange={(e) => setNewReservation({...newReservation, checkOut: e.target.value})} data-testid="input-checkout" />
+                          <p className="text-xs text-muted-foreground" data-testid="text-checkout-time">Check-out by {checkOutTimeFormatted}</p>
                         </div>
                       </div>
                       {wizardNights > 0 && (
@@ -1101,7 +1105,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                   </Select>
                                 </div>
                               ))}
-                              <p className="text-xs text-muted-foreground">To find you a place to stay that fits your entire group along with correct prices, we need to know how old your children will be at check-out.</p>
+                              <p className="text-xs text-muted-foreground">To find you a place to stay that fits your entire group along with correct prices, we need to know how old your children will be at check-out. (Infant: 0–{ageRuleInfant} yrs, Child: {ageRuleChild}–{ageRuleAdult - 1} yrs, Adult: {ageRuleAdult}+ yrs)</p>
                             </div>
                           )}
                         </div>
@@ -1360,8 +1364,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <Card>
                         <CardContent className="pt-6 space-y-4">
                           <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{newReservation.checkIn}</span></div>
-                            <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{newReservation.checkOut}</span></div>
+                            <div><span className="text-muted-foreground">Check-in:</span> <span className="font-medium">{newReservation.checkIn}</span> <span className="text-xs text-muted-foreground">({checkInTimeFormatted})</span></div>
+                            <div><span className="text-muted-foreground">Check-out:</span> <span className="font-medium">{newReservation.checkOut}</span> <span className="text-xs text-muted-foreground">({checkOutTimeFormatted})</span></div>
                             <div><span className="text-muted-foreground">Duration:</span> <span className="font-medium">{wizardNights} Night{wizardNights !== 1 ? 's' : ''}</span></div>
                             <div><span className="text-muted-foreground">Guests:</span> <span className="font-medium">{newReservation.adults} Adult{newReservation.adults > 1 ? 's' : ''}{newReservation.children > 0 ? `, ${newReservation.children} Child${newReservation.children > 1 ? 'ren' : ''}` : ''}</span></div>
                           </div>

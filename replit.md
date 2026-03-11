@@ -124,6 +124,15 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Add Room dialog: includes Room Name field alongside Room Number
   - Edit Room dialog: shows room number as header (not dropdown), includes name, status, floor, description, photos, room properties with facilities
   - Mobile card view for rooms (visible on small screens), desktop table view on md+
+- 2026-03-11: Hotel General Settings — check-in/out times, age rules, weekend config
+  - General Settings tab: three new configuration cards added
+  - Check-in/Check-out Time: configurable standard times (default 2:00 PM / 11:00 AM), saved as `checkInTime`/`checkOutTime` in settings
+  - Guest Age Classification: Adult/Child/Infant age thresholds (default 13+/3-12/0-2), saved as `ageRuleAdult`/`ageRuleChild`/`ageRuleInfant`
+  - Weekend Configuration: selectable days of week as weekend (default Sat+Sun), saved as `weekendDays` JSON array of day indices
+  - Preset buttons for common weekend patterns: Fri-Sat, Sat-Sun, Thu-Fri
+  - New shared hook: `client/src/hooks/use-hotel-settings.ts` — reusable hook for accessing hotel settings across components
+  - PricingCalendar updated: uses configurable weekend days instead of hardcoded `isWeekend()` — affects day highlighting, bulk pricing weekday/weekend split, and block weekends filter
+  - Booking wizard: shows check-in/check-out times below date inputs, age classification info in children section, times in step 4 summary
 - 2026-03-11: Pricing Calendar enhancements — room inventory status integration
   - Room number dropdown: select specific room or "All Rooms" to view aggregate status
   - Color-coded day cells: green=Available, blue=Booked, indigo=Checked In, red=Blocked
