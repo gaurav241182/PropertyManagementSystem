@@ -1781,7 +1781,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      {isEditingMode ? (
                        <Input type="date" value={viewingBooking.checkIn} onChange={(e) => setViewingBooking({...viewingBooking, checkIn: e.target.value})} />
                      ) : (
-                       <div className="font-medium">{viewingBooking.checkIn}</div>
+                       <div>
+                         <div className="font-medium">{viewingBooking.checkIn}</div>
+                         <span className="text-xs text-muted-foreground">From {checkInTimeFormatted}</span>
+                       </div>
                      )}
                   </div>
                   <div className="space-y-1">
@@ -1789,7 +1792,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      {isEditingMode ? (
                        <Input type="date" value={viewingBooking.checkOut} onChange={(e) => setViewingBooking({...viewingBooking, checkOut: e.target.value})} />
                      ) : (
-                       <div className="font-medium">{viewingBooking.checkOut}</div>
+                       <div>
+                         <div className="font-medium">{viewingBooking.checkOut}</div>
+                         <span className="text-xs text-muted-foreground">By {checkOutTimeFormatted}</span>
+                       </div>
                      )}
                   </div>
                   <div className="space-y-1">

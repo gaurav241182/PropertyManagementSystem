@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -36,12 +36,22 @@ export default function AdminSettings() {
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
   const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
 
-  const checkInTime = settingsData?.checkInTime || "14:00";
-  const checkOutTime = settingsData?.checkOutTime || "11:00";
-  const ageRuleAdult = parseInt(settingsData?.ageRuleAdult || "13");
-  const ageRuleChild = parseInt(settingsData?.ageRuleChild || "3");
-  const ageRuleInfant = parseInt(settingsData?.ageRuleInfant || "2");
-  const weekendDays: number[] = (() => { try { return JSON.parse(settingsData?.weekendDays || '[0,6]'); } catch { return [0, 6]; } })();
+  const [localCheckInTime, setLocalCheckInTime] = useState(settingsData?.checkInTime || "14:00");
+  const [localCheckOutTime, setLocalCheckOutTime] = useState(settingsData?.checkOutTime || "11:00");
+  const [localAgeAdult, setLocalAgeAdult] = useState(parseInt(settingsData?.ageRuleAdult || "13"));
+  const [localAgeChild, setLocalAgeChild] = useState(parseInt(settingsData?.ageRuleChild || "3"));
+  const [localAgeInfant, setLocalAgeInfant] = useState(parseInt(settingsData?.ageRuleInfant || "2"));
+  const [localWeekendDays, setLocalWeekendDays] = useState<number[]>(() => { try { return JSON.parse(settingsData?.weekendDays || '[0,6]'); } catch { return [0, 6]; } });
+
+  const settingsDataStr = JSON.stringify(settingsData || {});
+  useEffect(() => {
+    setLocalCheckInTime(settingsData?.checkInTime || "14:00");
+    setLocalCheckOutTime(settingsData?.checkOutTime || "11:00");
+    setLocalAgeAdult(parseInt(settingsData?.ageRuleAdult || "13"));
+    setLocalAgeChild(parseInt(settingsData?.ageRuleChild || "3"));
+    setLocalAgeInfant(parseInt(settingsData?.ageRuleInfant || "2"));
+    try { setLocalWeekendDays(JSON.parse(settingsData?.weekendDays || '[0,6]')); } catch { setLocalWeekendDays([0, 6]); }
+  }, [settingsDataStr]);
 
   const DAY_NAMES = [
     { value: 0, label: "Sun" },
@@ -544,9 +554,9 @@ export default function AdminSettings() {
     );
   };
 
-  const handleSaveCheckInOutTimes = (newCheckIn: string, newCheckOut: string) => {
+  const handleSaveCheckInOutTimes = () => {
     saveSettingMutation.mutate(
-      { checkInTime: newCheckIn, checkOutTime: newCheckOut },
+      { checkInTime: localCheckInTime, checkOutTime: localCheckOutTime },
       {
         onSuccess: () => {
           toast({ title: "Settings Saved", description: "Check-in/Check-out times have been updated." });
@@ -555,9 +565,9 @@ export default function AdminSettings() {
     );
   };
 
-  const handleSaveAgeRules = (adult: number, child: number, infant: number) => {
+  const handleSaveAgeRules = () => {
     saveSettingMutation.mutate(
-      { ageRuleAdult: String(adult), ageRuleChild: String(child), ageRuleInfant: String(infant) },
+      { ageRuleAdult: String(localAgeAdult), ageRuleChild: String(localAgeChild), ageRuleInfant: String(localAgeInfant) },
       {
         onSuccess: () => {
           toast({ title: "Settings Saved", description: "Age classification rules have been updated." });
@@ -567,6 +577,7 @@ export default function AdminSettings() {
   };
 
   const handleSaveWeekendDays = (days: number[]) => {
+    setLocalWeekendDays(days);
     saveSettingMutation.mutate(
       { weekendDays: JSON.stringify(days) },
       {
@@ -712,7 +723,7 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                   <div className="space-y-2">
                     <Label>Check-in Time</Label>
-                    <Select value={checkInTime} onValueChange={(val) => handleSaveCheckInOutTimes(val, checkOutTime)}>
+                    <Select value={localCheckInTime} onValueChange={(val) => setLocalCheckInTime(val)}>
                       <SelectTrigger data-testid="select-checkin-time">
                         <SelectValue placeholder="Select Check-in Time" />
                       </SelectTrigger>
@@ -725,7 +736,7 @@ export default function AdminSettings() {
                   </div>
                   <div className="space-y-2">
                     <Label>Check-out Time</Label>
-                    <Select value={checkOutTime} onValueChange={(val) => handleSaveCheckInOutTimes(checkInTime, val)}>
+                    <Select value={localCheckOutTime} onValueChange={(val) => setLocalCheckOutTime(val)}>
                       <SelectTrigger data-testid="select-checkout-time">
                         <SelectValue placeholder="Select Check-out Time" />
                       </SelectTrigger>
@@ -738,6 +749,12 @@ export default function AdminSettings() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">These times define when guests can check in and must check out. Early check-in or late check-out may incur additional charges.</p>
+                <div className="pt-2">
+                  <Button onClick={handleSaveCheckInOutTimes} data-testid="button-save-checkin-checkout">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Times
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -758,17 +775,14 @@ export default function AdminSettings() {
                         type="number"
                         min={1}
                         max={99}
-                        value={ageRuleAdult}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 13;
-                          handleSaveAgeRules(val, ageRuleChild, ageRuleInfant);
-                        }}
+                        value={localAgeAdult}
+                        onChange={(e) => setLocalAgeAdult(parseInt(e.target.value) || 13)}
                         className="w-20"
                         data-testid="input-age-adult"
                       />
                       <span className="text-sm text-muted-foreground">years & above</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{ageRuleAdult}+ years old</p>
+                    <p className="text-xs text-muted-foreground">{localAgeAdult}+ years old</p>
                   </div>
                   <div className="space-y-2 p-4 border rounded-lg bg-amber-50/50">
                     <Label className="text-sm font-semibold text-amber-700">Child</Label>
@@ -777,17 +791,14 @@ export default function AdminSettings() {
                         type="number"
                         min={0}
                         max={98}
-                        value={ageRuleChild}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 3;
-                          handleSaveAgeRules(ageRuleAdult, val, ageRuleInfant);
-                        }}
+                        value={localAgeChild}
+                        onChange={(e) => setLocalAgeChild(parseInt(e.target.value) || 3)}
                         className="w-20"
                         data-testid="input-age-child"
                       />
-                      <span className="text-sm text-muted-foreground">to {ageRuleAdult - 1} years</span>
+                      <span className="text-sm text-muted-foreground">to {localAgeAdult - 1} years</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{ageRuleChild} – {ageRuleAdult - 1} years old</p>
+                    <p className="text-xs text-muted-foreground">{localAgeChild} – {localAgeAdult - 1} years old</p>
                   </div>
                   <div className="space-y-2 p-4 border rounded-lg bg-green-50/50">
                     <Label className="text-sm font-semibold text-green-700">Infant</Label>
@@ -797,20 +808,23 @@ export default function AdminSettings() {
                         type="number"
                         min={0}
                         max={97}
-                        value={ageRuleInfant}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 2;
-                          handleSaveAgeRules(ageRuleAdult, ageRuleChild, val);
-                        }}
+                        value={localAgeInfant}
+                        onChange={(e) => setLocalAgeInfant(parseInt(e.target.value) || 2)}
                         className="w-20"
                         data-testid="input-age-infant"
                       />
                       <span className="text-sm text-muted-foreground">years</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">0 – {ageRuleInfant} years old</p>
+                    <p className="text-xs text-muted-foreground">0 – {localAgeInfant} years old</p>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">These rules are used to classify guests by age during booking. Infant age should be less than child age, and child age should be less than adult age.</p>
+                <div className="pt-2">
+                  <Button onClick={handleSaveAgeRules} data-testid="button-save-age-rules">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Age Rules
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
@@ -825,15 +839,15 @@ export default function AdminSettings() {
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {DAY_NAMES.map((day) => {
-                    const isSelected = weekendDays.includes(day.value);
+                    const isSelected = localWeekendDays.includes(day.value);
                     return (
                       <button
                         key={day.value}
                         type="button"
                         onClick={() => {
                           const newDays = isSelected
-                            ? weekendDays.filter(d => d !== day.value)
-                            : [...weekendDays, day.value].sort();
+                            ? localWeekendDays.filter(d => d !== day.value)
+                            : [...localWeekendDays, day.value].sort();
                           handleSaveWeekendDays(newDays);
                         }}
                         className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
@@ -875,7 +889,7 @@ export default function AdminSettings() {
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Currently selected: {weekendDays.length === 0 ? "None" : weekendDays.map(d => DAY_NAMES.find(n => n.value === d)?.label).join(", ")}.
+                  Currently selected: {localWeekendDays.length === 0 ? "None" : localWeekendDays.map(d => DAY_NAMES.find(n => n.value === d)?.label).join(", ")}.
                   Weekend rates from the pricing calendar will apply on these days.
                 </p>
               </CardContent>
