@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -334,6 +335,53 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       phoneCountry: "+91", phone: "", email: "", notes: "", advanceAmount: 0,
       accompanyingGuests: [], selectedPaidFacilityIds: []
     });
+  };
+
+  const [, setLocation] = useLocation();
+  const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
+  const calendarParamsHandled = useRef(false);
+
+  useEffect(() => {
+    if (calendarParamsHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const checkIn = params.get("checkIn");
+    const checkOut = params.get("checkOut");
+    const roomTypeId = params.get("roomTypeId");
+    const roomId = params.get("roomId");
+
+    if (checkIn && checkOut && roomTypeId) {
+      calendarParamsHandled.current = true;
+      if (roomId) setCalendarRoomId(roomId);
+
+      setNewReservation((prev: any) => ({
+        ...prev,
+        checkIn,
+        checkOut,
+      }));
+      setWizardStep(2);
+      setIsNewReservationOpen(true);
+
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleCalendarBookingCancel = async () => {
+    if (calendarRoomId) {
+      try {
+        await apiRequest("PATCH", `/api/rooms/${calendarRoomId}`, { status: "available" });
+        queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/rooms/calendar-status"] });
+      } catch (e) {}
+      setCalendarRoomId(null);
+    }
+  };
+
+  const handleReservationDialogClose = async (open: boolean) => {
+    setIsNewReservationOpen(open);
+    if (!open) {
+      await handleCalendarBookingCancel();
+      resetWizard();
+    }
   };
 
   const handleSync = () => {
@@ -968,6 +1016,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
 
     if (successCount > 0) {
+      setCalendarRoomId(null);
       setIsNewReservationOpen(false);
       resetWizard();
       toast({ title: "Booking Created", description: `${successCount} room(s) booked successfully.` });
@@ -988,7 +1037,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
               {isSyncing ? "Syncing..." : "Sync Platforms"}
             </Button>
             
-            <Dialog open={isNewReservationOpen} onOpenChange={(open) => { setIsNewReservationOpen(open); if (!open) resetWizard(); }}>
+            <Dialog open={isNewReservationOpen} onOpenChange={handleReservationDialogClose}>
               <DialogTrigger asChild>
                 <Button size="sm" data-testid="button-new-reservation">
                   <Calendar className="mr-2 h-4 w-4" />
