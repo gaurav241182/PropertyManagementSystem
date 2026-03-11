@@ -83,6 +83,7 @@ function DayCell({
   onDragStart,
   onDragEnter,
   onDragEnd,
+  statusOnly = false,
 }: {
   dateKey: string;
   dayNum: number;
@@ -101,6 +102,7 @@ function DayCell({
   onDragStart: (dateKey: string) => void;
   onDragEnter: (dateKey: string) => void;
   onDragEnd: () => void;
+  statusOnly?: boolean;
 }) {
   const [localPrice, setLocalPrice] = useState(price);
 
@@ -149,11 +151,11 @@ function DayCell({
         </span>
         <div className="flex items-center gap-0.5">
           {statusInfo && statusInfo.totalRooms > 1 && (
-            <span className={`text-muted-foreground hidden sm:inline ${isCompact ? "text-[7px]" : "text-[9px]"}`} data-testid={`status-summary-${dateKey}`}>
+            <span className={`text-muted-foreground ${isCompact ? "text-[7px]" : "text-[9px]"}`} data-testid={`status-summary-${dateKey}`}>
               {statusInfo.availableCount}/{statusInfo.totalRooms}
             </span>
           )}
-          {!isCompact && (
+          {!statusOnly && !isCompact && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleLock(dateKey); }}
               className={`p-0.5 rounded hover:bg-gray-100 ${isLocked ? "text-red-500" : "text-gray-300"}`}
@@ -163,13 +165,17 @@ function DayCell({
               {isLocked ? <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> : <Unlock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
             </button>
           )}
-          {isCompact && isLocked && (
+          {!statusOnly && isCompact && isLocked && (
             <Lock className="h-2 w-2 text-red-500" />
           )}
         </div>
       </div>
       <div className="flex-1 flex items-center">
-        {isCompact ? (
+        {statusOnly ? (
+          <div className={`w-full text-center font-semibold ${isCompact ? "text-[10px] sm:text-[11px]" : "text-xs sm:text-sm"} ${style.text}`} data-testid={`status-display-${dateKey}`}>
+            {statusInfo ? `${statusInfo.availableCount} avail` : "—"}
+          </div>
+        ) : isCompact ? (
           <div className={`w-full text-center font-semibold ${isCompact ? "text-[10px] sm:text-[11px]" : "text-xs sm:text-sm"}`} data-testid={`price-display-${dateKey}`}>
             {displayPrice}
           </div>
@@ -225,6 +231,7 @@ function MonthGrid({
   onDragStart,
   onDragEnter,
   onDragEnd,
+  statusOnly = false,
 }: {
   monthDate: Date;
   selectedRoomTypeId: string;
@@ -242,6 +249,7 @@ function MonthGrid({
   onDragStart: (dateKey: string) => void;
   onDragEnter: (dateKey: string) => void;
   onDragEnd: () => void;
+  statusOnly?: boolean;
 }) {
   const startDate = startOfMonth(monthDate);
   const endDate = endOfMonth(monthDate);
@@ -298,6 +306,7 @@ function MonthGrid({
               onDragStart={onDragStart}
               onDragEnter={onDragEnter}
               onDragEnd={onDragEnd}
+              statusOnly={statusOnly}
             />
           );
         })}
@@ -310,7 +319,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("");
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("all");
   const [selectedRoomId, setSelectedRoomId] = useState<string>("all");
   const [localPrices, setLocalPrices] = useState<Record<string, string>>({});
   const [localLocks, setLocalLocks] = useState<Record<string, boolean>>({});
@@ -341,20 +350,16 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     return months;
   }, [currentDate, monthCount]);
 
-  useEffect(() => {
-    if (roomTypes.length > 0 && !selectedRoomTypeId) {
-      setSelectedRoomTypeId(String(roomTypes[0].id));
-    }
-  }, [roomTypes, selectedRoomTypeId]);
-
   const { data: allRooms = [] } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
   });
 
+  const isAllRoomTypes = selectedRoomTypeId === "all";
+
   const filteredRooms = useMemo(() => {
-    if (!selectedRoomTypeId) return [];
+    if (isAllRoomTypes) return allRooms;
     return allRooms.filter(r => String(r.roomTypeId) === selectedRoomTypeId);
-  }, [allRooms, selectedRoomTypeId]);
+  }, [allRooms, selectedRoomTypeId, isAllRoomTypes]);
 
   useEffect(() => {
     setSelectedRoomId("all");
@@ -378,10 +383,10 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
     });
-    if (selectedRoomTypeId) params.set("roomTypeId", selectedRoomTypeId);
+    if (!isAllRoomTypes) params.set("roomTypeId", selectedRoomTypeId);
     if (selectedRoomId !== "all") params.set("roomId", selectedRoomId);
     return params.toString();
-  }, [dateRange, selectedRoomTypeId, selectedRoomId]);
+  }, [dateRange, selectedRoomTypeId, selectedRoomId, isAllRoomTypes]);
 
   const { data: calendarStatus = {} } = useQuery<Record<string, CalendarStatusEntry>>({
     queryKey: ["/api/rooms/calendar-status", calendarStatusParams],
@@ -390,7 +395,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       if (!res.ok) throw new Error("Failed to fetch calendar status");
       return res.json();
     },
-    enabled: !!selectedRoomTypeId,
     refetchOnWindowFocus: true,
     staleTime: 30000,
   });
@@ -405,7 +409,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     return map;
   }, [allPricing]);
 
-  const selectedRoomType = roomTypes.find((r) => String(r.id) === selectedRoomTypeId);
+  const selectedRoomType = isAllRoomTypes ? null : roomTypes.find((r) => String(r.id) === selectedRoomTypeId);
   const basePrice = selectedRoomType ? String(selectedRoomType.basePrice || "0") : "0";
 
   const pricingVersion = useMemo(() => {
@@ -415,7 +419,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const allMonthsKey = monthsToShow.map(m => format(m, "yyyy-MM")).join(",");
 
   useEffect(() => {
-    if (!selectedRoomTypeId) return;
+    if (isAllRoomTypes) return;
     const bp = basePrice;
     const newPrices: Record<string, string> = {};
     const newLocks: Record<string, boolean> = {};
@@ -668,6 +672,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               <SelectValue placeholder="Select Room Type" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all" data-testid="room-type-option-all">All Room Types</SelectItem>
               {roomTypes.map((rt) => (
                 <SelectItem key={rt.id} value={String(rt.id)} data-testid={`room-type-option-${rt.id}`}>
                   {rt.name}
@@ -675,46 +680,55 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-            <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-room-number">
-              <SelectValue placeholder="All Rooms" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" data-testid="room-option-all">All Rooms</SelectItem>
-              {filteredRooms.map((room) => (
-                <SelectItem key={room.id} value={String(room.id)} data-testid={`room-option-${room.id}`}>
-                  Room {room.roomNumber}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!isAllRoomTypes && (
+            <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+              <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-room-number">
+                <SelectValue placeholder="All Rooms" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" data-testid="room-option-all">All Rooms</SelectItem>
+                {filteredRooms.map((room) => (
+                  <SelectItem key={room.id} value={String(room.id)} data-testid={`room-option-${room.id}`}>
+                    Room {room.roomNumber}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {isAllRoomTypes && (
+            <span className="text-xs sm:text-sm text-muted-foreground">
+              Showing availability across all rooms ({allRooms.length} total)
+            </span>
+          )}
           {selectedRoomType && (
             <span className="text-xs sm:text-sm text-muted-foreground">
               Base: <span className="font-semibold">{basePrice}</span>
             </span>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setBulkRoomTypeId(selectedRoomTypeId);
-              setBulkDialogOpen(true);
-            }}
-            data-testid="button-bulk-update"
-          >
-            <Layers className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Bulk Update</span>
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || dirtyKeys.size === 0} data-testid="button-save-pricing">
-            <Save className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Save Changes</span>
-            {dirtyKeys.size > 0 && (
-              <span className="ml-1 bg-white/20 rounded-full px-1.5 text-xs">{dirtyKeys.size}</span>
-            )}
-          </Button>
-        </div>
+        {!isAllRoomTypes && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBulkRoomTypeId(selectedRoomTypeId);
+                setBulkDialogOpen(true);
+              }}
+              data-testid="button-bulk-update"
+            >
+              <Layers className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm">Bulk Update</span>
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || dirtyKeys.size === 0} data-testid="button-save-pricing">
+              <Save className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm">Save Changes</span>
+              {dirtyKeys.size > 0 && (
+                <span className="ml-1 bg-white/20 rounded-full px-1.5 text-xs">{dirtyKeys.size}</span>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -775,8 +789,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
         <CardContent>
           {pricingLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Loading pricing data...</div>
-          ) : !selectedRoomTypeId ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">Select a room type to view pricing.</div>
           ) : (
             <div className={viewMode === "compact" ? "grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6" : ""}>
               {monthsToShow.map((monthDate) => (
@@ -798,6 +810,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                   onDragStart={handleDragStart}
                   onDragEnter={handleDragEnter}
                   onDragEnd={handleDragEnd}
+                  statusOnly={isAllRoomTypes}
                 />
               ))}
             </div>
