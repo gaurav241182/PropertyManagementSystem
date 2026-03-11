@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, facilities, orders, orderItems, settings, salaries,
-  bookingCharges, roomPricing,
+  bookingCharges, roomPricing, roomBlocks,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -20,6 +20,7 @@ import {
   type InsertSalary, type Salary,
   type InsertBookingCharge, type BookingCharge,
   type InsertRoomPricing, type RoomPricing,
+  type InsertRoomBlock, type RoomBlock,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -126,6 +127,13 @@ export interface IStorage {
   upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing>;
   bulkUpsertRoomPricing(data: InsertRoomPricing[]): Promise<RoomPricing[]>;
   updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined>;
+
+  // Room Blocks
+  getRoomBlocks(): Promise<RoomBlock[]>;
+  createRoomBlock(data: InsertRoomBlock): Promise<RoomBlock>;
+  bulkCreateRoomBlocks(data: InsertRoomBlock[]): Promise<RoomBlock[]>;
+  deleteRoomBlock(id: number): Promise<void>;
+  deleteRoomBlocksByRoomAndDateRange(roomIds: number[], startDate: string, endDate: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -474,6 +482,41 @@ export class DatabaseStorage implements IStorage {
   async updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined> {
     const [result] = await db.update(roomPricing).set({ isLocked }).where(eq(roomPricing.id, id)).returning();
     return result;
+  }
+
+  // Room Blocks
+  async getRoomBlocks(): Promise<RoomBlock[]> {
+    return db.select().from(roomBlocks).orderBy(desc(roomBlocks.createdAt));
+  }
+
+  async createRoomBlock(data: InsertRoomBlock): Promise<RoomBlock> {
+    const [result] = await db.insert(roomBlocks).values(data).returning();
+    return result;
+  }
+
+  async bulkCreateRoomBlocks(dataArr: InsertRoomBlock[]): Promise<RoomBlock[]> {
+    if (dataArr.length === 0) return [];
+    const results = await db.insert(roomBlocks).values(dataArr).returning();
+    return results;
+  }
+
+  async deleteRoomBlock(id: number): Promise<void> {
+    await db.delete(roomBlocks).where(eq(roomBlocks.id, id));
+  }
+
+  async deleteRoomBlocksByRoomAndDateRange(roomIds: number[], startDate: string, endDate: string): Promise<number> {
+    if (roomIds.length === 0) return 0;
+    const overlapping = await db.select().from(roomBlocks).where(
+      and(
+        inArray(roomBlocks.roomId, roomIds),
+        lte(roomBlocks.startDate, endDate),
+        gte(roomBlocks.endDate, startDate)
+      )
+    );
+    if (overlapping.length === 0) return 0;
+    const ids = overlapping.map(b => b.id);
+    await db.delete(roomBlocks).where(inArray(roomBlocks.id, ids));
+    return ids.length;
   }
 }
 

@@ -747,6 +747,45 @@ export async function registerRoutes(
     }
   });
 
+  // ============= ROOM BLOCKS =============
+  app.get("/api/room-blocks", async (_req, res) => {
+    const data = await storage.getRoomBlocks();
+    res.json(data);
+  });
+
+  app.post("/api/room-blocks", async (req, res) => {
+    try {
+      const items = req.body;
+      if (Array.isArray(items)) {
+        const results = await storage.bulkCreateRoomBlocks(items);
+        res.status(201).json(results);
+      } else {
+        const result = await storage.createRoomBlock(items);
+        res.status(201).json(result);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/room-blocks/:id", async (req, res) => {
+    await storage.deleteRoomBlock(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/room-blocks/unblock", async (req, res) => {
+    try {
+      const { roomIds, startDate, endDate } = req.body;
+      if (!roomIds || !startDate || !endDate) {
+        return res.status(400).json({ message: "roomIds, startDate, and endDate are required" });
+      }
+      const count = await storage.deleteRoomBlocksByRoomAndDateRange(roomIds, startDate, endDate);
+      res.json({ deleted: count });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============= ROOM CALENDAR STATUS =============
   app.get("/api/rooms/calendar-status", async (req, res) => {
     try {
@@ -773,6 +812,11 @@ export async function registerRoutes(
         b.checkIn <= endDateStr && b.checkOut > startDateStr
       );
 
+      const allBlocks = await storage.getRoomBlocks();
+      const relevantBlocks = allBlocks.filter(b =>
+        b.startDate <= endDateStr && b.endDate >= startDateStr
+      );
+
       const result: Record<string, { status: string; bookingStatus: string; bookedCount: number; checkedInCount: number; blockedCount: number; availableCount: number; totalRooms: number }> = {};
 
       const start = new Date(startDateStr);
@@ -789,6 +833,15 @@ export async function registerRoutes(
             blockedCount++;
             continue;
           }
+
+          const hasBlock = relevantBlocks.some(b =>
+            b.roomId === room.id && b.startDate <= dateKey && b.endDate >= dateKey
+          );
+          if (hasBlock) {
+            blockedCount++;
+            continue;
+          }
+
           const booking = activeBookings.find(b =>
             b.roomId === room.id && b.checkIn <= dateKey && b.checkOut > dateKey
           );

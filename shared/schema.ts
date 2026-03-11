@@ -287,6 +287,20 @@ export const insertRoomPricingSchema = createInsertSchema(roomPricing).omit({ id
 export type InsertRoomPricing = z.infer<typeof insertRoomPricingSchema>;
 export type RoomPricing = typeof roomPricing.$inferSelect;
 
+// ============= ROOM BLOCKS (Date-range blocking) =============
+export const roomBlocks = pgTable("room_blocks", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  reason: text("reason").notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRoomBlockSchema = createInsertSchema(roomBlocks).omit({ id: true, createdAt: true });
+export type InsertRoomBlock = z.infer<typeof insertRoomBlockSchema>;
+export type RoomBlock = typeof roomBlocks.$inferSelect;
+
 // ============= BOOKING CHARGES (Auto-linked from orders) =============
 export const bookingCharges = pgTable("booking_charges", {
   id: serial("id").primaryKey(),

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import type { RoomPricing, Room } from "@shared/schema";
+import type { RoomPricing, Room, RoomBlock } from "@shared/schema";
 
 interface PricingCalendarProps {
   roomTypes: any[];
@@ -342,6 +342,16 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockAction, setBlockAction] = useState<"block" | "unblock">("block");
   const [selectedBlockRoomIds, setSelectedBlockRoomIds] = useState<number[]>([]);
+  const [bulkDateMode, setBulkDateMode] = useState<"months" | "range">("months");
+  const [bulkDateFrom, setBulkDateFrom] = useState("");
+  const [bulkDateTo, setBulkDateTo] = useState("");
+  const [bulkRoomNumber, setBulkRoomNumber] = useState<string>("all");
+  const [blockRoomTypeId, setBlockRoomTypeId] = useState<string>("");
+  const [blockDateMode, setBlockDateMode] = useState<"months" | "range">("months");
+  const [blockMonths, setBlockMonths] = useState<string[]>([]);
+  const [blockDateFrom, setBlockDateFrom] = useState("");
+  const [blockDateTo, setBlockDateTo] = useState("");
+  const [blockWeekendsOnly, setBlockWeekendsOnly] = useState(false);
 
   const monthCount = viewMode === "compact" ? 3 : 1;
 
@@ -591,39 +601,61 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       setBulkWeekdayPrice("");
       setBulkWeekendPrice("");
       setBulkSamePrice(false);
-      toast({ title: "Bulk Update Complete", description: "Pricing updated for selected months." });
+      setBulkDateFrom("");
+      setBulkDateTo("");
+      setBulkDateMode("months");
+      setBulkRoomNumber("all");
+      toast({ title: "Bulk Update Complete", description: "Pricing updated successfully." });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
+  const getDaysFromSelection = (mode: "months" | "range", months: string[], dateFrom: string, dateTo: string): Date[] => {
+    if (mode === "range") {
+      if (!dateFrom || !dateTo) return [];
+      return eachDayOfInterval({ start: new Date(dateFrom), end: new Date(dateTo) });
+    }
+    const days: Date[] = [];
+    months.forEach((mk) => {
+      const [y, m] = mk.split("-").map(Number);
+      const monthStart = new Date(y, m - 1, 1);
+      const monthEnd = endOfMonth(monthStart);
+      days.push(...eachDayOfInterval({ start: monthStart, end: monthEnd }));
+    });
+    return days;
+  };
+
   const handleBulkSubmit = () => {
-    if (!bulkRoomTypeId || bulkMonths.length === 0 || !bulkWeekdayPrice) {
-      toast({ title: "Missing Info", description: "Please select room type, months, and enter prices.", variant: "destructive" });
+    const hasDateSelection = bulkDateMode === "months" ? bulkMonths.length > 0 : (bulkDateFrom && bulkDateTo);
+    if (!bulkRoomTypeId || !hasDateSelection || !bulkWeekdayPrice) {
+      toast({ title: "Missing Info", description: "Please select room type, date range, and enter prices.", variant: "destructive" });
       return;
     }
     const weekdayP = bulkWeekdayPrice;
     const weekendP = bulkSamePrice ? bulkWeekdayPrice : (bulkWeekendPrice || bulkWeekdayPrice);
 
+    const targetRoomTypeIds = bulkRoomTypeId === "all"
+      ? roomTypes.map((rt: any) => rt.id)
+      : [Number(bulkRoomTypeId)];
+
+    const days = getDaysFromSelection(bulkDateMode, bulkMonths, bulkDateFrom, bulkDateTo);
+
     const items: any[] = [];
-    bulkMonths.forEach((mk) => {
-      const [y, m] = mk.split("-").map(Number);
-      const monthStart = new Date(y, m - 1, 1);
-      const monthEnd = endOfMonth(monthStart);
-      const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-      monthDays.forEach((day) => {
+    for (const rtId of targetRoomTypeIds) {
+      days.forEach((day) => {
         const dateKey = format(day, "yyyy-MM-dd");
-        const existing = pricingMap[bulkRoomTypeId]?.[dateKey];
+        const existing = pricingMap[String(rtId)]?.[dateKey];
         if (existing?.isLocked) return;
         items.push({
-          roomTypeId: Number(bulkRoomTypeId),
+          roomTypeId: rtId,
           date: dateKey,
           price: isWeekend(day) ? weekendP : weekdayP,
           isLocked: false,
         });
       });
-    });
+    }
 
     if (items.length === 0) {
       toast({ title: "No Updates", description: "All selected dates are locked.", variant: "destructive" });
@@ -633,21 +665,36 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   };
 
   const blockMutation = useMutation({
-    mutationFn: async ({ roomIds, status }: { roomIds: number[]; status: string }) => {
-      await Promise.all(
-        roomIds.map((id) =>
-          apiRequest("PATCH", `/api/rooms/${id}`, { status })
-        )
-      );
+    mutationFn: async (payload: { action: "block" | "unblock"; roomIds: number[]; startDate: string; endDate: string }) => {
+      if (payload.action === "block") {
+        const blocks = payload.roomIds.map((roomId) => ({
+          roomId,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          reason: "",
+        }));
+        await apiRequest("POST", "/api/room-blocks", blocks);
+      } else {
+        await apiRequest("POST", "/api/room-blocks/unblock", {
+          roomIds: payload.roomIds,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/room-blocks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/calendar-status"] });
       setBlockDialogOpen(false);
       setSelectedBlockRoomIds([]);
+      setBlockMonths([]);
+      setBlockDateFrom("");
+      setBlockDateTo("");
+      setBlockWeekendsOnly(false);
       toast({
         title: blockAction === "block" ? "Rooms Blocked" : "Rooms Unblocked",
-        description: `${selectedBlockRoomIds.length} room(s) ${blockAction === "block" ? "blocked" : "unblocked"} successfully.`,
+        description: `Room(s) ${blockAction === "block" ? "blocked" : "unblocked"} successfully.`,
       });
     },
     onError: (error: any) => {
@@ -660,17 +707,74 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       toast({ title: "No Rooms Selected", description: "Please select at least one room.", variant: "destructive" });
       return;
     }
+    const hasDateSelection = blockDateMode === "months" ? blockMonths.length > 0 : (blockDateFrom && blockDateTo);
+    if (!hasDateSelection) {
+      toast({ title: "No Dates Selected", description: "Please select months or a date range.", variant: "destructive" });
+      return;
+    }
+
+    if (blockWeekendsOnly) {
+      const days = getDaysFromSelection(blockDateMode, blockMonths, blockDateFrom, blockDateTo);
+      const weekendDays = days.filter(d => isWeekend(d));
+      if (weekendDays.length === 0) {
+        toast({ title: "No Weekends", description: "No weekend days found in the selected range.", variant: "destructive" });
+        return;
+      }
+      let startD = format(weekendDays[0], "yyyy-MM-dd");
+      let currentEnd = startD;
+      const ranges: { start: string; end: string }[] = [];
+      for (let i = 1; i < weekendDays.length; i++) {
+        const prev = weekendDays[i - 1];
+        const curr = weekendDays[i];
+        const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 3600 * 24);
+        if (diffDays <= 1) {
+          currentEnd = format(curr, "yyyy-MM-dd");
+        } else {
+          ranges.push({ start: startD, end: currentEnd });
+          startD = format(curr, "yyyy-MM-dd");
+          currentEnd = startD;
+        }
+      }
+      ranges.push({ start: startD, end: currentEnd });
+      const promises = ranges.map(r =>
+        blockMutation.mutateAsync({
+          action: blockAction,
+          roomIds: selectedBlockRoomIds,
+          startDate: r.start,
+          endDate: r.end,
+        })
+      );
+      Promise.all(promises);
+      return;
+    }
+
+    let startDate: string;
+    let endDate: string;
+    if (blockDateMode === "range") {
+      startDate = blockDateFrom;
+      endDate = blockDateTo;
+    } else {
+      const sortedMonths = [...blockMonths].sort();
+      const firstMonth = sortedMonths[0];
+      const lastMonth = sortedMonths[sortedMonths.length - 1];
+      const [fy, fm] = firstMonth.split("-").map(Number);
+      const [ly, lm] = lastMonth.split("-").map(Number);
+      startDate = format(new Date(fy, fm - 1, 1), "yyyy-MM-dd");
+      endDate = format(endOfMonth(new Date(ly, lm - 1, 1)), "yyyy-MM-dd");
+    }
+
     blockMutation.mutate({
+      action: blockAction,
       roomIds: selectedBlockRoomIds,
-      status: blockAction === "block" ? "blocked" : "available",
+      startDate,
+      endDate,
     });
   };
 
-  const roomsForBlockAction = useMemo(() => {
-    return filteredRooms.filter((r) =>
-      blockAction === "block" ? r.status !== "blocked" : r.status === "blocked"
-    );
-  }, [filteredRooms, blockAction]);
+  const blockFilteredRooms = useMemo(() => {
+    if (!blockRoomTypeId || blockRoomTypeId === "all") return allRooms;
+    return allRooms.filter(r => String(r.roomTypeId) === blockRoomTypeId);
+  }, [allRooms, blockRoomTypeId]);
 
   const next12Months = useMemo(() => {
     const months: { key: string; label: string }[] = [];
@@ -757,6 +861,12 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               onClick={() => {
                 setBlockAction("block");
                 setSelectedBlockRoomIds([]);
+                setBlockRoomTypeId(selectedRoomTypeId);
+                setBlockMonths([]);
+                setBlockDateFrom("");
+                setBlockDateTo("");
+                setBlockWeekendsOnly(false);
+                setBlockDateMode("months");
                 setBlockDialogOpen(true);
               }}
               data-testid="button-block-rooms"
@@ -770,6 +880,12 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               onClick={() => {
                 setBlockAction("unblock");
                 setSelectedBlockRoomIds([]);
+                setBlockRoomTypeId(selectedRoomTypeId);
+                setBlockMonths([]);
+                setBlockDateFrom("");
+                setBlockDateTo("");
+                setBlockWeekendsOnly(false);
+                setBlockDateMode("months");
                 setBlockDialogOpen(true);
               }}
               data-testid="button-unblock-rooms"
@@ -782,6 +898,14 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               size="sm"
               onClick={() => {
                 setBulkRoomTypeId(selectedRoomTypeId);
+                setBulkRoomNumber("all");
+                setBulkDateMode("months");
+                setBulkDateFrom("");
+                setBulkDateTo("");
+                setBulkMonths([]);
+                setBulkWeekdayPrice("");
+                setBulkWeekendPrice("");
+                setBulkSamePrice(false);
                 setBulkDialogOpen(true);
               }}
               data-testid="button-bulk-update"
@@ -985,50 +1109,114 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       </Dialog>
 
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Bulk Price Update</DialogTitle>
+            <DialogTitle>Bulk Pricing Update</DialogTitle>
             <DialogDescription>
-              Set prices for multiple months at once. Locked dates will not be overwritten.
+              Set prices for multiple months or a date range at once. Locked dates will not be overwritten.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Room Type</Label>
-              <Select value={bulkRoomTypeId} onValueChange={setBulkRoomTypeId}>
-                <SelectTrigger data-testid="bulk-select-room-type">
-                  <SelectValue placeholder="Select Room Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roomTypes.map((rt) => (
-                    <SelectItem key={rt.id} value={String(rt.id)}>
-                      {rt.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Room Type</Label>
+                <Select value={bulkRoomTypeId} onValueChange={(v) => { setBulkRoomTypeId(v); setBulkRoomNumber("all"); }}>
+                  <SelectTrigger data-testid="bulk-select-room-type">
+                    <SelectValue placeholder="Select Room Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Room Types</SelectItem>
+                    {roomTypes.map((rt) => (
+                      <SelectItem key={rt.id} value={String(rt.id)}>
+                        {rt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Room Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Select value={bulkRoomNumber} onValueChange={setBulkRoomNumber}>
+                  <SelectTrigger data-testid="bulk-select-room-number">
+                    <SelectValue placeholder="All Rooms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Rooms</SelectItem>
+                    {(bulkRoomTypeId === "all" ? allRooms : allRooms.filter(r => String(r.roomTypeId) === bulkRoomTypeId)).map((room) => (
+                      <SelectItem key={room.id} value={String(room.id)}>
+                        Room {room.roomNumber}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>
-              <Label className="mb-2 block">Select Months</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto border rounded-md p-2">
-                {next12Months.map((m) => (
-                  <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
-                    <Checkbox
-                      checked={bulkMonths.includes(m.key)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setBulkMonths((prev) => [...prev, m.key]);
-                        } else {
-                          setBulkMonths((prev) => prev.filter((k) => k !== m.key));
-                        }
-                      }}
-                      data-testid={`bulk-month-${m.key}`}
-                    />
-                    {m.label}
-                  </label>
-                ))}
+              <div className="flex items-center gap-2 mb-2">
+                <Label>Date Selection</Label>
+                <div className="flex border rounded-md overflow-hidden ml-auto">
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${bulkDateMode === "months" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                    onClick={() => setBulkDateMode("months")}
+                    data-testid="bulk-mode-months"
+                  >
+                    By Month
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${bulkDateMode === "range" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                    onClick={() => setBulkDateMode("range")}
+                    data-testid="bulk-mode-range"
+                  >
+                    Date Range
+                  </button>
+                </div>
               </div>
+
+              {bulkDateMode === "months" ? (
+                <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto border rounded-md p-2">
+                  {next12Months.map((m) => (
+                    <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
+                      <Checkbox
+                        checked={bulkMonths.includes(m.key)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setBulkMonths((prev) => [...prev, m.key]);
+                          } else {
+                            setBulkMonths((prev) => prev.filter((k) => k !== m.key));
+                          }
+                        }}
+                        data-testid={`bulk-month-${m.key}`}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">From</Label>
+                    <Input
+                      type="date"
+                      value={bulkDateFrom}
+                      onChange={(e) => setBulkDateFrom(e.target.value)}
+                      data-testid="bulk-date-from"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To</Label>
+                    <Input
+                      type="date"
+                      value={bulkDateTo}
+                      onChange={(e) => setBulkDateTo(e.target.value)}
+                      min={bulkDateFrom}
+                      data-testid="bulk-date-to"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1075,48 +1263,68 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               Cancel
             </Button>
             <Button onClick={handleBulkSubmit} disabled={bulkMutation.isPending} data-testid="button-bulk-apply">
-              {bulkMutation.isPending ? "Applying..." : `Apply to ${bulkMonths.length} Month${bulkMonths.length !== 1 ? "s" : ""}`}
+              {bulkMutation.isPending ? "Applying..." : "Apply Pricing"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{blockAction === "block" ? "Block Rooms" : "Unblock Rooms"}</DialogTitle>
             <DialogDescription>
               {blockAction === "block"
-                ? "Select rooms to block. Blocked rooms won't be available for booking."
-                : "Select blocked rooms to make available again."}
+                ? "Select rooms and date range to block. Blocked rooms won't be available for booking."
+                : "Select rooms and date range to unblock. Removes blocking for the selected period."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            {roomsForBlockAction.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                {blockAction === "block"
-                  ? "No available rooms to block for this room type."
-                  : "No blocked rooms to unblock for this room type."}
-              </p>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-2">
-                  <Checkbox
-                    checked={selectedBlockRoomIds.length === roomsForBlockAction.length && roomsForBlockAction.length > 0}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedBlockRoomIds(roomsForBlockAction.map((r) => r.id));
-                      } else {
-                        setSelectedBlockRoomIds([]);
-                      }
-                    }}
-                    data-testid="checkbox-select-all-block"
-                  />
-                  <span className="text-sm font-medium">Select All ({roomsForBlockAction.length})</span>
-                </div>
-                <div className="max-h-[250px] overflow-y-auto border rounded-md p-2 space-y-1">
-                  {roomsForBlockAction.map((room) => (
-                    <label key={room.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5">
+          <div className="space-y-4">
+            <div>
+              <Label>Room Type</Label>
+              <Select value={blockRoomTypeId} onValueChange={(v) => { setBlockRoomTypeId(v); setSelectedBlockRoomIds([]); }}>
+                <SelectTrigger data-testid="block-select-room-type">
+                  <SelectValue placeholder="Select Room Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Room Types</SelectItem>
+                  {roomTypes.map((rt) => (
+                    <SelectItem key={rt.id} value={String(rt.id)}>
+                      {rt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Label>Select Rooms</Label>
+                {blockFilteredRooms.length > 0 && (
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer ml-auto">
+                    <Checkbox
+                      checked={selectedBlockRoomIds.length === blockFilteredRooms.length && blockFilteredRooms.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedBlockRoomIds(blockFilteredRooms.map((r) => r.id));
+                        } else {
+                          setSelectedBlockRoomIds([]);
+                        }
+                      }}
+                      data-testid="checkbox-select-all-block"
+                    />
+                    Select All ({blockFilteredRooms.length})
+                  </label>
+                )}
+              </div>
+              {blockFilteredRooms.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-3 text-center border rounded-md">
+                  No rooms found for this room type.
+                </p>
+              ) : (
+                <div className="max-h-[150px] overflow-y-auto border rounded-md p-2 space-y-1">
+                  {blockFilteredRooms.map((room) => (
+                    <label key={room.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
                       <Checkbox
                         checked={selectedBlockRoomIds.includes(room.id)}
                         onCheckedChange={(checked) => {
@@ -1129,12 +1337,88 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                         data-testid={`checkbox-block-room-${room.id}`}
                       />
                       <span>Room {room.roomNumber}</span>
-                      <span className="text-muted-foreground">— {room.roomName || "No name"}</span>
+                      <span className="text-muted-foreground text-xs">— {room.roomName || "No name"}</span>
                     </label>
                   ))}
                 </div>
-              </>
-            )}
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Label>Date Selection</Label>
+                <div className="flex border rounded-md overflow-hidden ml-auto">
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${blockDateMode === "months" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                    onClick={() => setBlockDateMode("months")}
+                    data-testid="block-mode-months"
+                  >
+                    By Month
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${blockDateMode === "range" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                    onClick={() => setBlockDateMode("range")}
+                    data-testid="block-mode-range"
+                  >
+                    Date Range
+                  </button>
+                </div>
+              </div>
+
+              {blockDateMode === "months" ? (
+                <div className="grid grid-cols-2 gap-2 max-h-[150px] overflow-y-auto border rounded-md p-2">
+                  {next12Months.map((m) => (
+                    <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
+                      <Checkbox
+                        checked={blockMonths.includes(m.key)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setBlockMonths((prev) => [...prev, m.key]);
+                          } else {
+                            setBlockMonths((prev) => prev.filter((k) => k !== m.key));
+                          }
+                        }}
+                        data-testid={`block-month-${m.key}`}
+                      />
+                      {m.label}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">From</Label>
+                    <Input
+                      type="date"
+                      value={blockDateFrom}
+                      onChange={(e) => setBlockDateFrom(e.target.value)}
+                      data-testid="block-date-from"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To</Label>
+                    <Input
+                      type="date"
+                      value={blockDateTo}
+                      onChange={(e) => setBlockDateTo(e.target.value)}
+                      min={blockDateFrom}
+                      data-testid="block-date-to"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={blockWeekendsOnly}
+                onCheckedChange={(checked) => setBlockWeekendsOnly(!!checked)}
+                data-testid="checkbox-weekends-only"
+              />
+              {blockAction === "block" ? "Block weekends only" : "Unblock weekends only"}
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBlockDialogOpen(false)} data-testid="button-block-cancel">
