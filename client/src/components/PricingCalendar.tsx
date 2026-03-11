@@ -330,7 +330,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const [dragEndDate, setDragEndDate] = useState<string | null>(null);
   const [quickBookDialog, setQuickBookDialog] = useState(false);
   const [quickBookDates, setQuickBookDates] = useState<{ checkIn: string; checkOut: string } | null>(null);
-  const [blockedRoomIds, setBlockedRoomIds] = useState<number[]>([]);
 
   const monthCount = viewMode === "compact" ? 3 : 1;
 
@@ -487,22 +486,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     }
   }, [isDragging]);
 
-  const blockRoomMutation = useMutation({
-    mutationFn: async (roomId: number) => {
-      await apiRequest("PATCH", `/api/rooms/${roomId}`, { status: "blocked" });
-    },
-  });
-
-  const unblockRoomMutation = useMutation({
-    mutationFn: async (roomId: number) => {
-      await apiRequest("PATCH", `/api/rooms/${roomId}`, { status: "available" });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/rooms/calendar-status"] });
-    },
-  });
-
   const handleDragEnd = useCallback(() => {
     if (!isDragging || !dragStartDate || !dragEndDate) {
       setIsDragging(false);
@@ -525,13 +508,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     setQuickBookDates({ checkIn, checkOut });
     setQuickBookDialog(true);
     setIsDragging(false);
-
-    if (selectedRoomId !== "all") {
-      const roomId = Number(selectedRoomId);
-      blockRoomMutation.mutate(roomId);
-      setBlockedRoomIds([roomId]);
-    }
-  }, [isDragging, dragStartDate, dragEndDate, selectedRoomId]);
+  }, [isDragging, dragStartDate, dragEndDate]);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
@@ -542,13 +519,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     window.addEventListener("mouseup", handleGlobalMouseUp);
     return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
   }, [isDragging, handleDragEnd]);
-
-  const releaseBlockedRooms = async () => {
-    for (const roomId of blockedRoomIds) {
-      await unblockRoomMutation.mutateAsync(roomId);
-    }
-    setBlockedRoomIds([]);
-  };
 
   const handleQuickBookConfirm = () => {
     if (!quickBookDates) return;
@@ -566,14 +536,11 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     setLocation(`/admin/bookings?${params.toString()}`);
   };
 
-  const handleQuickBookCancel = async () => {
-    await releaseBlockedRooms();
+  const handleQuickBookCancel = () => {
     setQuickBookDialog(false);
     setQuickBookDates(null);
     setDragStartDate(null);
     setDragEndDate(null);
-    queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/rooms/calendar-status"] });
   };
 
   const saveMutation = useMutation({

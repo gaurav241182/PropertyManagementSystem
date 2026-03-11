@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
-import { useLocation } from "wouter";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -337,8 +336,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     });
   };
 
-  const [, setLocation] = useLocation();
-  const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
   const calendarParamsHandled = useRef(false);
 
   useEffect(() => {
@@ -347,11 +344,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const checkIn = params.get("checkIn");
     const checkOut = params.get("checkOut");
     const roomTypeId = params.get("roomTypeId");
-    const roomId = params.get("roomId");
 
     if (checkIn && checkOut && roomTypeId) {
       calendarParamsHandled.current = true;
-      if (roomId) setCalendarRoomId(roomId);
 
       setNewReservation((prev: any) => ({
         ...prev,
@@ -365,21 +360,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
   }, []);
 
-  const handleCalendarBookingCancel = async () => {
-    if (calendarRoomId) {
-      try {
-        await apiRequest("PATCH", `/api/rooms/${calendarRoomId}`, { status: "available" });
-        queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/rooms/calendar-status"] });
-      } catch (e) {}
-      setCalendarRoomId(null);
-    }
-  };
-
-  const handleReservationDialogClose = async (open: boolean) => {
+  const handleReservationDialogClose = (open: boolean) => {
     setIsNewReservationOpen(open);
     if (!open) {
-      await handleCalendarBookingCancel();
       resetWizard();
     }
   };
@@ -1016,7 +999,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
 
     if (successCount > 0) {
-      setCalendarRoomId(null);
       setIsNewReservationOpen(false);
       resetWizard();
       toast({ title: "Booking Created", description: `${successCount} room(s) booked successfully.` });
