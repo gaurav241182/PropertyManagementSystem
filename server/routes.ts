@@ -747,5 +747,76 @@ export async function registerRoutes(
     }
   });
 
+  // ============= ROOM CALENDAR STATUS =============
+  app.get("/api/rooms/calendar-status", async (req, res) => {
+    try {
+      const { roomTypeId, roomId, month } = req.query;
+      if (!month) {
+        return res.status(400).json({ message: "month query parameter is required (YYYY-MM)" });
+      }
+      const [year, mon] = (month as string).split("-").map(Number);
+      const monthStart = `${month}-01`;
+      const lastDay = new Date(year, mon, 0).getDate();
+      const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+
+      const allRooms = await storage.getRooms();
+      let filteredRooms = allRooms;
+      if (roomTypeId) {
+        filteredRooms = filteredRooms.filter(r => r.roomTypeId === Number(roomTypeId));
+      }
+      if (roomId) {
+        filteredRooms = filteredRooms.filter(r => r.id === Number(roomId));
+      }
+
+      const allBookings = await storage.getBookings();
+      const activeBookings = allBookings.filter(b =>
+        b.status !== "cancelled" && b.status !== "checked_out" &&
+        b.checkIn <= monthEnd && b.checkOut > monthStart
+      );
+
+      const result: Record<string, { status: string; bookedCount: number; blockedCount: number; availableCount: number; totalRooms: number }> = {};
+
+      for (let d = 1; d <= lastDay; d++) {
+        const dateKey = `${month}-${String(d).padStart(2, "0")}`;
+        let bookedCount = 0;
+        let blockedCount = 0;
+        let availableCount = 0;
+
+        for (const room of filteredRooms) {
+          if (room.status === "blocked" || room.status === "maintenance") {
+            blockedCount++;
+            continue;
+          }
+          const isBooked = activeBookings.some(b =>
+            b.roomId === room.id && b.checkIn <= dateKey && b.checkOut > dateKey
+          );
+          if (isBooked) {
+            bookedCount++;
+          } else {
+            availableCount++;
+          }
+        }
+
+        let status = "available";
+        if (filteredRooms.length === 1) {
+          if (blockedCount > 0) status = "blocked";
+          else if (bookedCount > 0) status = "booked";
+          else status = "available";
+        } else {
+          if (blockedCount === filteredRooms.length) status = "blocked";
+          else if (bookedCount + blockedCount === filteredRooms.length) status = "booked";
+          else if (bookedCount > 0 || blockedCount > 0) status = "partial";
+          else status = "available";
+        }
+
+        result[dateKey] = { status, bookedCount, blockedCount, availableCount, totalRooms: filteredRooms.length };
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

@@ -11,13 +11,40 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay,
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { RoomPricing } from "@shared/schema";
+import type { RoomPricing, Room } from "@shared/schema";
 
 interface PricingCalendarProps {
   roomTypes: any[];
 }
 
+type DayStatus = "available" | "booked" | "blocked" | "partial" | "";
+
+interface CalendarStatusEntry {
+  status: string;
+  bookedCount: number;
+  blockedCount: number;
+  availableCount: number;
+  totalRooms: number;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
+  available: { bg: "bg-green-50", border: "border-green-200" },
+  booked: { bg: "bg-blue-50", border: "border-blue-200" },
+  blocked: { bg: "bg-red-50", border: "border-red-200" },
+  partial: { bg: "bg-amber-50", border: "border-amber-200" },
+};
+
+function getStatusStyle(status: DayStatus, isWeekendDay: boolean) {
+  if (status && STATUS_COLORS[status]) {
+    return STATUS_COLORS[status];
+  }
+  if (isWeekendDay) {
+    return { bg: "bg-amber-50", border: "border-amber-200" };
+  }
+  return { bg: "bg-white", border: "border-gray-200" };
+}
 
 function DayCell({
   dateKey,
@@ -28,6 +55,8 @@ function DayCell({
   pricingId,
   onChange,
   onToggleLock,
+  roomStatus,
+  statusInfo,
 }: {
   dateKey: string;
   dayNum: number;
@@ -37,6 +66,8 @@ function DayCell({
   pricingId: number | null;
   onChange: (dateKey: string, value: string) => void;
   onToggleLock: (dateKey: string) => void;
+  roomStatus: DayStatus;
+  statusInfo?: CalendarStatusEntry;
 }) {
   const [localPrice, setLocalPrice] = useState(price);
 
@@ -44,25 +75,32 @@ function DayCell({
     setLocalPrice(price);
   }, [price]);
 
+  const style = getStatusStyle(roomStatus, isWeekendDay);
+
   return (
     <div
-      className={`border rounded-lg p-2 min-h-[80px] flex flex-col gap-1 transition-colors ${
-        isWeekendDay ? "bg-amber-50 border-amber-200" : "bg-white border-gray-200"
-      } ${isLocked ? "opacity-75" : ""}`}
+      className={`border rounded-lg p-2 min-h-[80px] flex flex-col gap-1 transition-colors ${style.bg} ${style.border} ${isLocked ? "opacity-75" : ""}`}
       data-testid={`day-cell-${dateKey}`}
     >
       <div className="flex items-center justify-between">
         <span className={`text-xs font-bold ${isWeekendDay ? "text-amber-700" : "text-gray-500"}`}>
           {dayNum}
         </span>
-        <button
-          onClick={() => onToggleLock(dateKey)}
-          className={`p-0.5 rounded hover:bg-gray-100 ${isLocked ? "text-red-500" : "text-gray-300"}`}
-          title={isLocked ? "Unlock rate" : "Lock rate"}
-          data-testid={`lock-toggle-${dateKey}`}
-        >
-          {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-        </button>
+        <div className="flex items-center gap-1">
+          {statusInfo && statusInfo.totalRooms > 1 && (
+            <span className="text-[10px] text-muted-foreground" data-testid={`status-summary-${dateKey}`}>
+              {statusInfo.availableCount}/{statusInfo.totalRooms}
+            </span>
+          )}
+          <button
+            onClick={() => onToggleLock(dateKey)}
+            className={`p-0.5 rounded hover:bg-gray-100 ${isLocked ? "text-red-500" : "text-gray-300"}`}
+            title={isLocked ? "Unlock rate" : "Lock rate"}
+            data-testid={`lock-toggle-${dateKey}`}
+          >
+            {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+          </button>
+        </div>
       </div>
       <div className="flex-1 flex items-center">
         <div className="relative w-full">
@@ -72,7 +110,7 @@ function DayCell({
             className={`w-full pl-5 pr-1 py-1 text-sm font-semibold rounded border text-center ${
               isLocked
                 ? "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200"
-                : "bg-white focus:outline-none focus:ring-1 focus:ring-primary border-gray-200"
+                : "bg-white/80 focus:outline-none focus:ring-1 focus:ring-primary border-gray-200"
             }`}
             value={localPrice}
             onChange={(e) => setLocalPrice(e.target.value)}
@@ -86,6 +124,11 @@ function DayCell({
           />
         </div>
       </div>
+      {roomStatus && (
+        <div className="text-[10px] text-center font-medium capitalize" data-testid={`status-label-${dateKey}`}>
+          {roomStatus === "partial" ? "Mixed" : roomStatus}
+        </div>
+      )}
     </div>
   );
 }
@@ -94,6 +137,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("");
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("all");
   const [localPrices, setLocalPrices] = useState<Record<string, string>>({});
   const [localLocks, setLocalLocks] = useState<Record<string, boolean>>({});
   const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set());
@@ -110,8 +154,40 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     }
   }, [roomTypes, selectedRoomTypeId]);
 
+  const { data: allRooms = [] } = useQuery<Room[]>({
+    queryKey: ["/api/rooms"],
+  });
+
+  const filteredRooms = useMemo(() => {
+    if (!selectedRoomTypeId) return [];
+    return allRooms.filter(r => String(r.roomTypeId) === selectedRoomTypeId);
+  }, [allRooms, selectedRoomTypeId]);
+
+  useEffect(() => {
+    setSelectedRoomId("all");
+  }, [selectedRoomTypeId]);
+
   const { data: allPricing = [], isLoading: pricingLoading } = useQuery<RoomPricing[]>({
     queryKey: ["/api/room-pricing"],
+  });
+
+  const monthKey = format(currentDate, "yyyy-MM");
+
+  const calendarStatusParams = useMemo(() => {
+    const params = new URLSearchParams({ month: monthKey });
+    if (selectedRoomTypeId) params.set("roomTypeId", selectedRoomTypeId);
+    if (selectedRoomId !== "all") params.set("roomId", selectedRoomId);
+    return params.toString();
+  }, [monthKey, selectedRoomTypeId, selectedRoomId]);
+
+  const { data: calendarStatus = {} } = useQuery<Record<string, CalendarStatusEntry>>({
+    queryKey: ["/api/rooms/calendar-status", calendarStatusParams],
+    queryFn: async () => {
+      const res = await fetch(`/api/rooms/calendar-status?${calendarStatusParams}`);
+      if (!res.ok) throw new Error("Failed to fetch calendar status");
+      return res.json();
+    },
+    enabled: !!selectedRoomTypeId,
   });
 
   const pricingMap = useMemo(() => {
@@ -134,8 +210,6 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const pricingVersion = useMemo(() => {
     return allPricing.map((p) => `${p.id}:${p.price}:${p.isLocked}`).join(",");
   }, [allPricing]);
-
-  const monthKey = format(currentDate, "yyyy-MM");
 
   useEffect(() => {
     if (!selectedRoomTypeId) return;
@@ -275,7 +349,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Select value={selectedRoomTypeId} onValueChange={setSelectedRoomTypeId}>
             <SelectTrigger className="w-[200px]" data-testid="select-room-type">
               <SelectValue placeholder="Select Room Type" />
@@ -284,6 +358,19 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               {roomTypes.map((rt) => (
                 <SelectItem key={rt.id} value={String(rt.id)} data-testid={`room-type-option-${rt.id}`}>
                   {rt.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+            <SelectTrigger className="w-[160px]" data-testid="select-room-number">
+              <SelectValue placeholder="All Rooms" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" data-testid="room-option-all">All Rooms</SelectItem>
+              {filteredRooms.map((room) => (
+                <SelectItem key={room.id} value={String(room.id)} data-testid={`room-option-${room.id}`}>
+                  Room {room.roomNumber}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -328,10 +415,22 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex gap-3 text-xs text-muted-foreground">
+            <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded" />
+                Available
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded" />
+                Booked
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 bg-red-50 border border-red-200 rounded" />
+                Blocked
+              </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded" />
-                Weekend
+                Mixed
               </div>
               <div className="flex items-center gap-1.5">
                 <Lock className="h-3 w-3 text-red-500" />
@@ -361,6 +460,8 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                 {days.map((day) => {
                   const dateKey = format(day, "yyyy-MM-dd");
                   const weekendDay = isWeekend(day);
+                  const statusEntry = calendarStatus[dateKey];
+                  const roomStatus: DayStatus = (statusEntry?.status as DayStatus) || "";
                   return (
                     <DayCell
                       key={dateKey}
@@ -372,6 +473,8 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
                       pricingId={pricingMap[selectedRoomTypeId]?.[dateKey]?.id ?? null}
                       onChange={handlePriceChange}
                       onToggleLock={handleToggleLock}
+                      roomStatus={roomStatus}
+                      statusInfo={statusEntry}
                     />
                   );
                 })}
