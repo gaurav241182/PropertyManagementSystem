@@ -19,7 +19,8 @@ import {
   DollarSign,
   ShoppingBag,
   ChefHat,
-  Menu
+  Menu,
+  CalendarRange
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,8 +39,8 @@ const ROLE_NAV_ITEMS = {
   owner: [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
-    { href: "/admin/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" }, // Added Orders
-    { href: "/admin/rooms", icon: BedDouble, label: "Room Inventory" },
+    { href: "/admin/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing" },
+    { href: "/admin/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" },
     { href: "/admin/staff", icon: Users, label: "Staff Management" },
     { href: "/admin/expenses", icon: Receipt, label: "Expenses & Purchases" },
     { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
@@ -51,8 +52,8 @@ const ROLE_NAV_ITEMS = {
   manager: [
     { href: "/manager", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/manager/bookings", icon: CalendarDays, label: "Bookings" },
-    { href: "/manager/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" }, // Added Orders
-    { href: "/manager/rooms", icon: BedDouble, label: "Room Inventory" },
+    { href: "/manager/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing" },
+    { href: "/manager/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" },
     { href: "/manager/staff", icon: Users, label: "Staff Management" },
     { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
     { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },

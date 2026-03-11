@@ -16,6 +16,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AdminBookings from "@/pages/admin-bookings";
 import AdminRooms from "@/pages/admin-rooms";
+import AdminInventoryPricing from "@/pages/admin-inventory-pricing";
 import AdminExpenses from "@/pages/admin-expenses";
 import AdminStaff from "@/pages/admin-staff";
 import AdminSalaries from "@/pages/admin-salaries";
@@ -34,6 +35,7 @@ const OwnerStaff = () => <AdminStaff role="owner" />;
 const OwnerExpenses = () => <AdminExpenses role="owner" />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
+const OwnerInventoryPricing = () => <AdminInventoryPricing role="owner" />;
 const OwnerMenu = () => <AdminMenu role="owner" />;
 const OwnerRestaurantMenu = () => <AdminRestaurantMenu role="owner" />;
 const OwnerSalaries = () => <AdminSalaries role="owner" />;
@@ -44,6 +46,7 @@ const ManagerStaff = () => <AdminStaff role="manager" />;
 const ManagerExpenses = () => <AdminExpenses role="manager" />;
 const ManagerBookings = () => <AdminBookings role="manager" />;
 const ManagerRooms = () => <AdminRooms role="manager" />;
+const ManagerInventoryPricing = () => <AdminInventoryPricing role="manager" />;
 const ManagerMenu = () => <AdminMenu role="manager" />;
 const ManagerRestaurantMenu = () => <AdminRestaurantMenu role="manager" />;
 const ManagerSales = () => <AdminSales role="manager" />;
@@ -98,6 +101,7 @@ function Router() {
       <Route path="/admin/expenses">{() => <AdminRoute component={OwnerExpenses} />}</Route>
       <Route path="/admin/bookings">{() => <AdminRoute component={OwnerBookings} />}</Route>
       <Route path="/admin/rooms">{() => <AdminRoute component={OwnerRooms} />}</Route>
+      <Route path="/admin/inventory-pricing">{() => <AdminRoute component={OwnerInventoryPricing} />}</Route>
       <Route path="/admin/menu">{() => <AdminRoute component={OwnerMenu} />}</Route>
       <Route path="/admin/restaurant-menu">{() => <AdminRoute component={OwnerRestaurantMenu} />}</Route>
       <Route path="/admin/orders">{() => <AdminRoute component={OwnerOrders} />}</Route>
@@ -112,6 +116,7 @@ function Router() {
       <Route path="/manager/bookings">{() => <ManagerRoute component={ManagerBookings} />}</Route>
       <Route path="/manager/orders">{() => <ManagerRoute component={ManagerOrders} />}</Route>
       <Route path="/manager/rooms">{() => <ManagerRoute component={ManagerRooms} />}</Route>
+      <Route path="/manager/inventory-pricing">{() => <ManagerRoute component={ManagerInventoryPricing} />}</Route>
       <Route path="/manager/menu">{() => <ManagerRoute component={ManagerMenu} />}</Route>
       <Route path="/manager/restaurant-menu">{() => <ManagerRoute component={ManagerRestaurantMenu} />}</Route>
       <Route path="/manager/sales">{() => <ManagerRoute component={ManagerSales} />}</Route>

@@ -339,6 +339,9 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const [dragEndDate, setDragEndDate] = useState<string | null>(null);
   const [quickBookDialog, setQuickBookDialog] = useState(false);
   const [quickBookDates, setQuickBookDates] = useState<{ checkIn: string; checkOut: string } | null>(null);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockAction, setBlockAction] = useState<"block" | "unblock">("block");
+  const [selectedBlockRoomIds, setSelectedBlockRoomIds] = useState<number[]>([]);
 
   const monthCount = viewMode === "compact" ? 3 : 1;
 
@@ -629,6 +632,46 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     bulkMutation.mutate(items);
   };
 
+  const blockMutation = useMutation({
+    mutationFn: async ({ roomIds, status }: { roomIds: number[]; status: string }) => {
+      await Promise.all(
+        roomIds.map((id) =>
+          apiRequest("PATCH", `/api/rooms/${id}`, { status })
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar-status"] });
+      setBlockDialogOpen(false);
+      setSelectedBlockRoomIds([]);
+      toast({
+        title: blockAction === "block" ? "Rooms Blocked" : "Rooms Unblocked",
+        description: `${selectedBlockRoomIds.length} room(s) ${blockAction === "block" ? "blocked" : "unblocked"} successfully.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleBlockSubmit = () => {
+    if (selectedBlockRoomIds.length === 0) {
+      toast({ title: "No Rooms Selected", description: "Please select at least one room.", variant: "destructive" });
+      return;
+    }
+    blockMutation.mutate({
+      roomIds: selectedBlockRoomIds,
+      status: blockAction === "block" ? "blocked" : "available",
+    });
+  };
+
+  const roomsForBlockAction = useMemo(() => {
+    return filteredRooms.filter((r) =>
+      blockAction === "block" ? r.status !== "blocked" : r.status === "blocked"
+    );
+  }, [filteredRooms, blockAction]);
+
   const next12Months = useMemo(() => {
     const months: { key: string; label: string }[] = [];
     const now = new Date();
@@ -707,7 +750,33 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
           )}
         </div>
         {!isAllRoomTypes && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBlockAction("block");
+                setSelectedBlockRoomIds([]);
+                setBlockDialogOpen(true);
+              }}
+              data-testid="button-block-rooms"
+            >
+              <Lock className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm">Block</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBlockAction("unblock");
+                setSelectedBlockRoomIds([]);
+                setBlockDialogOpen(true);
+              }}
+              data-testid="button-unblock-rooms"
+            >
+              <Unlock className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm">Unblock</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -718,7 +787,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
               data-testid="button-bulk-update"
             >
               <Layers className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="text-xs sm:text-sm">Bulk Update</span>
+              <span className="text-xs sm:text-sm">Bulk Pricing Update</span>
             </Button>
             <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || dirtyKeys.size === 0} data-testid="button-save-pricing">
               <Save className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -1007,6 +1076,79 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
             </Button>
             <Button onClick={handleBulkSubmit} disabled={bulkMutation.isPending} data-testid="button-bulk-apply">
               {bulkMutation.isPending ? "Applying..." : `Apply to ${bulkMonths.length} Month${bulkMonths.length !== 1 ? "s" : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{blockAction === "block" ? "Block Rooms" : "Unblock Rooms"}</DialogTitle>
+            <DialogDescription>
+              {blockAction === "block"
+                ? "Select rooms to block. Blocked rooms won't be available for booking."
+                : "Select blocked rooms to make available again."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {roomsForBlockAction.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                {blockAction === "block"
+                  ? "No available rooms to block for this room type."
+                  : "No blocked rooms to unblock for this room type."}
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Checkbox
+                    checked={selectedBlockRoomIds.length === roomsForBlockAction.length && roomsForBlockAction.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedBlockRoomIds(roomsForBlockAction.map((r) => r.id));
+                      } else {
+                        setSelectedBlockRoomIds([]);
+                      }
+                    }}
+                    data-testid="checkbox-select-all-block"
+                  />
+                  <span className="text-sm font-medium">Select All ({roomsForBlockAction.length})</span>
+                </div>
+                <div className="max-h-[250px] overflow-y-auto border rounded-md p-2 space-y-1">
+                  {roomsForBlockAction.map((room) => (
+                    <label key={room.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5">
+                      <Checkbox
+                        checked={selectedBlockRoomIds.includes(room.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedBlockRoomIds((prev) => [...prev, room.id]);
+                          } else {
+                            setSelectedBlockRoomIds((prev) => prev.filter((id) => id !== room.id));
+                          }
+                        }}
+                        data-testid={`checkbox-block-room-${room.id}`}
+                      />
+                      <span>Room {room.roomNumber}</span>
+                      <span className="text-muted-foreground">— {room.roomName || "No name"}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockDialogOpen(false)} data-testid="button-block-cancel">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBlockSubmit}
+              disabled={blockMutation.isPending || selectedBlockRoomIds.length === 0}
+              variant={blockAction === "block" ? "destructive" : "default"}
+              data-testid="button-block-confirm"
+            >
+              {blockMutation.isPending
+                ? "Processing..."
+                : `${blockAction === "block" ? "Block" : "Unblock"} ${selectedBlockRoomIds.length} Room${selectedBlockRoomIds.length !== 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>

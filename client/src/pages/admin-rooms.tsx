@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -283,21 +282,18 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
 
   if (isLoading) {
     return (
-      <AdminLayout role={role}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading rooms...</div>
-        </div>
-      </AdminLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading rooms...</div>
+      </div>
     );
   }
 
   return (
-    <AdminLayout role={role}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Room Inventory</h2>
-            <p className="text-muted-foreground">Add, update, or remove rooms and manage rates.</p>
+            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Create Room</h2>
+            <p className="text-muted-foreground">Add, update, or remove rooms and manage inventory.</p>
           </div>
           
           {role === "owner" && (
@@ -722,6 +718,5 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
   );
 }

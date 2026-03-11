@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import PricingCalendar from "@/components/PricingCalendar";
+import AdminRooms from "@/pages/admin-rooms";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -583,7 +583,7 @@ export default function AdminSettings() {
             <TabsList className="inline-flex w-max gap-1 h-auto flex-nowrap p-1">
               <TabsTrigger value="general" className="text-xs sm:text-sm whitespace-nowrap">General</TabsTrigger>
               <TabsTrigger value="roomtypes" className="text-xs sm:text-sm whitespace-nowrap">Room Types</TabsTrigger>
-              <TabsTrigger value="pricing" className="text-xs sm:text-sm whitespace-nowrap">Pricing Calendar</TabsTrigger>
+              <TabsTrigger value="createroom" className="text-xs sm:text-sm whitespace-nowrap">Create Room</TabsTrigger>
               <TabsTrigger value="categories" className="text-xs sm:text-sm whitespace-nowrap">Categories</TabsTrigger>
               <TabsTrigger value="facilities" className="text-xs sm:text-sm whitespace-nowrap">Facilities</TabsTrigger>
               <TabsTrigger value="hr" className="text-xs sm:text-sm whitespace-nowrap">HR & Payroll</TabsTrigger>
@@ -1172,17 +1172,9 @@ export default function AdminSettings() {
             </Card>
           </TabsContent>
 
-          {/* Pricing Calendar */}
-          <TabsContent value="pricing" className="mt-6">
-            <Card>
-               <CardHeader>
-                  <CardTitle>Pricing Calendar</CardTitle>
-                  <CardDescription>Manage daily rates and availability for all room types.</CardDescription>
-               </CardHeader>
-               <CardContent>
-                  <PricingCalendar roomTypes={roomTypes} />
-               </CardContent>
-            </Card>
+          {/* Create Room */}
+          <TabsContent value="createroom" className="mt-6">
+            <AdminRooms role="owner" />
           </TabsContent>
 
           {/* HR & Payroll Settings */}
