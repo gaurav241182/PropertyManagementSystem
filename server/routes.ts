@@ -750,14 +750,13 @@ export async function registerRoutes(
   // ============= ROOM CALENDAR STATUS =============
   app.get("/api/rooms/calendar-status", async (req, res) => {
     try {
-      const { roomTypeId, roomId, month } = req.query;
-      if (!month) {
-        return res.status(400).json({ message: "month query parameter is required (YYYY-MM)" });
+      const { roomTypeId, roomId, startDate: qStart, endDate: qEnd } = req.query;
+      if (!qStart || !qEnd) {
+        return res.status(400).json({ message: "startDate and endDate query parameters are required (YYYY-MM-DD)" });
       }
-      const [year, mon] = (month as string).split("-").map(Number);
-      const monthStart = `${month}-01`;
-      const lastDay = new Date(year, mon, 0).getDate();
-      const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+
+      const startDateStr = qStart as string;
+      const endDateStr = qEnd as string;
 
       const allRooms = await storage.getRooms();
       let filteredRooms = allRooms;
@@ -771,14 +770,17 @@ export async function registerRoutes(
       const allBookings = await storage.getBookings();
       const activeBookings = allBookings.filter(b =>
         b.status !== "cancelled" && b.status !== "checked_out" &&
-        b.checkIn <= monthEnd && b.checkOut > monthStart
+        b.checkIn <= endDateStr && b.checkOut > startDateStr
       );
 
-      const result: Record<string, { status: string; bookedCount: number; blockedCount: number; availableCount: number; totalRooms: number }> = {};
+      const result: Record<string, { status: string; bookingStatus: string; bookedCount: number; checkedInCount: number; blockedCount: number; availableCount: number; totalRooms: number }> = {};
 
-      for (let d = 1; d <= lastDay; d++) {
-        const dateKey = `${month}-${String(d).padStart(2, "0")}`;
+      const start = new Date(startDateStr);
+      const end = new Date(endDateStr);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toISOString().split("T")[0];
         let bookedCount = 0;
+        let checkedInCount = 0;
         let blockedCount = 0;
         let availableCount = 0;
 
@@ -787,29 +789,46 @@ export async function registerRoutes(
             blockedCount++;
             continue;
           }
-          const isBooked = activeBookings.some(b =>
+          const booking = activeBookings.find(b =>
             b.roomId === room.id && b.checkIn <= dateKey && b.checkOut > dateKey
           );
-          if (isBooked) {
-            bookedCount++;
+          if (booking) {
+            if (booking.status === "checked_in") {
+              checkedInCount++;
+            } else {
+              bookedCount++;
+            }
           } else {
             availableCount++;
           }
         }
 
         let status = "available";
-        if (filteredRooms.length === 1) {
-          if (blockedCount > 0) status = "blocked";
-          else if (bookedCount > 0) status = "booked";
-          else status = "available";
+        let bookingStatus = "available";
+        const isSingleRoom = filteredRooms.length === 1 || (roomId && roomId !== "all");
+
+        if (isSingleRoom) {
+          if (blockedCount > 0) { status = "blocked"; bookingStatus = "blocked"; }
+          else if (checkedInCount > 0) { status = "checked_in"; bookingStatus = "checked_in"; }
+          else if (bookedCount > 0) { status = "booked"; bookingStatus = "confirmed"; }
+          else { status = "available"; bookingStatus = "available"; }
         } else {
-          if (blockedCount === filteredRooms.length) status = "blocked";
-          else if (bookedCount + blockedCount === filteredRooms.length) status = "booked";
-          else if (bookedCount > 0 || blockedCount > 0) status = "partial";
-          else status = "available";
+          if (availableCount > 0) {
+            status = "available";
+            bookingStatus = "available";
+          } else if (blockedCount === filteredRooms.length) {
+            status = "blocked";
+            bookingStatus = "blocked";
+          } else if (checkedInCount > 0) {
+            status = "checked_in";
+            bookingStatus = "checked_in";
+          } else {
+            status = "booked";
+            bookingStatus = "confirmed";
+          }
         }
 
-        result[dateKey] = { status, bookedCount, blockedCount, availableCount, totalRooms: filteredRooms.length };
+        result[dateKey] = { status, bookingStatus, bookedCount, checkedInCount, blockedCount, availableCount, totalRooms: filteredRooms.length };
       }
 
       res.json(result);

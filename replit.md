@@ -124,3 +124,13 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Add Room dialog: includes Room Name field alongside Room Number
   - Edit Room dialog: shows room number as header (not dropdown), includes name, status, floor, description, photos, room properties with facilities
   - Mobile card view for rooms (visible on small screens), desktop table view on md+
+- 2026-03-11: Pricing Calendar enhancements — room inventory status integration
+  - Room number dropdown: select specific room or "All Rooms" to view aggregate status
+  - Color-coded day cells: green=Available, blue=Booked, indigo=Checked In, red=Blocked
+  - Exact booking statuses shown (Available, Booked, Checked In, Blocked) — no more generic labels
+  - "All Rooms" logic: if at least one room is available, shows "Available"
+  - Multi-month view: 3 months displayed side by side on desktop, 1 on mobile (responsive grid)
+  - Pricing protection: booked/checked-in dates have read-only pricing; requires confirmation popup with reason to override
+  - Auto-refresh: calendar status invalidated when rooms/bookings change elsewhere (admin-rooms, admin-bookings)
+  - Mobile responsive: compact cells, smaller text, proper wrapping on small screens
+  - API: GET /api/rooms/calendar-status?startDate=&endDate=&roomTypeId=&roomId= returns per-day status with counts

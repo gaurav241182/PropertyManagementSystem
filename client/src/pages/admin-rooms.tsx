@@ -84,6 +84,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       setAddDialogOpen(false);
       resetAddForm();
       toast({ title: "Room Created", description: "New room has been added to the inventory." });
@@ -99,6 +100,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       setEditDialogOpen(false);
       toast({ title: "Room Updated", description: `Room details have been saved.` });
     },
@@ -113,6 +115,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       toast({ title: "Room Deleted", description: "Room has been removed from inventory." });
     },
     onError: (error: Error) => {

@@ -187,6 +187,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       toast({ title: "Booking Created", description: "New reservation has been created." });
     },
     onError: (error: any) => {
@@ -201,6 +202,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -213,6 +215,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       toast({ title: "Booking Deleted", description: "Reservation has been permanently removed." });
     },
     onError: (error: any) => {

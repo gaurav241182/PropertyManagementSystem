@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight, Save, Lock, Unlock, Layers } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ChevronLeft, ChevronRight, Save, Lock, Unlock, Layers, AlertTriangle } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay, addMonths } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -17,11 +18,13 @@ interface PricingCalendarProps {
   roomTypes: any[];
 }
 
-type DayStatus = "available" | "booked" | "blocked" | "partial" | "";
+type DayStatus = "available" | "booked" | "checked_in" | "blocked" | "";
 
 interface CalendarStatusEntry {
   status: string;
+  bookingStatus: string;
   bookedCount: number;
+  checkedInCount: number;
   blockedCount: number;
   availableCount: number;
   totalRooms: number;
@@ -29,21 +32,25 @@ interface CalendarStatusEntry {
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
-  available: { bg: "bg-green-50", border: "border-green-200" },
-  booked: { bg: "bg-blue-50", border: "border-blue-200" },
-  blocked: { bg: "bg-red-50", border: "border-red-200" },
-  partial: { bg: "bg-amber-50", border: "border-amber-200" },
+const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  available: { bg: "bg-green-50", border: "border-green-200", text: "text-green-700" },
+  booked: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+  checked_in: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" },
+  blocked: { bg: "bg-red-50", border: "border-red-200", text: "text-red-700" },
 };
 
-function getStatusStyle(status: DayStatus, isWeekendDay: boolean) {
+const STATUS_LABEL: Record<string, string> = {
+  available: "Available",
+  booked: "Booked",
+  checked_in: "Checked In",
+  blocked: "Blocked",
+};
+
+function getStatusStyle(status: DayStatus) {
   if (status && STATUS_COLORS[status]) {
     return STATUS_COLORS[status];
   }
-  if (isWeekendDay) {
-    return { bg: "bg-amber-50", border: "border-amber-200" };
-  }
-  return { bg: "bg-white", border: "border-gray-200" };
+  return { bg: "bg-white", border: "border-gray-200", text: "text-gray-500" };
 }
 
 function DayCell({
@@ -57,6 +64,8 @@ function DayCell({
   onToggleLock,
   roomStatus,
   statusInfo,
+  onProtectedClick,
+  isUnlockedProtected,
 }: {
   dateKey: string;
   dayNum: number;
@@ -68,6 +77,8 @@ function DayCell({
   onToggleLock: (dateKey: string) => void;
   roomStatus: DayStatus;
   statusInfo?: CalendarStatusEntry;
+  onProtectedClick: (dateKey: string) => void;
+  isUnlockedProtected: boolean;
 }) {
   const [localPrice, setLocalPrice] = useState(price);
 
@@ -75,20 +86,27 @@ function DayCell({
     setLocalPrice(price);
   }, [price]);
 
-  const style = getStatusStyle(roomStatus, isWeekendDay);
+  const style = getStatusStyle(roomStatus);
+  const isProtected = (roomStatus === "booked" || roomStatus === "checked_in") && !isUnlockedProtected;
+
+  const handleInputClick = () => {
+    if (isProtected && !isLocked) {
+      onProtectedClick(dateKey);
+    }
+  };
 
   return (
     <div
-      className={`border rounded-lg p-2 min-h-[80px] flex flex-col gap-1 transition-colors ${style.bg} ${style.border} ${isLocked ? "opacity-75" : ""}`}
+      className={`border rounded-lg p-1 sm:p-2 min-h-[56px] sm:min-h-[80px] flex flex-col gap-0.5 sm:gap-1 transition-colors ${style.bg} ${style.border} ${isLocked ? "opacity-75" : ""}`}
       data-testid={`day-cell-${dateKey}`}
     >
       <div className="flex items-center justify-between">
-        <span className={`text-xs font-bold ${isWeekendDay ? "text-amber-700" : "text-gray-500"}`}>
+        <span className={`text-[10px] sm:text-xs font-bold ${isWeekendDay ? "text-amber-700" : "text-gray-500"}`}>
           {dayNum}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {statusInfo && statusInfo.totalRooms > 1 && (
-            <span className="text-[10px] text-muted-foreground" data-testid={`status-summary-${dateKey}`}>
+            <span className="text-[8px] sm:text-[10px] text-muted-foreground hidden sm:inline" data-testid={`status-summary-${dateKey}`}>
               {statusInfo.availableCount}/{statusInfo.totalRooms}
             </span>
           )}
@@ -98,37 +116,117 @@ function DayCell({
             title={isLocked ? "Unlock rate" : "Lock rate"}
             data-testid={`lock-toggle-${dateKey}`}
           >
-            {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+            {isLocked ? <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> : <Unlock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
           </button>
         </div>
       </div>
       <div className="flex-1 flex items-center">
         <div className="relative w-full">
-          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
+          <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs text-gray-400">$</span>
           <input
             type="number"
-            className={`w-full pl-5 pr-1 py-1 text-sm font-semibold rounded border text-center ${
-              isLocked
+            className={`w-full pl-3.5 sm:pl-5 pr-0.5 sm:pr-1 py-0.5 sm:py-1 text-[11px] sm:text-sm font-semibold rounded border text-center ${
+              isLocked || isProtected
                 ? "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200"
                 : "bg-white/80 focus:outline-none focus:ring-1 focus:ring-primary border-gray-200"
             }`}
             value={localPrice}
-            onChange={(e) => setLocalPrice(e.target.value)}
+            onChange={(e) => {
+              if (!isProtected) setLocalPrice(e.target.value);
+            }}
             onBlur={() => {
-              if (localPrice !== price) {
+              if (!isProtected && localPrice !== price) {
                 onChange(dateKey, localPrice);
               }
             }}
-            readOnly={isLocked}
+            onClick={handleInputClick}
+            readOnly={isLocked || isProtected}
             data-testid={`price-input-${dateKey}`}
           />
         </div>
       </div>
       {roomStatus && (
-        <div className="text-[10px] text-center font-medium capitalize" data-testid={`status-label-${dateKey}`}>
-          {roomStatus === "partial" ? "Mixed" : roomStatus}
+        <div className={`text-[8px] sm:text-[10px] text-center font-medium truncate ${style.text}`} data-testid={`status-label-${dateKey}`}>
+          {STATUS_LABEL[roomStatus] || roomStatus}
         </div>
       )}
+    </div>
+  );
+}
+
+function MonthGrid({
+  monthDate,
+  selectedRoomTypeId,
+  selectedRoomId,
+  basePrice,
+  pricingMap,
+  calendarStatus,
+  localPrices,
+  localLocks,
+  onPriceChange,
+  onToggleLock,
+  onProtectedClick,
+  unlockedProtectedDates,
+}: {
+  monthDate: Date;
+  selectedRoomTypeId: string;
+  selectedRoomId: string;
+  basePrice: string;
+  pricingMap: Record<string, Record<string, RoomPricing>>;
+  calendarStatus: Record<string, CalendarStatusEntry>;
+  localPrices: Record<string, string>;
+  localLocks: Record<string, boolean>;
+  onPriceChange: (dateKey: string, value: string) => void;
+  onToggleLock: (dateKey: string) => void;
+  onProtectedClick: (dateKey: string) => void;
+  unlockedProtectedDates: Set<string>;
+}) {
+  const startDate = startOfMonth(monthDate);
+  const endDate = endOfMonth(monthDate);
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+  const firstDayOfWeek = getDay(startDate);
+  const emptySlots = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+  return (
+    <div>
+      <div className="text-center font-semibold text-sm sm:text-base mb-2 py-1" data-testid={`text-month-${format(monthDate, "yyyy-MM")}`}>
+        {format(monthDate, "MMMM yyyy")}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+        {DAY_LABELS.map((label) => (
+          <div key={label} className={`text-center text-[9px] sm:text-xs font-semibold py-0.5 sm:py-1 ${label === "Sat" || label === "Sun" ? "text-amber-600" : "text-gray-500"}`}>
+            {label}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+        {Array.from({ length: emptySlots }).map((_, i) => (
+          <div key={`empty-${i}`} />
+        ))}
+        {days.map((day) => {
+          const dateKey = format(day, "yyyy-MM-dd");
+          const weekendDay = isWeekend(day);
+          const statusEntry = calendarStatus[dateKey];
+          const roomStatus: DayStatus = (statusEntry?.status as DayStatus) || "";
+          return (
+            <DayCell
+              key={dateKey}
+              dateKey={dateKey}
+              dayNum={day.getDate()}
+              isWeekendDay={weekendDay}
+              price={localPrices[dateKey] || basePrice}
+              isLocked={localLocks[dateKey] || false}
+              pricingId={pricingMap[selectedRoomTypeId]?.[dateKey]?.id ?? null}
+              onChange={onPriceChange}
+              onToggleLock={onToggleLock}
+              roomStatus={roomStatus}
+              statusInfo={statusEntry}
+              onProtectedClick={onProtectedClick}
+              isUnlockedProtected={unlockedProtectedDates.has(dateKey)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -147,6 +245,17 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const [bulkWeekendPrice, setBulkWeekendPrice] = useState("");
   const [bulkSamePrice, setBulkSamePrice] = useState(false);
   const [bulkRoomTypeId, setBulkRoomTypeId] = useState<string>("");
+  const [protectedDateKey, setProtectedDateKey] = useState<string | null>(null);
+  const [priceChangeReason, setPriceChangeReason] = useState("");
+  const [unlockedProtectedDates, setUnlockedProtectedDates] = useState<Set<string>>(new Set());
+
+  const monthsToShow = useMemo(() => {
+    const months: Date[] = [];
+    for (let i = 0; i < 3; i++) {
+      months.push(addMonths(currentDate, i));
+    }
+    return months;
+  }, [currentDate]);
 
   useEffect(() => {
     if (roomTypes.length > 0 && !selectedRoomTypeId) {
@@ -171,14 +280,24 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     queryKey: ["/api/room-pricing"],
   });
 
-  const monthKey = format(currentDate, "yyyy-MM");
+  const dateRange = useMemo(() => {
+    const first = monthsToShow[0];
+    const last = monthsToShow[monthsToShow.length - 1];
+    return {
+      startDate: format(startOfMonth(first), "yyyy-MM-dd"),
+      endDate: format(endOfMonth(last), "yyyy-MM-dd"),
+    };
+  }, [monthsToShow]);
 
   const calendarStatusParams = useMemo(() => {
-    const params = new URLSearchParams({ month: monthKey });
+    const params = new URLSearchParams({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+    });
     if (selectedRoomTypeId) params.set("roomTypeId", selectedRoomTypeId);
     if (selectedRoomId !== "all") params.set("roomId", selectedRoomId);
     return params.toString();
-  }, [monthKey, selectedRoomTypeId, selectedRoomId]);
+  }, [dateRange, selectedRoomTypeId, selectedRoomId]);
 
   const { data: calendarStatus = {} } = useQuery<Record<string, CalendarStatusEntry>>({
     queryKey: ["/api/rooms/calendar-status", calendarStatusParams],
@@ -188,6 +307,8 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       return res.json();
     },
     enabled: !!selectedRoomTypeId,
+    refetchOnWindowFocus: true,
+    staleTime: 30000,
   });
 
   const pricingMap = useMemo(() => {
@@ -203,37 +324,38 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
   const selectedRoomType = roomTypes.find((r) => String(r.id) === selectedRoomTypeId);
   const basePrice = selectedRoomType ? String(selectedRoomType.basePrice || "0") : "0";
 
-  const startDate = startOfMonth(currentDate);
-  const endDate = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
-
   const pricingVersion = useMemo(() => {
     return allPricing.map((p) => `${p.id}:${p.price}:${p.isLocked}`).join(",");
   }, [allPricing]);
 
+  const allMonthsKey = monthsToShow.map(m => format(m, "yyyy-MM")).join(",");
+
   useEffect(() => {
     if (!selectedRoomTypeId) return;
-    const mStart = startOfMonth(currentDate);
-    const mEnd = endOfMonth(currentDate);
-    const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
     const bp = basePrice;
     const newPrices: Record<string, string> = {};
     const newLocks: Record<string, boolean> = {};
-    mDays.forEach((day) => {
-      const dateKey = format(day, "yyyy-MM-dd");
-      const existing = pricingMap[selectedRoomTypeId]?.[dateKey];
-      if (existing) {
-        newPrices[dateKey] = String(existing.price);
-        newLocks[dateKey] = existing.isLocked;
-      } else {
-        newPrices[dateKey] = bp;
-        newLocks[dateKey] = false;
-      }
+    monthsToShow.forEach((monthDate) => {
+      const mStart = startOfMonth(monthDate);
+      const mEnd = endOfMonth(monthDate);
+      const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
+      mDays.forEach((day) => {
+        const dateKey = format(day, "yyyy-MM-dd");
+        const existing = pricingMap[selectedRoomTypeId]?.[dateKey];
+        if (existing) {
+          newPrices[dateKey] = String(existing.price);
+          newLocks[dateKey] = existing.isLocked;
+        } else {
+          newPrices[dateKey] = bp;
+          newLocks[dateKey] = false;
+        }
+      });
     });
     setLocalPrices(newPrices);
     setLocalLocks(newLocks);
     setDirtyKeys(new Set());
-  }, [selectedRoomTypeId, monthKey, pricingVersion]);
+    setUnlockedProtectedDates(new Set());
+  }, [selectedRoomTypeId, allMonthsKey, pricingVersion]);
 
   const handlePriceChange = useCallback((dateKey: string, value: string) => {
     setLocalPrices((prev) => ({ ...prev, [dateKey]: value }));
@@ -244,6 +366,26 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     setLocalLocks((prev) => ({ ...prev, [dateKey]: !prev[dateKey] }));
     setDirtyKeys((prev) => new Set(prev).add(dateKey));
   }, []);
+
+  const handleProtectedClick = useCallback((dateKey: string) => {
+    if (!unlockedProtectedDates.has(dateKey)) {
+      setProtectedDateKey(dateKey);
+      setPriceChangeReason("");
+    }
+  }, [unlockedProtectedDates]);
+
+  const handleConfirmProtectedChange = () => {
+    if (!priceChangeReason.trim()) {
+      toast({ title: "Reason Required", description: "Please provide a reason for changing the price.", variant: "destructive" });
+      return;
+    }
+    if (protectedDateKey) {
+      setUnlockedProtectedDates(prev => new Set(prev).add(protectedDateKey));
+      setProtectedDateKey(null);
+      setPriceChangeReason("");
+      toast({ title: "Price Unlocked", description: `You can now edit the price for ${protectedDateKey}. Remember to save your changes.` });
+    }
+  };
 
   const handlePrevMonth = () => setCurrentDate(addMonths(currentDate, -1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -305,8 +447,8 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     const weekendP = bulkSamePrice ? bulkWeekdayPrice : (bulkWeekendPrice || bulkWeekdayPrice);
 
     const items: any[] = [];
-    bulkMonths.forEach((monthKey) => {
-      const [y, m] = monthKey.split("-").map(Number);
+    bulkMonths.forEach((mk) => {
+      const [y, m] = mk.split("-").map(Number);
       const monthStart = new Date(y, m - 1, 1);
       const monthEnd = endOfMonth(monthStart);
       const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -343,15 +485,17 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
     return months;
   }, []);
 
-  const firstDayOfWeek = getDay(startDate);
-  const emptySlots = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  const protectedStatus = protectedDateKey ? calendarStatus[protectedDateKey] : null;
+  const protectedStatusLabel = protectedStatus
+    ? (STATUS_LABEL[protectedStatus.status] || protectedStatus.status)
+    : "";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <Select value={selectedRoomTypeId} onValueChange={setSelectedRoomTypeId}>
-            <SelectTrigger className="w-[200px]" data-testid="select-room-type">
+            <SelectTrigger className="w-[160px] sm:w-[200px] text-xs sm:text-sm" data-testid="select-room-type">
               <SelectValue placeholder="Select Room Type" />
             </SelectTrigger>
             <SelectContent>
@@ -363,7 +507,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
             </SelectContent>
           </Select>
           <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-            <SelectTrigger className="w-[160px]" data-testid="select-room-number">
+            <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm" data-testid="select-room-number">
               <SelectValue placeholder="All Rooms" />
             </SelectTrigger>
             <SelectContent>
@@ -376,7 +520,7 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
             </SelectContent>
           </Select>
           {selectedRoomType && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               Base: <span className="font-semibold">${basePrice}</span>
             </span>
           )}
@@ -384,16 +528,19 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => {
               setBulkRoomTypeId(selectedRoomTypeId);
               setBulkDialogOpen(true);
             }}
             data-testid="button-bulk-update"
           >
-            <Layers className="mr-2 h-4 w-4" /> Bulk Update
+            <Layers className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">Bulk Update</span>
           </Button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending || dirtyKeys.size === 0} data-testid="button-save-pricing">
-            <Save className="mr-2 h-4 w-4" /> Save Changes
+          <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending || dirtyKeys.size === 0} data-testid="button-save-pricing">
+            <Save className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">Save Changes</span>
             {dirtyKeys.size > 0 && (
               <span className="ml-1 bg-white/20 rounded-full px-1.5 text-xs">{dirtyKeys.size}</span>
             )}
@@ -402,38 +549,38 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-2 sm:pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 border rounded-md bg-card p-1">
-              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8" data-testid="button-prev-month">
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-7 w-7 sm:h-8 sm:w-8" data-testid="button-prev-month">
+                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
-              <span className="font-semibold w-36 text-center" data-testid="text-current-month">
-                {format(currentDate, "MMMM yyyy")}
+              <span className="font-semibold text-xs sm:text-sm w-auto text-center whitespace-nowrap" data-testid="text-current-month">
+                {format(monthsToShow[0], "MMM yyyy")} - {format(monthsToShow[monthsToShow.length - 1], "MMM yyyy")}
               </span>
-              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8" data-testid="button-next-month">
-                <ChevronRight className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-7 w-7 sm:h-8 sm:w-8" data-testid="button-next-month">
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-green-50 border border-green-200 rounded" />
+            <div className="flex gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-50 border border-green-200 rounded" />
                 Available
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded" />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-50 border border-blue-200 rounded" />
                 Booked
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-red-50 border border-red-200 rounded" />
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-50 border border-indigo-200 rounded" />
+                Checked In
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-50 border border-red-200 rounded" />
                 Blocked
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded" />
-                Mixed
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Lock className="h-3 w-3 text-red-500" />
+              <div className="flex items-center gap-1">
+                <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-500" />
                 Locked
               </div>
             </div>
@@ -445,44 +592,67 @@ export default function PricingCalendar({ roomTypes }: PricingCalendarProps) {
           ) : !selectedRoomTypeId ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">Select a room type to view pricing.</div>
           ) : (
-            <div>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {DAY_LABELS.map((label) => (
-                  <div key={label} className={`text-center text-xs font-semibold py-1 ${label === "Sat" || label === "Sun" ? "text-amber-600" : "text-gray-500"}`}>
-                    {label}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: emptySlots }).map((_, i) => (
-                  <div key={`empty-${i}`} />
-                ))}
-                {days.map((day) => {
-                  const dateKey = format(day, "yyyy-MM-dd");
-                  const weekendDay = isWeekend(day);
-                  const statusEntry = calendarStatus[dateKey];
-                  const roomStatus: DayStatus = (statusEntry?.status as DayStatus) || "";
-                  return (
-                    <DayCell
-                      key={dateKey}
-                      dateKey={dateKey}
-                      dayNum={day.getDate()}
-                      isWeekendDay={weekendDay}
-                      price={localPrices[dateKey] || basePrice}
-                      isLocked={localLocks[dateKey] || false}
-                      pricingId={pricingMap[selectedRoomTypeId]?.[dateKey]?.id ?? null}
-                      onChange={handlePriceChange}
-                      onToggleLock={handleToggleLock}
-                      roomStatus={roomStatus}
-                      statusInfo={statusEntry}
-                    />
-                  );
-                })}
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              {monthsToShow.map((monthDate) => (
+                <MonthGrid
+                  key={format(monthDate, "yyyy-MM")}
+                  monthDate={monthDate}
+                  selectedRoomTypeId={selectedRoomTypeId}
+                  selectedRoomId={selectedRoomId}
+                  basePrice={basePrice}
+                  pricingMap={pricingMap}
+                  calendarStatus={calendarStatus}
+                  localPrices={localPrices}
+                  localLocks={localLocks}
+                  onPriceChange={handlePriceChange}
+                  onToggleLock={handleToggleLock}
+                  onProtectedClick={handleProtectedClick}
+                  unlockedProtectedDates={unlockedProtectedDates}
+                />
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!protectedDateKey} onOpenChange={(open) => { if (!open) setProtectedDateKey(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Price Change Warning
+            </DialogTitle>
+            <DialogDescription>
+              This date ({protectedDateKey}) currently has a guest who is <strong>{protectedStatusLabel}</strong>.
+              Changing the price will affect the existing booking and may reflect on the booking page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Reason for price change *</Label>
+              <Textarea
+                value={priceChangeReason}
+                onChange={(e) => setPriceChangeReason(e.target.value)}
+                placeholder="Please explain why this price needs to be changed..."
+                className="mt-1"
+                data-testid="input-price-change-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProtectedDateKey(null)} data-testid="button-cancel-price-change">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmProtectedChange}
+              data-testid="button-confirm-price-change"
+            >
+              Confirm Change
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
         <DialogContent className="max-w-lg">
