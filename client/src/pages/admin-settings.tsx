@@ -200,7 +200,7 @@ export default function AdminSettings() {
 
   const updateRoomTypeMutation = useMutation({
     mutationFn: async (data: any) => {
-      await apiRequest("PUT", `/api/room-types/${data.id}`, data);
+      await apiRequest("PATCH", `/api/room-types/${data.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/room-types'] });
@@ -1565,11 +1565,11 @@ export default function AdminSettings() {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="grid gap-2">
                             <Label htmlFor="edit-adults">Max Adults</Label>
-                            <Input id="edit-adults" type="number" value={editingRoomType.maxAdults || ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxAdults: parseInt(e.target.value) || 0})} />
+                            <Input id="edit-adults" type="number" value={editingRoomType.maxAdults ?? ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxAdults: parseInt(e.target.value) || 0})} />
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="edit-children">Max Children</Label>
-                            <Input id="edit-children" type="number" value={editingRoomType.maxChildren || ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxChildren: parseInt(e.target.value) || 0})} />
+                            <Input id="edit-children" type="number" value={editingRoomType.maxChildren ?? ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxChildren: parseInt(e.target.value) || 0})} />
                           </div>
                         </div>
                         <div className="grid gap-2">
@@ -1623,7 +1623,7 @@ export default function AdminSettings() {
                           })()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => { setEditingRoomType(rt); setIsEditRoomTypeDialogOpen(true); }} data-testid="button-edit-roomtype">
+                          <Button variant="ghost" size="icon" onClick={() => { const facilityIds = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })(); setEditingRoomType({...rt, selectedFacilityIds: facilityIds}); setIsEditRoomTypeDialogOpen(true); }} data-testid="button-edit-roomtype">
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
