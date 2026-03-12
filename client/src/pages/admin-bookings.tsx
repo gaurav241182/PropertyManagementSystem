@@ -265,10 +265,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
   const [showDiscountPanel, setShowDiscountPanel] = useState(false);
   const [discountMode, setDiscountMode] = useState<"coupon" | "manual">("manual");
+  const [discountScope, setDiscountScope] = useState<"all" | "room" | "facilities">("all");
   const [couponCode, setCouponCode] = useState("");
   const [couponError, setCouponError] = useState("");
   const [manualDiscountPercent, setManualDiscountPercent] = useState(0);
-  const [appliedDiscount, setAppliedDiscount] = useState<{ type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number } | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{ type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number; scope: "all" | "room" | "facilities" } | null>(null);
 
   const coupons: any[] = (() => { try { return JSON.parse(getSetting('coupons', '[]')); } catch { return []; } })();
   const discountLimitManager = parseInt(getSetting('discountLimitManager', '15'));
@@ -404,7 +405,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const hotelEmail = getSetting("hotelEmail", "");
   const hotelGst = getSetting("hotelGst", "");
 
-  const generateInvoiceHTML = (booking: any, discount?: { type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number } | null) => {
+  const generateInvoiceHTML = (booking: any, discount?: { type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number; scope?: "all" | "room" | "facilities" } | null) => {
     const totals = calculateTotals(booking, discount);
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const nights = booking.nights || Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 3600 * 24));
@@ -842,27 +843,33 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     return 0;
   };
 
-  const calculateTotals = (booking: any, discount?: { mode: "percentage" | "fixed"; value: number; amount: number } | null) => {
+  const calculateTotals = (booking: any, discount?: { mode: "percentage" | "fixed"; value: number; amount: number; scope?: "all" | "room" | "facilities" } | null) => {
     if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, taxBreakdown: [], tax: 0, discountAmount: 0, total: 0, due: 0 };
     
     const roomTotal = booking.amount;
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
     
+    const scope = discount?.scope || "all";
+    const discountBase = scope === "room" ? roomTotal : scope === "facilities" ? chargesTotal : subtotal;
     const discountAmount = discount
       ? (discount.mode === "percentage"
-        ? subtotal * (discount.value / 100)
-        : Math.min(discount.value, subtotal))
+        ? discountBase * (discount.value / 100)
+        : Math.min(discount.value, discountBase))
       : 0;
-    const afterDiscount = subtotal - discountAmount;
+    
+    const roomDiscountRatio = (scope === "room" || scope === "all") && roomTotal > 0
+      ? (roomTotal - (scope === "room" ? discountAmount : discountAmount * (roomTotal / subtotal))) / roomTotal
+      : 1;
+    const chargeDiscountRatio = (scope === "facilities" || scope === "all") && chargesTotal > 0
+      ? (chargesTotal - (scope === "facilities" ? discountAmount : discountAmount * (chargesTotal / subtotal))) / chargesTotal
+      : 1;
     
     const taxBreakdown: Array<{ label: string; amount: number; rate: number; baseAmount: number; taxable: boolean }> = [];
     
-    const discountRatio = subtotal > 0 ? afterDiscount / subtotal : 1;
-    
     const roomTaxRate = getTaxRateForCategory("Room");
     const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
-    const adjustedRoomTotal = roomTotal * discountRatio;
+    const adjustedRoomTotal = roomTotal * roomDiscountRatio;
     const roomTaxAmount = isRoomTaxable ? adjustedRoomTotal * (roomTaxRate / 100) : 0;
     taxBreakdown.push({
       label: "Room Charges",
@@ -891,7 +898,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         }
         
         const rate = getTaxRateForCategory(category);
-        const adjustedChargeAmount = charge.amount * discountRatio;
+        const adjustedChargeAmount = charge.amount * chargeDiscountRatio;
         const taxAmount = isTaxable && rate > 0 ? adjustedChargeAmount * (rate / 100) : 0;
         
         taxBreakdown.push({
@@ -905,6 +912,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
 
     const tax = taxBreakdown.reduce((acc, item) => acc + item.amount, 0);
+    const afterDiscount = subtotal - discountAmount;
     const total = afterDiscount + tax;
     const due = total - booking.advance;
 
@@ -916,6 +924,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     setCheckoutOptions(invoiceSettings.autoSend);
     setShowDiscountPanel(false);
     setDiscountMode("manual");
+    setDiscountScope("all");
     setCouponCode("");
     setCouponError("");
     setManualDiscountPercent(0);
@@ -946,6 +955,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       { id: checkoutBooking.id, data: updateData },
       {
         onSuccess: () => {
+          setCheckoutBooking({ ...checkoutBooking, status: "Checked Out" });
+
           let message = "Invoice generated successfully.";
           if (checkoutOptions.email) message += " Email sent.";
           if (checkoutOptions.whatsapp) message += " WhatsApp sent.";
@@ -2228,6 +2239,25 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                              <p className="text-sm font-medium text-purple-700">Apply Discount</p>
                              <button onClick={() => setShowDiscountPanel(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
                            </div>
+
+                           <div className="space-y-1">
+                             <Label className="text-xs text-muted-foreground">Apply discount on</Label>
+                             <div className="flex gap-1.5">
+                               {(["all", "room", "facilities"] as const).map((s) => (
+                                 <Button
+                                   key={s}
+                                   size="sm"
+                                   variant={discountScope === s ? "default" : "outline"}
+                                   onClick={() => setDiscountScope(s)}
+                                   className="text-xs flex-1 h-7"
+                                   data-testid={`button-scope-${s}`}
+                                 >
+                                   {s === "all" ? "Both" : s === "room" ? "Room" : "Facilities"}
+                                 </Button>
+                               ))}
+                             </div>
+                           </div>
+
                            <div className="flex gap-2">
                              <Button
                                size="sm"
@@ -2266,15 +2296,18 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                      const found = coupons.find((c: any) => c.code === couponCode.trim());
                                      if (!found) { setCouponError("Invalid coupon code."); return; }
                                      if (found.expiry && new Date(found.expiry) < new Date()) { setCouponError("This coupon has expired."); return; }
+                                     const scopeBase = discountScope === "room" ? totals.roomTotal : discountScope === "facilities" ? totals.chargesTotal : totals.subtotal;
                                      const discAmount = found.type === "percentage"
-                                       ? totals.subtotal * (found.value / 100)
-                                       : Math.min(found.value, totals.subtotal);
+                                       ? scopeBase * (found.value / 100)
+                                       : Math.min(found.value, scopeBase);
+                                     const scopeLabel = discountScope === "room" ? " on Room" : discountScope === "facilities" ? " on Facilities" : "";
                                      setAppliedDiscount({
                                        type: "coupon",
-                                       label: `Coupon: ${found.code} (${found.type === "percentage" ? found.value + "%" : currency + " " + found.value})`,
+                                       label: `Coupon: ${found.code} (${found.type === "percentage" ? found.value + "%" : currency + " " + found.value})${scopeLabel}`,
                                        mode: found.type,
                                        value: found.value,
-                                       amount: discAmount
+                                       amount: discAmount,
+                                       scope: discountScope
                                      });
                                      setShowDiscountPanel(false);
                                    }}
@@ -2308,13 +2341,16 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                    size="sm"
                                    disabled={manualDiscountPercent <= 0}
                                    onClick={() => {
-                                     const discAmount = totals.subtotal * (manualDiscountPercent / 100);
+                                     const scopeBase = discountScope === "room" ? totals.roomTotal : discountScope === "facilities" ? totals.chargesTotal : totals.subtotal;
+                                     const discAmount = scopeBase * (manualDiscountPercent / 100);
+                                     const scopeLabel = discountScope === "room" ? " on Room" : discountScope === "facilities" ? " on Facilities" : "";
                                      setAppliedDiscount({
                                        type: "manual",
-                                       label: `Manual Discount (${manualDiscountPercent}%)`,
+                                       label: `Manual Discount (${manualDiscountPercent}%)${scopeLabel}`,
                                        mode: "percentage",
                                        value: manualDiscountPercent,
-                                       amount: discAmount
+                                       amount: discAmount,
+                                       scope: discountScope
                                      });
                                      setShowDiscountPanel(false);
                                    }}
@@ -2346,7 +2382,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                          <span className="font-medium">-{currency} {totals.discountAmount.toFixed(2)}</span>
                          {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
                            <button
-                             onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); }}
+                             onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); setDiscountScope("all"); }}
                              className="text-red-400 hover:text-red-600 ml-1"
                              title="Remove discount"
                              data-testid="button-remove-discount"
