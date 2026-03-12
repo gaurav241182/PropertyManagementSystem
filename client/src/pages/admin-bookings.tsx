@@ -286,6 +286,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const [isNewReservationOpen, setIsNewReservationOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardErrors, setWizardErrors] = useState<Record<string, string>>({});
+  const [overrideCapacity, setOverrideCapacity] = useState(false);
   const [newReservation, setNewReservation] = useState<any>({
     checkIn: "",
     checkOut: "",
@@ -1042,6 +1043,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
           advanceAmount: (newReservation.advanceAmount || 0).toFixed(2),
           paymentMethod: "Cash",
           notes: newReservation.notes || "",
+          overrideCapacity,
           facilityCharges: selectedPaidFacilities.map((f: any) => ({
             description: f.name, category: "Facility",
             amount: f.unit === "night" ? (parseFloat(f.price) * wizardNights).toFixed(2) : f.unit === "person" ? (parseFloat(f.price) * newReservation.adults).toFixed(2) : parseFloat(f.price).toFixed(2),
@@ -1161,6 +1163,31 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                           )}
                         </div>
 
+                        {(() => {
+                          const exceedsAll = roomTypesData.length > 0 && roomTypesData.every((rt: any) => newReservation.adults > rt.maxAdults || newReservation.children > rt.maxChildren);
+                          const exceedsSome = roomTypesData.some((rt: any) => newReservation.adults > rt.maxAdults || newReservation.children > rt.maxChildren);
+                          if (exceedsAll && !overrideCapacity) {
+                            return (
+                              <div className="border border-red-200 bg-red-50 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2" data-testid="capacity-error-step1">
+                                <ShieldAlert className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <span className="font-medium">Capacity exceeded for all room types.</span>
+                                  <span className="block text-xs mt-0.5">The number of guests exceeds the maximum capacity of every available room type. Please reduce guest count{(role === "owner" || role === "manager") ? " or enable capacity override below" : ""}.</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (exceedsSome && !overrideCapacity) {
+                            return (
+                              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2" data-testid="capacity-warning-step1">
+                                <ShieldAlert className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <span>Some room types cannot accommodate {newReservation.adults} adults and {newReservation.children} children. Only matching room types will be available.</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         <div className="border-t pt-4">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">Rooms</span>
@@ -1178,6 +1205,25 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <Switch checked={newReservation.withPets} onCheckedChange={(checked) => setNewReservation({...newReservation, withPets: checked})} data-testid="switch-pets" />
                           </div>
                         </div>
+
+                        {(role === "owner" || role === "manager") && (
+                          <div className="border-t pt-4">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="override-capacity"
+                                checked={overrideCapacity}
+                                onCheckedChange={(checked) => setOverrideCapacity(!!checked)}
+                                data-testid="checkbox-override-capacity"
+                              />
+                              <label htmlFor="override-capacity" className="text-sm font-medium cursor-pointer">
+                                Override capacity limit
+                              </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">
+                              Allow booking even if guests exceed the room type's maximum capacity.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1202,8 +1248,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         <div className="space-y-4">
                           {getWizardRoomsByType().map(({ roomType, rooms: typeRooms }) => {
                             const { included, paidOptional } = getFacilitiesForRoomType(roomType.id);
+                            const capacityExceeded = newReservation.adults > roomType.maxAdults || newReservation.children > roomType.maxChildren;
+                            const isBlocked = capacityExceeded && !overrideCapacity;
                             return (
-                              <Card key={roomType.id} className="overflow-hidden">
+                              <Card key={roomType.id} className={`overflow-hidden ${isBlocked ? 'opacity-60' : ''}`}>
                                 <CardHeader className="pb-3">
                                   <div className="flex items-start justify-between">
                                     <div>
@@ -1211,8 +1259,15 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                       <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
                                         <span>{roomType.beds}</span>
                                         {roomType.size && <><span>·</span><span>{roomType.size}</span></>}
-                                        <span>·</span><span>Max {roomType.capacity} guests</span>
+                                        <span>·</span><span>Max {roomType.maxAdults} adults, {roomType.maxChildren} children</span>
                                       </div>
+                                      {capacityExceeded && (
+                                        <div className="mt-2 flex items-center gap-1 text-xs text-red-600 font-medium" data-testid={`capacity-warning-${roomType.id}`}>
+                                          <ShieldAlert className="h-3 w-3" />
+                                          Capacity exceeded ({newReservation.adults > roomType.maxAdults ? `${newReservation.adults} adults > max ${roomType.maxAdults}` : ''}{newReservation.adults > roomType.maxAdults && newReservation.children > roomType.maxChildren ? ', ' : ''}{newReservation.children > roomType.maxChildren ? `${newReservation.children} children > max ${roomType.maxChildren}` : ''})
+                                          {overrideCapacity && <span className="text-amber-600 ml-1">(Override active)</span>}
+                                        </div>
+                                      )}
                                       {included.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-2">
                                           {included.map((f: any) => (
@@ -1232,7 +1287,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                   <div className="flex flex-wrap gap-2">
                                     {typeRooms.map((room: any) => {
                                       const isSelected = newReservation.selectedRooms.includes(room.id);
-                                      const isDisabled = !room.available;
+                                      const isDisabled = !room.available || isBlocked;
                                       const canSelect = !isSelected && newReservation.selectedRooms.length >= newReservation.roomsCount;
                                       return (
                                         <button
@@ -1456,7 +1511,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                     <Button variant="outline" onClick={() => setWizardStep(wizardStep - 1)} data-testid="button-wizard-back">Back</Button>
                   )}
                   {wizardStep === 1 && (
-                    <Button onClick={() => { if (!newReservation.checkIn || !newReservation.checkOut) { toast({ title: "Missing Dates", description: "Please select check-in and check-out dates.", variant: "destructive" }); return; } if (wizardNights <= 0) { toast({ title: "Invalid Dates", description: "Check-out must be after check-in.", variant: "destructive" }); return; } setWizardStep(2); }} data-testid="button-search-availability">Search Availability</Button>
+                    <Button onClick={() => { if (!newReservation.checkIn || !newReservation.checkOut) { toast({ title: "Missing Dates", description: "Please select check-in and check-out dates.", variant: "destructive" }); return; } if (wizardNights <= 0) { toast({ title: "Invalid Dates", description: "Check-out must be after check-in.", variant: "destructive" }); return; } const allExceeded = roomTypesData.length > 0 && roomTypesData.every((rt: any) => newReservation.adults > rt.maxAdults || newReservation.children > rt.maxChildren); if (allExceeded && !overrideCapacity) { toast({ title: "Capacity Exceeded", description: "The number of guests exceeds the maximum capacity of all available room types. Please reduce guest count or enable capacity override.", variant: "destructive" }); return; } setWizardStep(2); }} data-testid="button-search-availability">Search Availability</Button>
                   )}
                   {wizardStep === 2 && (
                     <Button onClick={() => { if (newReservation.selectedRooms.length === 0) { toast({ title: "No Room Selected", description: "Please select at least one room.", variant: "destructive" }); return; } setWizardStep(3); }} disabled={newReservation.selectedRooms.length === 0} data-testid="button-continue-guest">Continue</Button>

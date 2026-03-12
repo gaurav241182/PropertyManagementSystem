@@ -64,6 +64,7 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
 - 2026-02-19: Due date auto-set to end of month when salary record is created
 - 2026-02-19: Advance payment system: POST /api/salaries/:id/advance - records advance, auto-marks paid when advance >= salary, overflows to next month
 - 2026-03-09: Room Pricing system - new `room_pricing` table (roomTypeId, date, price, isLocked)
+- 2026-03-12: Room capacity split - replaced single `capacity` field with `maxAdults` and `maxChildren` in room_types schema. Updated all forms, displays, and booking wizard. Capacity validation in booking wizard Step 2 blocks room selection when guests exceed limits. Owner/Manager override checkbox bypasses validation. Server-side capacity enforcement on POST /api/bookings.
   - API: GET /api/room-pricing, POST /api/room-pricing, POST /api/room-pricing/bulk, PATCH /api/room-pricing/:id/lock
   - PricingCalendar redesigned: card-based monthly grid (7-col calendar), room type selector, per-day price editing
   - Lock/unlock rates per day (locked rates cannot be overwritten by bulk updates)

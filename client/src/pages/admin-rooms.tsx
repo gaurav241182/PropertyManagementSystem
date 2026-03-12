@@ -263,8 +263,8 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
             <span className="font-medium">{typeData.beds}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Max Capacity:</span>
-            <span className="font-medium">{typeData.capacity} Persons</span>
+            <span className="text-muted-foreground">Capacity:</span>
+            <span className="font-medium">{typeData.maxAdults} Adults, {typeData.maxChildren} Children</span>
           </div>
           {typeData.size && (
             <div className="flex justify-between">
@@ -587,7 +587,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     <div>
                       <span className="text-muted-foreground">Capacity: </span>
-                      <span className="font-medium">{typeData?.capacity || "-"} Guests</span>
+                      <span className="font-medium">{typeData?.maxAdults || "-"} Adults, {typeData?.maxChildren || 0} Children</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Floor: </span>
@@ -677,7 +677,7 @@ export default function AdminRooms({ role = "owner" }: { role?: "owner" | "manag
                       </div>
                     </TableCell>
                     <TableCell>{getRoomTypeName(room.roomTypeId)}</TableCell>
-                    <TableCell>{typeData?.capacity || "-"} Guests</TableCell>
+                    <TableCell>{typeData?.maxAdults || "-"} Adults, {typeData?.maxChildren || 0} Children</TableCell>
                     <TableCell>₹{typeData ? Number(typeData.basePrice) : 0}</TableCell>
                     <TableCell>{room.floor}</TableCell>
                     <TableCell>

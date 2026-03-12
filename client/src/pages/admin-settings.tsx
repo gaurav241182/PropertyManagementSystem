@@ -125,7 +125,8 @@ export default function AdminSettings() {
   const [newRoomType, setNewRoomType] = useState<any>({
     name: "",
     beds: "",
-    capacity: 2,
+    maxAdults: 2,
+    maxChildren: 0,
     price: 0,
     size: "",
     selectedFacilityIds: [] as number[]
@@ -372,7 +373,8 @@ export default function AdminSettings() {
       {
         name: newRoomType.name,
         beds: newRoomType.beds,
-        capacity: newRoomType.capacity,
+        maxAdults: newRoomType.maxAdults,
+        maxChildren: newRoomType.maxChildren,
         basePrice: String(newRoomType.price),
         size: newRoomType.size || "",
         facilityIds: JSON.stringify(allFacilityIds),
@@ -1402,12 +1404,25 @@ export default function AdminSettings() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Max Capacity</Label>
+                          <Label>Max Adults</Label>
                           <Input 
                             type="number" 
                             placeholder="2" 
-                            value={newRoomType.capacity}
-                            onChange={(e) => setNewRoomType({...newRoomType, capacity: parseInt(e.target.value)})}
+                            value={newRoomType.maxAdults}
+                            onChange={(e) => setNewRoomType({...newRoomType, maxAdults: parseInt(e.target.value) || 0})}
+                            data-testid="input-roomtype-max-adults"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Max Children</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            value={newRoomType.maxChildren}
+                            onChange={(e) => setNewRoomType({...newRoomType, maxChildren: parseInt(e.target.value) || 0})}
+                            data-testid="input-roomtype-max-children"
                           />
                         </div>
                       </div>
@@ -1512,7 +1527,7 @@ export default function AdminSettings() {
                           </div>
                         </TableCell>
                         <TableCell>{rt.beds}</TableCell>
-                        <TableCell>{rt.capacity} Persons</TableCell>
+                        <TableCell>{rt.maxAdults} Adults, {rt.maxChildren} Children</TableCell>
                         <TableCell>{currency} {Number(rt.basePrice)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{rt.size || "—"}</TableCell>
                         <TableCell>

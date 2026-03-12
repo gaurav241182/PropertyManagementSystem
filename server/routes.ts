@@ -236,7 +236,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/bookings", async (req, res) => {
-    const { facilityCharges, ...bookingData } = req.body;
+    const { facilityCharges, overrideCapacity, ...bookingData } = req.body;
     const errors: string[] = [];
     if (!bookingData.guestName) errors.push("Guest name is required");
     if (!bookingData.roomId) errors.push("Room selection is required");
@@ -248,6 +248,25 @@ export async function registerRoutes(
     }
     if (errors.length > 0) {
       return res.status(400).json({ message: errors.join(". ") });
+    }
+    const sessionUser = req.session.user;
+    const canOverride = overrideCapacity && sessionUser && (sessionUser.role === "owner" || sessionUser.role === "manager");
+    if (!canOverride && bookingData.roomTypeId) {
+      const allRoomTypes = await storage.getRoomTypes();
+      const roomType = allRoomTypes.find(rt => rt.id === Number(bookingData.roomTypeId));
+      if (roomType) {
+        const adults = Number(bookingData.adults) || 0;
+        const children = Number(bookingData.children) || 0;
+        if (adults > roomType.maxAdults) {
+          errors.push(`Adults (${adults}) exceeds room type maximum of ${roomType.maxAdults}`);
+        }
+        if (children > roomType.maxChildren) {
+          errors.push(`Children (${children}) exceeds room type maximum of ${roomType.maxChildren}`);
+        }
+        if (errors.length > 0) {
+          return res.status(400).json({ message: errors.join(". ") });
+        }
+      }
     }
     const overlaps = await storage.getOverlappingBookings(bookingData.roomId, bookingData.checkIn, bookingData.checkOut);
     if (overlaps.length > 0) {

@@ -17,7 +17,8 @@ export default function Home() {
       id: 1,
       name: "Deluxe Ocean View",
       price: 250,
-      capacity: 2,
+      maxAdults: 2,
+      maxChildren: 1,
       size: "45m²",
       image: "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&q=80&w=800",
       features: ["King Bed", "Ocean View", "Balcony"]
@@ -26,7 +27,8 @@ export default function Home() {
       id: 2,
       name: "Executive Suite",
       price: 450,
-      capacity: 4,
+      maxAdults: 4,
+      maxChildren: 2,
       size: "75m²",
       image: "https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&q=80&w=800",
       features: ["2 Bedrooms", "Living Area", "Kitchenette"]
@@ -35,7 +37,8 @@ export default function Home() {
       id: 3,
       name: "Garden Villa",
       price: 380,
-      capacity: 3,
+      maxAdults: 3,
+      maxChildren: 2,
       size: "60m²",
       image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=800",
       features: ["Private Garden", "Plunge Pool", "Patio"]
@@ -146,7 +149,7 @@ export default function Home() {
                     <div>
                       <h3 className="font-serif text-xl font-bold mb-1">{room.name}</h3>
                       <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {room.capacity} Guests</span>
+                        <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {room.maxAdults} Adults, {room.maxChildren} Children</span>
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {room.size}</span>
                       </div>
                     </div>
