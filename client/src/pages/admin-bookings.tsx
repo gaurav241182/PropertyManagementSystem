@@ -2243,18 +2243,22 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                            <div className="space-y-1">
                              <Label className="text-xs text-muted-foreground">Apply discount on</Label>
                              <div className="flex gap-1.5">
-                               {(["all", "room", "facilities"] as const).map((s) => (
-                                 <Button
-                                   key={s}
-                                   size="sm"
-                                   variant={discountScope === s ? "default" : "outline"}
-                                   onClick={() => setDiscountScope(s)}
-                                   className="text-xs flex-1 h-7"
-                                   data-testid={`button-scope-${s}`}
-                                 >
-                                   {s === "all" ? "Both" : s === "room" ? "Room" : "Facilities"}
-                                 </Button>
-                               ))}
+                               {(["all", "room", "facilities"] as const).map((s) => {
+                                 const hasFacilities = totals.chargesTotal > 0;
+                                 return (
+                                   <Button
+                                     key={s}
+                                     size="sm"
+                                     variant={discountScope === s ? "default" : "outline"}
+                                     onClick={() => setDiscountScope(s)}
+                                     className="text-xs flex-1 h-7"
+                                     disabled={s === "facilities" && !hasFacilities}
+                                     data-testid={`button-scope-${s}`}
+                                   >
+                                     {s === "all" ? "Both" : s === "room" ? "Room" : "Facilities"}
+                                   </Button>
+                                 );
+                               })}
                              </div>
                            </div>
 
