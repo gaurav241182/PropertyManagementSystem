@@ -848,7 +848,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
     
-    const discountAmount = discount ? discount.amount : 0;
+    const discountAmount = discount
+      ? (discount.mode === "percentage"
+        ? subtotal * (discount.value / 100)
+        : Math.min(discount.value, subtotal))
+      : 0;
     const afterDiscount = subtotal - discountAmount;
     
     const taxBreakdown: Array<{ label: string; amount: number; rate: number; baseAmount: number; taxable: boolean }> = [];
