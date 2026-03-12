@@ -706,7 +706,6 @@ export default function AdminSettings() {
               <TabsTrigger value="hr" className="text-xs sm:text-sm whitespace-nowrap">HR & Payroll</TabsTrigger>
               <TabsTrigger value="restaurant" className="text-xs sm:text-sm whitespace-nowrap">Restaurant</TabsTrigger>
               <TabsTrigger value="communication" className="text-xs sm:text-sm whitespace-nowrap">Communication</TabsTrigger>
-              <TabsTrigger value="discounts" className="text-xs sm:text-sm whitespace-nowrap">Discounts</TabsTrigger>
               <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice & Taxes</TabsTrigger>
               <TabsTrigger value="devtools" className="text-xs sm:text-sm whitespace-nowrap text-amber-600">Dev Tools</TabsTrigger>
             </TabsList>
@@ -942,98 +941,8 @@ export default function AdminSettings() {
                 </p>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* Communication Settings */}
-          <TabsContent value="communication" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Communication Templates</CardTitle>
-                <CardDescription>Customize automated messages sent to guests via Email and WhatsApp.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="welcome" className="w-full">
-                  <div className="w-full overflow-x-auto mb-4">
-                    <TabsList className="inline-flex w-max gap-1 h-auto flex-nowrap p-1">
-                      <TabsTrigger value="welcome" className="text-xs sm:text-sm whitespace-nowrap">Welcome</TabsTrigger>
-                      <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice</TabsTrigger>
-                      <TabsTrigger value="feedback" className="text-xs sm:text-sm whitespace-nowrap">Feedback</TabsTrigger>
-                      <TabsTrigger value="promotional" className="text-xs sm:text-sm whitespace-nowrap">Promotional</TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  {["welcome", "invoice", "feedback", "promotional"].map((category) => (
-                    <TabsContent key={category} value={category} className="space-y-4">
-                      <div className="grid gap-6">
-                        {/* Email Template */}
-                        <div className="space-y-2 border p-4 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-base font-semibold flex items-center gap-2">
-                              <Mail className="h-4 w-4" /> Email Template
-                            </Label>
-                            <Switch defaultChecked={true} />
-                          </div>
-                          <div className="space-y-2">
-                             <Label className="text-xs text-muted-foreground">Subject Line</Label>
-                             <Input 
-                               defaultValue={
-                                 category === "welcome" ? "Welcome to Our Hotel!" : 
-                                 category === "invoice" ? "Your Invoice from Our Hotel" : 
-                                 category === "feedback" ? "How was your stay?" : "Special Offer Just for You!"
-                               } 
-                             />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Message Body</Label>
-                            <Textarea 
-                              className="min-h-[120px]" 
-                              defaultValue={
-                                 category === "welcome" ? "Dear {GuestName},\n\nWe are delighted to welcome you to our hotel. Your reservation {BookingID} is confirmed.\n\nWarm regards,\nHotel Team" : 
-                                 category === "invoice" ? "Dear {GuestName},\n\nPlease find attached the invoice for your recent stay. We hope you had a pleasant experience.\n\nBest regards,\nHotel Team" : 
-                                 category === "feedback" ? "Dear {GuestName},\n\nThank you for staying with us! We would love to hear your thoughts on your recent visit.\n\nBest,\nHotel Team" : "Hello {GuestName},\n\nWe have an exclusive offer waiting for you! Book your next stay and get 20% off.\n\nCheers,\nHotel Team"
-                               }
-                            />
-                            <p className="text-[10px] text-muted-foreground">Available variables: {'{GuestName}'}, {'{BookingID}'}, {'{CheckInDate}'}, {'{CheckOutDate}'}</p>
-                          </div>
-                        </div>
-
-                        {/* WhatsApp Template */}
-                        <div className="space-y-2 border p-4 rounded-lg">
-                          <div className="flex items-center justify-between">
-                             <Label className="text-base font-semibold flex items-center gap-2">
-                               <MessageCircle className="h-4 w-4" /> WhatsApp Template
-                             </Label>
-                             <Switch defaultChecked={category === "invoice" || category === "welcome"} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Message Text</Label>
-                            <Textarea 
-                              className="min-h-[80px]" 
-                              defaultValue={
-                                 category === "welcome" ? "Hi {GuestName}, welcome to our hotel! Your booking {BookingID} is confirmed. See you soon! 🏨" : 
-                                 category === "invoice" ? "Hi {GuestName}, thank you for your stay. Here is your invoice link: {InvoiceLink}. Safe travels! ✈️" : 
-                                 category === "feedback" ? "Hi {GuestName}, hope you enjoyed your stay! Rate us here: {FeedbackLink}. ⭐" : "Hey {GuestName}! 🌟 Get 20% off your next booking with code SAVE20. Book now!"
-                               }
-                            />
-                             <p className="text-[10px] text-muted-foreground">Keep WhatsApp messages concise.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-                <div className="pt-4 flex justify-end">
-                   <Button>
-                     <Save className="mr-2 h-4 w-4" />
-                     Save Templates
-                   </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Discounts & Offers Settings */}
-          <TabsContent value="discounts" className="mt-6 space-y-6">
+            {/* Discounts & Offers Settings */}
             <Card>
               <CardHeader>
                 <CardTitle>Discounts & Offers Configuration</CardTitle>
@@ -1235,7 +1144,95 @@ export default function AdminSettings() {
               </DialogContent>
             </Dialog>
           </TabsContent>
-          
+
+          {/* Communication Settings */}
+          <TabsContent value="communication" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Communication Templates</CardTitle>
+                <CardDescription>Customize automated messages sent to guests via Email and WhatsApp.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="welcome" className="w-full">
+                  <div className="w-full overflow-x-auto mb-4">
+                    <TabsList className="inline-flex w-max gap-1 h-auto flex-nowrap p-1">
+                      <TabsTrigger value="welcome" className="text-xs sm:text-sm whitespace-nowrap">Welcome</TabsTrigger>
+                      <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice</TabsTrigger>
+                      <TabsTrigger value="feedback" className="text-xs sm:text-sm whitespace-nowrap">Feedback</TabsTrigger>
+                      <TabsTrigger value="promotional" className="text-xs sm:text-sm whitespace-nowrap">Promotional</TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  {["welcome", "invoice", "feedback", "promotional"].map((category) => (
+                    <TabsContent key={category} value={category} className="space-y-4">
+                      <div className="grid gap-6">
+                        {/* Email Template */}
+                        <div className="space-y-2 border p-4 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-base font-semibold flex items-center gap-2">
+                              <Mail className="h-4 w-4" /> Email Template
+                            </Label>
+                            <Switch defaultChecked={true} />
+                          </div>
+                          <div className="space-y-2">
+                             <Label className="text-xs text-muted-foreground">Subject Line</Label>
+                             <Input 
+                               defaultValue={
+                                 category === "welcome" ? "Welcome to Our Hotel!" : 
+                                 category === "invoice" ? "Your Invoice from Our Hotel" : 
+                                 category === "feedback" ? "How was your stay?" : "Special Offer Just for You!"
+                               } 
+                             />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Message Body</Label>
+                            <Textarea 
+                              className="min-h-[120px]" 
+                              defaultValue={
+                                 category === "welcome" ? "Dear {GuestName},\n\nWe are delighted to welcome you to our hotel. Your reservation {BookingID} is confirmed.\n\nWarm regards,\nHotel Team" : 
+                                 category === "invoice" ? "Dear {GuestName},\n\nPlease find attached the invoice for your recent stay. We hope you had a pleasant experience.\n\nBest regards,\nHotel Team" : 
+                                 category === "feedback" ? "Dear {GuestName},\n\nThank you for staying with us! We would love to hear your thoughts on your recent visit.\n\nBest,\nHotel Team" : "Hello {GuestName},\n\nWe have an exclusive offer waiting for you! Book your next stay and get 20% off.\n\nCheers,\nHotel Team"
+                               }
+                            />
+                            <p className="text-[10px] text-muted-foreground">Available variables: {'{GuestName}'}, {'{BookingID}'}, {'{CheckInDate}'}, {'{CheckOutDate}'}</p>
+                          </div>
+                        </div>
+
+                        {/* WhatsApp Template */}
+                        <div className="space-y-2 border p-4 rounded-lg">
+                          <div className="flex items-center justify-between">
+                             <Label className="text-base font-semibold flex items-center gap-2">
+                               <MessageCircle className="h-4 w-4" /> WhatsApp Template
+                             </Label>
+                             <Switch defaultChecked={category === "invoice" || category === "welcome"} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Message Text</Label>
+                            <Textarea 
+                              className="min-h-[80px]" 
+                              defaultValue={
+                                 category === "welcome" ? "Hi {GuestName}, welcome to our hotel! Your booking {BookingID} is confirmed. See you soon! 🏨" : 
+                                 category === "invoice" ? "Hi {GuestName}, thank you for your stay. Here is your invoice link: {InvoiceLink}. Safe travels! ✈️" : 
+                                 category === "feedback" ? "Hi {GuestName}, hope you enjoyed your stay! Rate us here: {FeedbackLink}. ⭐" : "Hey {GuestName}! 🌟 Get 20% off your next booking with code SAVE20. Book now!"
+                               }
+                            />
+                             <p className="text-[10px] text-muted-foreground">Keep WhatsApp messages concise.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+                <div className="pt-4 flex justify-end">
+                   <Button>
+                     <Save className="mr-2 h-4 w-4" />
+                     Save Templates
+                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Invoice & Tax Settings */}
           <TabsContent value="invoice" className="mt-6 space-y-6">
             <Card>
