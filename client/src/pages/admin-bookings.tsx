@@ -1732,7 +1732,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col text-sm">
+                            <div className="flex flex-col text-sm space-y-1">
+                              {booking.createdAt && (
+                                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                  <Calendar className="h-3 w-3" /> Booked: {new Date(booking.createdAt).toLocaleDateString(undefined, { dateStyle: "short" })} {new Date(booking.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              )}
                               <span className="flex items-center gap-1.5">
                                 In: {booking.checkIn}
                                 {booking.checkedInAt && (
