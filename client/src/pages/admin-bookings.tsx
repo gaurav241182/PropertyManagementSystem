@@ -914,19 +914,33 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     setCouponCode("");
     setCouponError("");
     setManualDiscountPercent(0);
-    setAppliedDiscount(null);
+
+    const rawBooking = bookingsData.find((b: any) => b.id === booking.id);
+    if (rawBooking?.discountInfo) {
+      try {
+        setAppliedDiscount(JSON.parse(rawBooking.discountInfo));
+      } catch {
+        setAppliedDiscount(null);
+      }
+    } else {
+      setAppliedDiscount(null);
+    }
+
     setIsCheckoutDialogOpen(true);
   };
 
   const handleCheckout = () => {
     if (!checkoutBooking) return;
 
+    const updateData: any = { status: "checked_out" };
+    if (appliedDiscount) {
+      updateData.discountInfo = JSON.stringify(appliedDiscount);
+    }
+
     updateBookingMutation.mutate(
-      { id: checkoutBooking.id, data: { status: "checked_out" } },
+      { id: checkoutBooking.id, data: updateData },
       {
         onSuccess: () => {
-          setIsCheckoutDialogOpen(false);
-          
           let message = "Invoice generated successfully.";
           if (checkoutOptions.email) message += " Email sent.";
           if (checkoutOptions.whatsapp) message += " WhatsApp sent.";
@@ -2260,27 +2274,29 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                            )}
                          </div>
                        )}
-
-                       {appliedDiscount && (
-                         <div className="flex justify-between items-center text-sm text-purple-700 bg-purple-50 rounded-md px-3 py-2">
-                           <span className="flex items-center gap-2">
-                             <Tags className="h-3.5 w-3.5" />
-                             {appliedDiscount.label}
-                           </span>
-                           <span className="flex items-center gap-2">
-                             <span className="font-medium">-{currency} {totals.discountAmount.toFixed(2)}</span>
-                             <button
-                               onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); }}
-                               className="text-red-400 hover:text-red-600 ml-1"
-                               title="Remove discount"
-                               data-testid="button-remove-discount"
-                             >
-                               <Trash2 className="h-3.5 w-3.5" />
-                             </button>
-                           </span>
-                         </div>
-                       )}
                      </>
+                   )}
+
+                   {appliedDiscount && (
+                     <div className="flex justify-between items-center text-sm text-purple-700 bg-purple-50 rounded-md px-3 py-2">
+                       <span className="flex items-center gap-2">
+                         <Tags className="h-3.5 w-3.5" />
+                         {appliedDiscount.label}
+                       </span>
+                       <span className="flex items-center gap-2">
+                         <span className="font-medium">-{currency} {totals.discountAmount.toFixed(2)}</span>
+                         {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
+                           <button
+                             onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); }}
+                             className="text-red-400 hover:text-red-600 ml-1"
+                             title="Remove discount"
+                             data-testid="button-remove-discount"
+                           >
+                             <Trash2 className="h-3.5 w-3.5" />
+                           </button>
+                         )}
+                       </span>
+                     </div>
                    )}
 
                    {/* Tax Breakdown */}
