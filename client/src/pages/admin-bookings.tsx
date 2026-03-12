@@ -53,7 +53,7 @@ import { useHotelSettings } from "@/hooks/use-hotel-settings";
 import { Switch } from "@/components/ui/switch";
 import { differenceInYears, parseISO } from "date-fns";
 
-export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" }) {
+export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant } = useHotelSettings();
