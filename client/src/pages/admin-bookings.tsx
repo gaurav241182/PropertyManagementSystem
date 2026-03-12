@@ -44,7 +44,8 @@ import {
   BadgeDollarSign,
   FileCheck,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  Tags
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -262,6 +263,22 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const [checkoutBooking, setCheckoutBooking] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("Cash");
 
+  const [showDiscountPanel, setShowDiscountPanel] = useState(false);
+  const [discountMode, setDiscountMode] = useState<"coupon" | "manual">("manual");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [manualDiscountPercent, setManualDiscountPercent] = useState(0);
+  const [appliedDiscount, setAppliedDiscount] = useState<{ type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number } | null>(null);
+
+  const coupons: any[] = (() => { try { return JSON.parse(getSetting('coupons', '[]')); } catch { return []; } })();
+  const discountLimitManager = parseInt(getSetting('discountLimitManager', '15'));
+  const discountLimitReceptionist = parseInt(getSetting('discountLimitReceptionist', '5'));
+  const getMaxDiscountPercent = () => {
+    if (role === "owner") return 100;
+    if (role === "manager") return discountLimitManager;
+    return discountLimitReceptionist;
+  };
+
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingBooking, setViewingBooking] = useState<any>(null);
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -386,8 +403,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const hotelEmail = getSetting("hotelEmail", "");
   const hotelGst = getSetting("hotelGst", "");
 
-  const generateInvoiceHTML = (booking: any) => {
-    const totals = calculateTotals(booking);
+  const generateInvoiceHTML = (booking: any, discount?: { type: "coupon" | "manual"; label: string; mode: "percentage" | "fixed"; value: number; amount: number } | null) => {
+    const totals = calculateTotals(booking, discount);
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const nights = booking.nights || Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 3600 * 24));
     const checkedInStr = booking.checkedInAt ? new Date(booking.checkedInAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
@@ -402,6 +419,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
     const taxRows = totals.taxBreakdown.filter((t: any) => t.taxable);
     const totalTax = totals.tax;
+    const discountAmount = totals.discountAmount;
 
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Invoice ${invoiceNo}</title>
@@ -433,6 +451,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   .totals .row.grand { border-top: 2px solid #1a5632; padding-top: 10px; margin-top: 8px; font-size: 16px; font-weight: 700; color: #1a5632; }
   .totals .row .label { color: #555; }
   .totals .row.tax { font-size: 11px; color: #777; padding-left: 10px; }
+  .totals .row.discount { color: #7c3aed; font-style: italic; }
   .footer { border-top: 1px solid #ddd; padding-top: 16px; margin-top: 30px; display: flex; justify-content: space-between; }
   .footer-left { font-size: 11px; color: #888; max-width: 55%; }
   .footer-right { text-align: right; font-size: 11px; color: #888; }
@@ -484,6 +503,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
   <div class="totals">
     <div class="row sub"><span class="label">Subtotal</span><span>${currency} ${subtotal.toFixed(2)}</span></div>
+    ${discountAmount > 0 ? `<div class="row discount"><span class="label">${discount?.label || "Discount"}</span><span>- ${currency} ${discountAmount.toFixed(2)}</span></div>` : ""}
     ${taxRows.map((t: any) => `<div class="row tax"><span class="label">${t.label} @ ${t.rate}%</span><span>${currency} ${t.amount.toFixed(2)}</span></div>`).join("")}
     <div class="row"><span class="label">Total Tax</span><span>${currency} ${totalTax.toFixed(2)}</span></div>
     ${booking.advance > 0 ? `<div class="row"><span class="label">Advance Paid</span><span>- ${currency} ${booking.advance.toFixed(2)}</span></div>` : ""}
@@ -510,7 +530,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   };
 
   const handlePrintInvoice = (booking: any) => {
-    const html = generateInvoiceHTML(booking);
+    const html = generateInvoiceHTML(booking, appliedDiscount);
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(html);
@@ -522,7 +542,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const handleDownloadInvoice = async (booking: any) => {
     setIsDownloadingPdf(true);
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
-    const html = generateInvoiceHTML(booking);
+    const html = generateInvoiceHTML(booking, appliedDiscount);
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "absolute";
@@ -821,18 +841,24 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     return 0;
   };
 
-  const calculateTotals = (booking: any) => {
-    if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, taxBreakdown: [], tax: 0, total: 0, due: 0 };
+  const calculateTotals = (booking: any, discount?: { mode: "percentage" | "fixed"; value: number; amount: number } | null) => {
+    if (!booking) return { roomTotal: 0, chargesTotal: 0, subtotal: 0, taxBreakdown: [], tax: 0, discountAmount: 0, total: 0, due: 0 };
     
     const roomTotal = booking.amount;
     const chargesTotal = (booking.charges || []).reduce((acc: number, curr: any) => acc + curr.amount, 0);
     const subtotal = roomTotal + chargesTotal;
     
+    const discountAmount = discount ? discount.amount : 0;
+    const afterDiscount = subtotal - discountAmount;
+    
     const taxBreakdown: Array<{ label: string; amount: number; rate: number; baseAmount: number; taxable: boolean }> = [];
+    
+    const discountRatio = subtotal > 0 ? afterDiscount / subtotal : 1;
     
     const roomTaxRate = getTaxRateForCategory("Room");
     const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
-    const roomTaxAmount = isRoomTaxable ? roomTotal * (roomTaxRate / 100) : 0;
+    const adjustedRoomTotal = roomTotal * discountRatio;
+    const roomTaxAmount = isRoomTaxable ? adjustedRoomTotal * (roomTaxRate / 100) : 0;
     taxBreakdown.push({
       label: "Room Charges",
       amount: roomTaxAmount,
@@ -860,7 +886,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         }
         
         const rate = getTaxRateForCategory(category);
-        const taxAmount = isTaxable && rate > 0 ? charge.amount * (rate / 100) : 0;
+        const adjustedChargeAmount = charge.amount * discountRatio;
+        const taxAmount = isTaxable && rate > 0 ? adjustedChargeAmount * (rate / 100) : 0;
         
         taxBreakdown.push({
           label: charge.item || category,
@@ -873,15 +900,21 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     }
 
     const tax = taxBreakdown.reduce((acc, item) => acc + item.amount, 0);
-    const total = subtotal + tax;
+    const total = afterDiscount + tax;
     const due = total - booking.advance;
 
-    return { roomTotal, chargesTotal, subtotal, taxBreakdown, tax, total, due };
+    return { roomTotal, chargesTotal, subtotal, taxBreakdown, tax, discountAmount, total, due };
   };
 
   const openCheckoutDialog = (booking: any) => {
     setCheckoutBooking(booking);
     setCheckoutOptions(invoiceSettings.autoSend);
+    setShowDiscountPanel(false);
+    setDiscountMode("manual");
+    setCouponCode("");
+    setCouponError("");
+    setManualDiscountPercent(0);
+    setAppliedDiscount(null);
     setIsCheckoutDialogOpen(true);
   };
 
@@ -2039,7 +2072,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   quantity: 1
                 }));
               const liveBooking = { ...checkoutBooking, charges: liveCharges };
-              const totals = calculateTotals(liveBooking);
+              const totals = calculateTotals(liveBooking, appliedDiscount);
               return (
               <div className="space-y-6 py-4">
                 <div className="flex justify-between items-start border-b pb-4">
@@ -2100,9 +2133,159 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <span>{currency} {totals.subtotal.toFixed(2)}</span>
                    </div>
 
+                   {/* Discount Section */}
+                   {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
+                     <>
+                       {!showDiscountPanel && !appliedDiscount && (
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           className="w-full border-dashed text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                           onClick={() => setShowDiscountPanel(true)}
+                           data-testid="button-apply-discount"
+                         >
+                           <Tags className="mr-2 h-4 w-4" />
+                           Apply Discount
+                         </Button>
+                       )}
+
+                       {showDiscountPanel && !appliedDiscount && (
+                         <div className="space-y-3 border border-purple-200 rounded-lg p-3 bg-purple-50/30">
+                           <div className="flex items-center justify-between">
+                             <p className="text-sm font-medium text-purple-700">Apply Discount</p>
+                             <button onClick={() => setShowDiscountPanel(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                           </div>
+                           <div className="flex gap-2">
+                             <Button
+                               size="sm"
+                               variant={discountMode === "coupon" ? "default" : "outline"}
+                               onClick={() => { setDiscountMode("coupon"); setCouponError(""); }}
+                               className="text-xs flex-1"
+                               data-testid="button-mode-coupon"
+                             >
+                               Coupon Code
+                             </Button>
+                             <Button
+                               size="sm"
+                               variant={discountMode === "manual" ? "default" : "outline"}
+                               onClick={() => { setDiscountMode("manual"); setCouponError(""); }}
+                               className="text-xs flex-1"
+                               data-testid="button-mode-manual"
+                             >
+                               Manual Discount
+                             </Button>
+                           </div>
+
+                           {discountMode === "coupon" && (
+                             <div className="space-y-2">
+                               <div className="flex gap-2">
+                                 <Input
+                                   placeholder="Enter coupon code"
+                                   value={couponCode}
+                                   onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
+                                   className="font-mono text-sm"
+                                   data-testid="input-coupon-code"
+                                 />
+                                 <Button
+                                   size="sm"
+                                   disabled={!couponCode.trim()}
+                                   onClick={() => {
+                                     const found = coupons.find((c: any) => c.code === couponCode.trim());
+                                     if (!found) { setCouponError("Invalid coupon code."); return; }
+                                     if (found.expiry && new Date(found.expiry) < new Date()) { setCouponError("This coupon has expired."); return; }
+                                     const discAmount = found.type === "percentage"
+                                       ? totals.subtotal * (found.value / 100)
+                                       : Math.min(found.value, totals.subtotal);
+                                     setAppliedDiscount({
+                                       type: "coupon",
+                                       label: `Coupon: ${found.code} (${found.type === "percentage" ? found.value + "%" : currency + " " + found.value})`,
+                                       mode: found.type,
+                                       value: found.value,
+                                       amount: discAmount
+                                     });
+                                     setShowDiscountPanel(false);
+                                   }}
+                                   data-testid="button-apply-coupon"
+                                 >
+                                   Apply
+                                 </Button>
+                               </div>
+                               {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                             </div>
+                           )}
+
+                           {discountMode === "manual" && (
+                             <div className="space-y-2">
+                               <div className="flex items-center gap-2">
+                                 <Input
+                                   type="number"
+                                   min={0}
+                                   max={getMaxDiscountPercent()}
+                                   value={manualDiscountPercent || ""}
+                                   onChange={(e) => {
+                                     let val = parseFloat(e.target.value) || 0;
+                                     if (val > getMaxDiscountPercent()) val = getMaxDiscountPercent();
+                                     setManualDiscountPercent(val);
+                                   }}
+                                   className="w-24"
+                                   data-testid="input-manual-discount"
+                                 />
+                                 <span className="text-sm font-medium">%</span>
+                                 <Button
+                                   size="sm"
+                                   disabled={manualDiscountPercent <= 0}
+                                   onClick={() => {
+                                     const discAmount = totals.subtotal * (manualDiscountPercent / 100);
+                                     setAppliedDiscount({
+                                       type: "manual",
+                                       label: `Manual Discount (${manualDiscountPercent}%)`,
+                                       mode: "percentage",
+                                       value: manualDiscountPercent,
+                                       amount: discAmount
+                                     });
+                                     setShowDiscountPanel(false);
+                                   }}
+                                   data-testid="button-apply-manual"
+                                 >
+                                   Apply
+                                 </Button>
+                               </div>
+                               <p className="text-xs text-muted-foreground">
+                                 {role === "owner"
+                                   ? "As owner, you can apply any discount."
+                                   : `Your maximum allowed discount is ${getMaxDiscountPercent()}%.`
+                                 }
+                               </p>
+                             </div>
+                           )}
+                         </div>
+                       )}
+
+                       {appliedDiscount && (
+                         <div className="flex justify-between items-center text-sm text-purple-700 bg-purple-50 rounded-md px-3 py-2">
+                           <span className="flex items-center gap-2">
+                             <Tags className="h-3.5 w-3.5" />
+                             {appliedDiscount.label}
+                           </span>
+                           <span className="flex items-center gap-2">
+                             <span className="font-medium">-{currency} {totals.discountAmount.toFixed(2)}</span>
+                             <button
+                               onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); }}
+                               className="text-red-400 hover:text-red-600 ml-1"
+                               title="Remove discount"
+                               data-testid="button-remove-discount"
+                             >
+                               <Trash2 className="h-3.5 w-3.5" />
+                             </button>
+                           </span>
+                         </div>
+                       )}
+                     </>
+                   )}
+
                    {/* Tax Breakdown */}
                    <div className="space-y-1 border-l-2 border-orange-200 pl-3 my-2">
-                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Tax Breakdown</p>
+                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Tax Breakdown{totals.discountAmount > 0 ? " (on discounted amount)" : ""}</p>
                      {totals.taxBreakdown.filter((t: any) => t.taxable).length > 0 ? (
                        totals.taxBreakdown.filter((t: any) => t.taxable).map((t: any, i: number) => (
                          <div key={i} className="flex justify-between text-xs text-muted-foreground">

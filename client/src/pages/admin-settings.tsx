@@ -35,6 +35,7 @@ export default function AdminSettings() {
   const currency = settingsData?.currency || "USD";
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
   const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
+  const coupons: any[] = (() => { try { return JSON.parse(settingsData?.coupons || '[]'); } catch { return []; } })();
 
   const [localCheckInTime, setLocalCheckInTime] = useState(settingsData?.checkInTime || "14:00");
   const [localCheckOutTime, setLocalCheckOutTime] = useState(settingsData?.checkOutTime || "11:00");
@@ -42,6 +43,11 @@ export default function AdminSettings() {
   const [localAgeChild, setLocalAgeChild] = useState(parseInt(settingsData?.ageRuleChild || "3"));
   const [localAgeInfant, setLocalAgeInfant] = useState(parseInt(settingsData?.ageRuleInfant || "2"));
   const [localWeekendDays, setLocalWeekendDays] = useState<number[]>(() => { try { return JSON.parse(settingsData?.weekendDays || '[0,6]'); } catch { return [0, 6]; } });
+  const [localManagerLimit, setLocalManagerLimit] = useState(parseInt(settingsData?.discountLimitManager || "15"));
+  const [localReceptionistLimit, setLocalReceptionistLimit] = useState(parseInt(settingsData?.discountLimitReceptionist || "5"));
+
+  const [isCouponDialogOpen, setIsCouponDialogOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState({ code: "", value: 0, type: "percentage" as "percentage" | "fixed", expiry: "" });
 
   const settingsDataStr = JSON.stringify(settingsData || {});
   useEffect(() => {
@@ -51,6 +57,8 @@ export default function AdminSettings() {
     setLocalAgeChild(parseInt(settingsData?.ageRuleChild || "3"));
     setLocalAgeInfant(parseInt(settingsData?.ageRuleInfant || "2"));
     try { setLocalWeekendDays(JSON.parse(settingsData?.weekendDays || '[0,6]')); } catch { setLocalWeekendDays([0, 6]); }
+    setLocalManagerLimit(parseInt(settingsData?.discountLimitManager || "15"));
+    setLocalReceptionistLimit(parseInt(settingsData?.discountLimitReceptionist || "5"));
   }, [settingsDataStr]);
 
   const DAY_NAMES = [
@@ -1005,7 +1013,7 @@ export default function AdminSettings() {
                         <p className="text-sm text-muted-foreground">Maximum discount a Manager can apply manually.</p>
                       </div>
                       <div className="flex items-center gap-2">
-                         <Input type="number" defaultValue="15" className="w-24" />
+                         <Input type="number" min={0} max={100} value={localManagerLimit} onChange={(e) => setLocalManagerLimit(parseInt(e.target.value) || 0)} className="w-24" data-testid="input-manager-limit" />
                          <span className="text-sm font-medium">%</span>
                       </div>
                     </div>
@@ -1015,11 +1023,22 @@ export default function AdminSettings() {
                         <p className="text-sm text-muted-foreground">Maximum discount a Receptionist can apply manually.</p>
                       </div>
                       <div className="flex items-center gap-2">
-                         <Input type="number" defaultValue="5" className="w-24" />
+                         <Input type="number" min={0} max={100} value={localReceptionistLimit} onChange={(e) => setLocalReceptionistLimit(parseInt(e.target.value) || 0)} className="w-24" data-testid="input-receptionist-limit" />
                          <span className="text-sm font-medium">%</span>
                       </div>
                     </div>
-                     <p className="text-xs text-muted-foreground pt-2">Note: Owners always have unlimited discount authority.</p>
+                    <p className="text-xs text-muted-foreground pt-2">Note: Owners always have unlimited discount authority.</p>
+                    <div className="pt-2">
+                      <Button onClick={() => {
+                        saveSettingMutation.mutate(
+                          { discountLimitManager: String(localManagerLimit), discountLimitReceptionist: String(localReceptionistLimit) },
+                          { onSuccess: () => toast({ title: "Saved", description: "Discount limits updated." }) }
+                        );
+                      }} data-testid="button-save-discount-limits">
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Discount Limits
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -1029,7 +1048,7 @@ export default function AdminSettings() {
                      <h3 className="text-lg font-medium flex items-center gap-2">
                        <Tags className="h-5 w-5" /> Active Coupons
                      </h3>
-                     <Button size="sm" variant="outline">
+                     <Button size="sm" variant="outline" onClick={() => { setNewCoupon({ code: "", value: 0, type: "percentage", expiry: "" }); setIsCouponDialogOpen(true); }} data-testid="button-add-coupon">
                        <Plus className="h-4 w-4 mr-2" /> Add Coupon
                      </Button>
                    </div>
@@ -1041,44 +1060,140 @@ export default function AdminSettings() {
                           <TableHead>Discount</TableHead>
                           <TableHead>Type</TableHead>
                           <TableHead>Expiry</TableHead>
-                          <TableHead className="text-right">Status</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell className="font-medium font-mono">WELCOME10</TableCell>
-                          <TableCell>10%</TableCell>
-                          <TableCell>Percentage</TableCell>
-                          <TableCell>Dec 31, 2024</TableCell>
-                          <TableCell className="text-right"><Badge variant="default" className="bg-green-600">Active</Badge></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium font-mono">SUMMER50</TableCell>
-                          <TableCell>$50</TableCell>
-                          <TableCell>Fixed Amount</TableCell>
-                          <TableCell>Aug 31, 2024</TableCell>
-                          <TableCell className="text-right"><Badge variant="outline">Scheduled</Badge></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell className="font-medium font-mono">VIPSTAY</TableCell>
-                          <TableCell>25%</TableCell>
-                          <TableCell>Percentage</TableCell>
-                          <TableCell>No Expiry</TableCell>
-                          <TableCell className="text-right"><Badge variant="default" className="bg-green-600">Active</Badge></TableCell>
-                        </TableRow>
+                        {coupons.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No coupons configured. Click "Add Coupon" to create one.</TableCell>
+                          </TableRow>
+                        )}
+                        {coupons.map((coupon: any) => {
+                          const isExpired = coupon.expiry && new Date(coupon.expiry) < new Date();
+                          return (
+                            <TableRow key={coupon.id} data-testid={`row-coupon-${coupon.id}`}>
+                              <TableCell className="font-medium font-mono">{coupon.code}</TableCell>
+                              <TableCell>{coupon.type === "percentage" ? `${coupon.value}%` : `${currency} ${coupon.value}`}</TableCell>
+                              <TableCell>{coupon.type === "percentage" ? "Percentage" : "Fixed Amount"}</TableCell>
+                              <TableCell>{coupon.expiry ? new Date(coupon.expiry).toLocaleDateString(undefined, { dateStyle: "medium" }) : "No Expiry"}</TableCell>
+                              <TableCell>
+                                {isExpired
+                                  ? <Badge variant="destructive">Expired</Badge>
+                                  : <Badge variant="default" className="bg-green-600">Active</Badge>
+                                }
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => {
+                                    const updated = coupons.filter((c: any) => c.id !== coupon.id);
+                                    saveSettingMutation.mutate(
+                                      { coupons: JSON.stringify(updated) },
+                                      { onSuccess: () => toast({ title: "Deleted", description: `Coupon "${coupon.code}" removed.` }) }
+                                    );
+                                  }}
+                                  data-testid={`button-delete-coupon-${coupon.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                    </Table>
-                </div>
-                 
-                 <div className="pt-4 flex justify-end">
-                   <Button>
-                     <Save className="mr-2 h-4 w-4" />
-                     Save Discount Rules
-                   </Button>
                 </div>
 
               </CardContent>
             </Card>
+
+            <Dialog open={isCouponDialogOpen} onOpenChange={setIsCouponDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Coupon Code</DialogTitle>
+                  <DialogDescription>Create a new discount coupon that can be applied during checkout.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Coupon Code</Label>
+                    <Input
+                      placeholder="e.g. WELCOME10"
+                      value={newCoupon.code}
+                      onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
+                      data-testid="input-coupon-code"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Discount Type</Label>
+                      <Select value={newCoupon.type} onValueChange={(v) => setNewCoupon({ ...newCoupon, type: v as "percentage" | "fixed" })}>
+                        <SelectTrigger data-testid="select-coupon-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">Percentage (%)</SelectItem>
+                          <SelectItem value="fixed">Fixed Amount ({currency})</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Value</Label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={newCoupon.type === "percentage" ? 100 : undefined}
+                          value={newCoupon.value || ""}
+                          onChange={(e) => setNewCoupon({ ...newCoupon, value: parseFloat(e.target.value) || 0 })}
+                          data-testid="input-coupon-value"
+                        />
+                        <span className="text-sm font-medium">{newCoupon.type === "percentage" ? "%" : currency}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Expiry Date (optional)</Label>
+                    <Input
+                      type="date"
+                      value={newCoupon.expiry}
+                      onChange={(e) => setNewCoupon({ ...newCoupon, expiry: e.target.value })}
+                      data-testid="input-coupon-expiry"
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty for no expiry.</p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCouponDialogOpen(false)}>Cancel</Button>
+                  <Button
+                    disabled={!newCoupon.code || newCoupon.value <= 0}
+                    onClick={() => {
+                      if (coupons.some((c: any) => c.code === newCoupon.code)) {
+                        toast({ title: "Duplicate Code", description: "A coupon with this code already exists.", variant: "destructive" });
+                        return;
+                      }
+                      const updated = [...coupons, { id: Date.now(), ...newCoupon }];
+                      saveSettingMutation.mutate(
+                        { coupons: JSON.stringify(updated) },
+                        {
+                          onSuccess: () => {
+                            toast({ title: "Coupon Added", description: `Coupon "${newCoupon.code}" created successfully.` });
+                            setIsCouponDialogOpen(false);
+                          }
+                        }
+                      );
+                    }}
+                    data-testid="button-save-coupon"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Coupon
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
           
           {/* Invoice & Tax Settings */}

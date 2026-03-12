@@ -143,3 +143,10 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Auto-refresh: calendar status invalidated when rooms/bookings change elsewhere (admin-rooms, admin-bookings)
   - Mobile responsive: compact cells, smaller text, proper wrapping on small screens
   - API: GET /api/rooms/calendar-status?startDate=&endDate=&roomTypeId=&roomId= returns per-day status with counts
+- 2026-03-12: Discounts & Offers system — full coupon management + checkout discount application
+  - Settings > Discounts tab: Add Coupon dialog (code, value, type percentage/fixed, optional expiry), delete button per coupon, coupons persisted as JSON in `coupons` settings key
+  - Role-based discount limits: Manager and Receptionist max % limits saved as `discountLimitManager`/`discountLimitReceptionist` settings keys (defaults 15%/5%)
+  - Checkout dialog: "Apply Discount" button reveals discount panel with two modes — Coupon Code (validated against saved coupons, checks expiry) or Manual Discount (percentage, capped by role: Owner unlimited, Manager/Receptionist per configured limits)
+  - Discount shown as purple line item in checkout breakdown, deducted before tax calculation (tax computed on discounted subtotal proportionally)
+  - Invoice HTML updated: discount line appears between subtotal and tax rows with purple styling
+  - `calculateTotals` updated to accept optional discount parameter; proportional tax adjustment via discountRatio
