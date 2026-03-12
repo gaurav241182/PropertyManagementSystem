@@ -131,6 +131,8 @@ export default function AdminSettings() {
     size: "",
     selectedFacilityIds: [] as number[]
   });
+  const [isEditRoomTypeDialogOpen, setIsEditRoomTypeDialogOpen] = useState(false);
+  const [editingRoomType, setEditingRoomType] = useState<any>(null);
 
   const [isTaxDialogOpen, setIsTaxDialogOpen] = useState(false);
   const [newTax, setNewTax] = useState({
@@ -190,6 +192,15 @@ export default function AdminSettings() {
   const deleteRoomTypeMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/room-types/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/room-types'] });
+    },
+  });
+
+  const updateRoomTypeMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/room-types/${data.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/room-types'] });
@@ -395,6 +406,33 @@ export default function AdminSettings() {
         toast({ title: "Room Type Removed", description: "The room type has been removed from configuration." });
       },
     });
+  };
+
+  const handleSaveEditRoomType = () => {
+    if (!editingRoomType) return;
+    const defaultFacilityIds = facilities
+      .filter((f: any) => f.isDefault && f.active)
+      .map((f: any) => f.id);
+    const allFacilityIds = [...new Set([...defaultFacilityIds, ...(editingRoomType.selectedFacilityIds || [])])];
+    updateRoomTypeMutation.mutate(
+      {
+        id: editingRoomType.id,
+        name: editingRoomType.name,
+        beds: editingRoomType.beds,
+        maxAdults: editingRoomType.maxAdults,
+        maxChildren: editingRoomType.maxChildren,
+        basePrice: String(editingRoomType.basePrice),
+        size: editingRoomType.size || "",
+        facilityIds: JSON.stringify(allFacilityIds),
+      },
+      {
+        onSuccess: () => {
+          setIsEditRoomTypeDialogOpen(false);
+          setEditingRoomType(null);
+          toast({ title: "Room Type Updated", description: `${editingRoomType.name} has been updated.` });
+        },
+      }
+    );
   };
 
   const handleAddTax = () => {
@@ -1503,6 +1541,49 @@ export default function AdminSettings() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+
+                {/* Edit Room Type Dialog */}
+                <Dialog open={isEditRoomTypeDialogOpen} onOpenChange={setIsEditRoomTypeDialogOpen}>
+                  <DialogContent>
+                    <DialogTitle>Edit Room Type</DialogTitle>
+                    {editingRoomType && (
+                      <div className="space-y-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-room-name">Room Type Name</Label>
+                          <Input id="edit-room-name" value={editingRoomType.name || ""} onChange={(e) => setEditingRoomType({...editingRoomType, name: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="edit-beds">Number of Beds</Label>
+                            <Input id="edit-beds" type="number" value={editingRoomType.beds || ""} onChange={(e) => setEditingRoomType({...editingRoomType, beds: parseInt(e.target.value) || 0})} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="edit-price">Base Price ({currency})</Label>
+                            <Input id="edit-price" type="number" value={Number(editingRoomType.basePrice) || 0} onChange={(e) => setEditingRoomType({...editingRoomType, basePrice: parseFloat(e.target.value) || 0})} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="edit-adults">Max Adults</Label>
+                            <Input id="edit-adults" type="number" value={editingRoomType.maxAdults || ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxAdults: parseInt(e.target.value) || 0})} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="edit-children">Max Children</Label>
+                            <Input id="edit-children" type="number" value={editingRoomType.maxChildren || ""} onChange={(e) => setEditingRoomType({...editingRoomType, maxChildren: parseInt(e.target.value) || 0})} />
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="edit-size">Room Size (sq ft)</Label>
+                          <Input id="edit-size" value={editingRoomType.size || ""} onChange={(e) => setEditingRoomType({...editingRoomType, size: e.target.value})} />
+                        </div>
+                      </div>
+                    )}
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => { setIsEditRoomTypeDialogOpen(false); setEditingRoomType(null); }}>Cancel</Button>
+                      <Button onClick={handleSaveEditRoomType} data-testid="button-save-edit-roomtype">Save Changes</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -1542,7 +1623,9 @@ export default function AdminSettings() {
                           })()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingRoomType(rt); setIsEditRoomTypeDialogOpen(true); }} data-testid="button-edit-roomtype">
+                            <Edit className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
