@@ -135,10 +135,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-8 w-8 text-primary" />
-                <div className="text-3xl font-bold text-primary" data-testid="text-total-revenue">{currencySymbol}{totalRevenue.toLocaleString()}</div>
-              </div>
+              <div className="text-3xl font-bold text-primary" data-testid="text-total-revenue">{currencySymbol}{totalRevenue.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
