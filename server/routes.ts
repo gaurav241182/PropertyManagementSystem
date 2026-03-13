@@ -14,13 +14,14 @@ async function getBranchIdValidated(req: Request): Promise<number | null> {
   const parsed = Number(header);
   if (isNaN(parsed) || parsed <= 0) return null;
 
+  const branch = await storage.getBranch(parsed);
+  if (!branch) return null;
+
   if (req.session?.user?.role === "super_admin") return parsed;
 
   const userHotelId = req.session?.user?.hotelId;
   if (!userHotelId) return null;
-
-  const branch = await storage.getBranch(parsed);
-  if (!branch || branch.hotelId !== userHotelId) return null;
+  if (branch.hotelId !== userHotelId) return null;
 
   return parsed;
 }
@@ -773,7 +774,7 @@ export async function registerRoutes(
     const data = await storage.createOrder({ ...orderData, hotelId, branchId });
     if (items && Array.isArray(items)) {
       for (const item of items) {
-        await storage.createOrderItem({ ...item, orderId: data.orderId });
+        await storage.createOrderItem({ ...item, orderId: data.orderId, hotelId, branchId });
       }
     }
     const orderItems = await storage.getOrderItems(data.orderId);

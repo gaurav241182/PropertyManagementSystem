@@ -28,7 +28,51 @@ export async function runMigrations() {
       await client.query(`ALTER TABLE room_types ADD COLUMN IF NOT EXISTS max_adults integer NOT NULL DEFAULT 2`);
       await client.query(`ALTER TABLE room_types ADD COLUMN IF NOT EXISTS max_children integer NOT NULL DEFAULT 0`);
     }
+
+    await migrateBranchesFromJson(client);
   } finally {
     client.release();
+  }
+}
+
+async function migrateBranchesFromJson(client: pg.PoolClient) {
+  const tableCheck = await client.query(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'branches') AS exists`
+  );
+  if (!tableCheck.rows[0]?.exists) return;
+
+  const hotelColCheck = await client.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'hotels' AND column_name = 'branches'`
+  );
+  if (hotelColCheck.rows.length === 0) return;
+
+  const hotels = await client.query(`SELECT id, branches FROM hotels WHERE branches IS NOT NULL`);
+  let migratedCount = 0;
+
+  for (const hotel of hotels.rows) {
+    let branchesArr: any[] = [];
+    try {
+      const parsed = typeof hotel.branches === 'string' ? JSON.parse(hotel.branches) : hotel.branches;
+      if (Array.isArray(parsed)) branchesArr = parsed;
+    } catch { continue; }
+
+    for (const br of branchesArr) {
+      if (!br.name) continue;
+      const existing = await client.query(
+        `SELECT id FROM branches WHERE hotel_id = $1 AND name = $2`,
+        [hotel.id, br.name]
+      );
+      if (existing.rows.length === 0) {
+        await client.query(
+          `INSERT INTO branches (hotel_id, name, city, address) VALUES ($1, $2, $3, $4)`,
+          [hotel.id, br.name, br.city || '', br.address || '']
+        );
+        migratedCount++;
+      }
+    }
+  }
+
+  if (migratedCount > 0) {
+    console.log(`Migration: Migrated ${migratedCount} branches from hotels.branches JSON to branches table`);
   }
 }

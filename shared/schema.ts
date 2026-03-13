@@ -293,6 +293,8 @@ export const orderItems = pgTable("order_items", {
   itemName: text("item_name").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   quantity: integer("quantity").notNull().default(1),
+  hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
 });
 
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
