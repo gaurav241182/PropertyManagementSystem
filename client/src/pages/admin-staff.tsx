@@ -131,6 +131,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       setIsDeleteAlertOpen(false);
       setDeletePassword("");
       setDeleteDues(null);
+      setDuesForStaffId(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -212,11 +213,13 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDues, setDeleteDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDues, setCheckingDues] = useState(false);
+  const [duesForStaffId, setDuesForStaffId] = useState<number | null>(null);
   const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
   const [staffToDeactivate, setStaffToDeactivate] = useState<number | null>(null);
   const [deactivatePassword, setDeactivatePassword] = useState("");
   const [deactivateDues, setDeactivateDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDeactivateDues, setCheckingDeactivateDues] = useState(false);
+  const [deactivateDuesForStaffId, setDeactivateDuesForStaffId] = useState<number | null>(null);
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   const [employeeId, setEmployeeId] = useState("");
@@ -349,6 +352,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       setIsDeactivateAlertOpen(false);
       setDeactivatePassword("");
       setDeactivateDues(null);
+      setDeactivateDuesForStaffId(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -359,6 +363,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setStaffToDeactivate(staffId);
     setDeactivatePassword("");
     setDeactivateDues(null);
+    setDeactivateDuesForStaffId(staffId);
     setIsDeactivateAlertOpen(true);
     setCheckingDeactivateDues(true);
     try {
@@ -488,6 +493,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setStaffToDelete(staffId);
     setDeletePassword("");
     setDeleteDues(null);
+    setDuesForStaffId(staffId);
     setIsDeleteAlertOpen(true);
     setCheckingDues(true);
     try {
@@ -1148,7 +1154,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
         setIsDeleteAlertOpen(open);
-        if (!open) { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); }
+        if (!open) { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1166,7 +1172,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 )}
 
-                {deleteDues?.hasDues && (
+                {deleteDues && duesForStaffId === staffToDelete && deleteDues?.hasDues && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
                     <p className="text-red-700 font-medium">Outstanding Dues Found</p>
                     <p className="text-red-600 text-sm mt-1">
@@ -1176,7 +1182,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 )}
 
-                {deleteDues && !deleteDues.hasDues && (
+                {deleteDues && duesForStaffId === staffToDelete && !deleteDues.hasDues && (
                   <div className="space-y-2">
                     <div className="bg-green-50 border border-green-200 rounded-md p-3">
                       <p className="text-green-700 text-sm">No outstanding dues. Staff can be deleted.</p>
@@ -1199,8 +1205,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); }}>Cancel</AlertDialogCancel>
-            {deleteDues && !deleteDues.hasDues && (
+            <AlertDialogCancel onClick={() => { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }}>Cancel</AlertDialogCancel>
+            {deleteDues && duesForStaffId === staffToDelete && !deleteDues.hasDues && (
               <AlertDialogAction
                 onClick={confirmDelete}
                 disabled={!deletePassword || deleteStaffMutation.isPending}
@@ -1216,7 +1222,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
       <AlertDialog open={isDeactivateAlertOpen} onOpenChange={(open) => {
         setIsDeactivateAlertOpen(open);
-        if (!open) { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); }
+        if (!open) { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); setDeactivateDuesForStaffId(null); }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1234,7 +1240,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 )}
 
-                {deactivateDues?.hasDues && (
+                {deactivateDues && deactivateDuesForStaffId === staffToDeactivate && deactivateDues?.hasDues && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
                     <p className="text-red-700 font-medium">Outstanding Dues Found</p>
                     <p className="text-red-600 text-sm mt-1">
@@ -1244,7 +1250,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   </div>
                 )}
 
-                {deactivateDues && !deactivateDues.hasDues && (
+                {deactivateDues && deactivateDuesForStaffId === staffToDeactivate && !deactivateDues.hasDues && (
                   <div className="space-y-2">
                     <div className="bg-green-50 border border-green-200 rounded-md p-3">
                       <p className="text-green-700 text-sm">No outstanding dues. Staff can be deactivated.</p>
