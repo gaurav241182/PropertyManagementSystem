@@ -1,0 +1,80 @@
+
+The system already supports invoice generation for bookings, facilities, and restaurant orders, and each item may be marked as taxable.
+Now we need to implement a Monthly Tax Invoice Email Automation feature.
+The purpose is to help hotel owners automatically send all tax-enabled invoices to themselves and their auditors for tax filing.
+Please implement the following:
+1. Automated Scheduler Job
+Create a scheduler/background job that can:
+1.	Run automatically once per month
+2.	Run manually on demand by users
+The job should:
+• Collect all invoices that contain taxable items only
+• Include invoices from:
+•	Room bookings
+•	Facilities
+•	Restaurant orders
+For the automated run:
+•	Collect invoices for the previous calendar month
+For manual runs:
+•	Allow users to select any date range
+The job should generate invoice files and prepare them for emailing.
+________________________________________
+2. Email Configuration in Settings
+Add a new section in Settings → Tax Reporting / Invoice Emails where users can configure:
+• Multiple recipient email addresses
+• Example: hotel owner email, auditor email
+These emails will receive the automated invoice reports.
+________________________________________
+3. Send Emails Using Resend
+Use Resend as the email service.
+Emails should include:
+• All taxable invoices for the selected period
+• Attached as PDF files or compressed archive
+________________________________________
+4. Handle Email Size Limit (4MB)
+If the generated email attachments exceed 4MB:
+• Split invoices by date ranges
+• Send multiple emails automatically
+Example:
+Email 1 → invoices from Jan 1–10
+Email 2 → invoices from Jan 11–20
+Email 3 → invoices from Jan 21–31
+Ensure each email stays under the size limit.
+________________________________________
+5. Scheduler Logs
+Create a table to track scheduler execution.
+Example table: invoice_scheduler_logs
+Fields:
+• id
+• hotelId
+• jobType (manual / scheduled)
+• startDate
+• endDate
+• totalInvoices
+• emailsSent
+• status (success / failed)
+• errorMessage
+• createdAt
+These logs should be visible to hotel owner for monitoring under Settings->Invoices and taxes.
+________________________________________
+6. Enable / Disable Scheduler
+In the Settings page, allow users to:
+• Enable the monthly scheduler
+• Disable the scheduler
+Also allow configuration of:
+• Scheduler run date (example: 1st of every month)
+If disabled, the automated job should not run.
+________________________________________
+7. Manual Run Option
+Provide a button in the UI under settings->invoice and taxes tab.
+“Send Tax Invoices Now”
+User can choose:
+• Start Date
+• End Date
+The system will run the job immediately and send emails.
+________________________________________
+8. Implementation Notes
+• Only include invoices with taxable items
+• Reuse existing invoice generation logic where possible
+• Ensure job runs safely without blocking the main API server
+• Store scheduler status in database
