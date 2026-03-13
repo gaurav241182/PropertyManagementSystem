@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil, Clock, Users, CalendarDays, Archive, ArchiveRestore, Search, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil, Clock, Users, CalendarDays, Archive, ArchiveRestore, Search, Eye, Send, FileText, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -28,8 +28,14 @@ export default function AdminSettings() {
   const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: archivedBookingsData } = useQuery<any[]>({ queryKey: ['/api/bookings-archived'] });
   const { data: roomsData } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
+  const { data: schedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/invoice-scheduler-logs'] });
   const [archivalSearch, setArchivalSearch] = useState("");
   const [viewingArchived, setViewingArchived] = useState<any>(null);
+
+  const [taxEmailInput, setTaxEmailInput] = useState("");
+  const [manualStartDate, setManualStartDate] = useState("");
+  const [manualEndDate, setManualEndDate] = useState("");
+  const [isSendingTaxInvoices, setIsSendingTaxInvoices] = useState(false);
 
   const roomTypes = roomTypesData || [];
   const categories = categoriesData || [];
@@ -1437,6 +1443,243 @@ export default function AdminSettings() {
                   </Button>
                 </div>
 
+              </CardContent>
+            </Card>
+
+            {/* Tax Reporting / Invoice Emails */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Tax Reporting / Invoice Emails</CardTitle>
+                </div>
+                <CardDescription>Configure automated monthly tax invoice emails for auditors and owners.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Recipient Email Addresses</h3>
+                  <p className="text-sm text-muted-foreground">Add email addresses that will receive the monthly tax invoice reports (e.g., hotel owner, auditor).</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter email address"
+                      type="email"
+                      value={taxEmailInput}
+                      onChange={(e) => setTaxEmailInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && taxEmailInput.trim()) {
+                          e.preventDefault();
+                          const emails: string[] = (() => { try { return JSON.parse(settingsData?.taxReportingEmails || '[]'); } catch { return []; } })();
+                          if (!emails.includes(taxEmailInput.trim())) {
+                            const updated = [...emails, taxEmailInput.trim()];
+                            apiRequest("POST", "/api/settings", { taxReportingEmails: JSON.stringify(updated) })
+                              .then(() => { queryClient.invalidateQueries({ queryKey: ['/api/settings'] }); setTaxEmailInput(""); toast({ title: "Email Added" }); });
+                          }
+                        }
+                      }}
+                      data-testid="input-tax-email"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!taxEmailInput.trim()) return;
+                        const emails: string[] = (() => { try { return JSON.parse(settingsData?.taxReportingEmails || '[]'); } catch { return []; } })();
+                        if (!emails.includes(taxEmailInput.trim())) {
+                          const updated = [...emails, taxEmailInput.trim()];
+                          apiRequest("POST", "/api/settings", { taxReportingEmails: JSON.stringify(updated) })
+                            .then(() => { queryClient.invalidateQueries({ queryKey: ['/api/settings'] }); setTaxEmailInput(""); toast({ title: "Email Added" }); });
+                        }
+                      }}
+                      data-testid="button-add-tax-email"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const emails: string[] = (() => { try { return JSON.parse(settingsData?.taxReportingEmails || '[]'); } catch { return []; } })();
+                      return emails.map((email, idx) => (
+                        <Badge key={idx} variant="secondary" className="flex items-center gap-1 px-3 py-1.5">
+                          <Mail className="h-3 w-3" />
+                          {email}
+                          <button
+                            className="ml-1 hover:text-red-500"
+                            onClick={() => {
+                              const updated = emails.filter((_, i) => i !== idx);
+                              apiRequest("POST", "/api/settings", { taxReportingEmails: JSON.stringify(updated) })
+                                .then(() => { queryClient.invalidateQueries({ queryKey: ['/api/settings'] }); toast({ title: "Email Removed" }); });
+                            }}
+                            data-testid={`button-remove-tax-email-${idx}`}
+                          >
+                            <XCircle className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="text-lg font-medium">Monthly Scheduler</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Enable Monthly Tax Invoice Scheduler</Label>
+                      <p className="text-sm text-muted-foreground">Automatically email all taxable invoices from the previous month.</p>
+                    </div>
+                    <Switch
+                      checked={settingsData?.taxSchedulerEnabled === "true"}
+                      onCheckedChange={(checked) => {
+                        apiRequest("POST", "/api/settings", { taxSchedulerEnabled: checked ? "true" : "false" })
+                          .then(() => {
+                            queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+                            apiRequest("POST", "/api/tax-scheduler/refresh", {});
+                            toast({ title: checked ? "Scheduler Enabled" : "Scheduler Disabled" });
+                          });
+                      }}
+                      data-testid="switch-tax-scheduler"
+                    />
+                  </div>
+                  {settingsData?.taxSchedulerEnabled === "true" && (
+                    <div className="flex items-center gap-4 bg-muted/50 p-3 rounded-lg">
+                      <div className="space-y-1">
+                        <Label className="text-sm">Run on Day of Month</Label>
+                        <Select
+                          value={settingsData?.taxSchedulerDay || "1"}
+                          onValueChange={(val) => {
+                            apiRequest("POST", "/api/settings", { taxSchedulerDay: val })
+                              .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+                                apiRequest("POST", "/api/tax-scheduler/refresh", {});
+                                toast({ title: "Scheduler Day Updated", description: `Scheduler will run on the ${val}${val === "1" ? "st" : val === "2" ? "nd" : val === "3" ? "rd" : "th"} of every month.` });
+                              });
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 28 }, (_, i) => (
+                              <SelectItem key={i + 1} value={String(i + 1)}>
+                                {i + 1}{i + 1 === 1 ? "st" : i + 1 === 2 ? "nd" : i + 1 === 3 ? "rd" : "th"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-muted-foreground">The job collects invoices from the previous calendar month and emails them to configured recipients.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="text-lg font-medium">Send Tax Invoices Now</h3>
+                  <p className="text-sm text-muted-foreground">Manually run the tax invoice job for a specific date range.</p>
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <Input
+                        type="date"
+                        value={manualStartDate}
+                        onChange={(e) => setManualStartDate(e.target.value)}
+                        className="w-[160px]"
+                        data-testid="input-manual-start-date"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">End Date</Label>
+                      <Input
+                        type="date"
+                        value={manualEndDate}
+                        onChange={(e) => setManualEndDate(e.target.value)}
+                        className="w-[160px]"
+                        data-testid="input-manual-end-date"
+                      />
+                    </div>
+                    <Button
+                      disabled={!manualStartDate || !manualEndDate || isSendingTaxInvoices}
+                      onClick={async () => {
+                        setIsSendingTaxInvoices(true);
+                        try {
+                          const res = await apiRequest("POST", "/api/tax-invoices/send", { startDate: manualStartDate, endDate: manualEndDate });
+                          const result = await res.json();
+                          queryClient.invalidateQueries({ queryKey: ['/api/invoice-scheduler-logs'] });
+                          toast({
+                            title: result.success ? "Tax Invoices Sent" : "Job Completed with Issues",
+                            description: result.message,
+                            variant: result.success ? "default" : "destructive",
+                          });
+                        } catch (err: any) {
+                          toast({ title: "Error", description: err.message || "Failed to send tax invoices", variant: "destructive" });
+                        } finally {
+                          setIsSendingTaxInvoices(false);
+                        }
+                      }}
+                      data-testid="button-send-tax-invoices"
+                    >
+                      {isSendingTaxInvoices ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Send Tax Invoices Now
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Scheduler Logs */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-gray-600" />
+                  <CardTitle>Scheduler Logs</CardTitle>
+                </div>
+                <CardDescription>History of automated and manual tax invoice jobs.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(!schedulerLogsData || schedulerLogsData.length === 0) ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No scheduler runs yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Period</TableHead>
+                          <TableHead>Invoices</TableHead>
+                          <TableHead>Emails</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {schedulerLogsData.map((log: any) => (
+                          <TableRow key={log.id} data-testid={`row-scheduler-log-${log.id}`}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {log.createdAt ? new Date(log.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={log.jobType === "scheduled" ? "default" : "outline"} className="text-xs">
+                                {log.jobType === "scheduled" ? "Auto" : "Manual"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {log.startDate} — {log.endDate}
+                            </TableCell>
+                            <TableCell className="text-center">{log.totalInvoices}</TableCell>
+                            <TableCell className="text-center">{log.emailsSent}</TableCell>
+                            <TableCell>
+                              {log.status === "success" && <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle className="h-3 w-3 mr-1" />Success</Badge>}
+                              {log.status === "failed" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>}
+                              {log.status === "running" && <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Running</Badge>}
+                              {log.status === "partial" && <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200"><AlertTriangle className="h-3 w-3 mr-1" />Partial</Badge>}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={log.errorMessage || ""}>
+                              {log.errorMessage || "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

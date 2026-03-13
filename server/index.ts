@@ -89,6 +89,8 @@ app.use((req, res, next) => {
   const { runMigrations } = await import("./db");
   await runMigrations();
   await registerRoutes(httpServer, app);
+  const { startScheduler } = await import("./tax-invoice-scheduler");
+  startScheduler().catch(err => console.error("Failed to start tax scheduler:", err));
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

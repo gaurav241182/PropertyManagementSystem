@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
-  bookingCharges, roomPricing, roomBlocks,
+  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -22,6 +22,7 @@ import {
   type InsertBookingCharge, type BookingCharge,
   type InsertRoomPricing, type RoomPricing,
   type InsertRoomBlock, type RoomBlock,
+  type InsertInvoiceSchedulerLog, type InvoiceSchedulerLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -144,6 +145,14 @@ export interface IStorage {
   bulkCreateRoomBlocks(data: InsertRoomBlock[]): Promise<RoomBlock[]>;
   deleteRoomBlock(id: number): Promise<void>;
   deleteRoomBlocksByRoomAndDateRange(roomIds: number[], startDate: string, endDate: string): Promise<number>;
+
+  // Invoice Scheduler Logs
+  getInvoiceSchedulerLogs(): Promise<InvoiceSchedulerLog[]>;
+  createInvoiceSchedulerLog(data: InsertInvoiceSchedulerLog): Promise<InvoiceSchedulerLog>;
+  updateInvoiceSchedulerLog(id: number, data: Partial<InsertInvoiceSchedulerLog>): Promise<InvoiceSchedulerLog | undefined>;
+
+  // Checked-out bookings in date range (for tax invoices)
+  getCheckedOutBookingsInRange(startDate: string, endDate: string): Promise<Booking[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -554,6 +563,30 @@ export class DatabaseStorage implements IStorage {
     const ids = overlapping.map(b => b.id);
     await db.delete(roomBlocks).where(inArray(roomBlocks.id, ids));
     return ids.length;
+  }
+
+  async getInvoiceSchedulerLogs(): Promise<InvoiceSchedulerLog[]> {
+    return db.select().from(invoiceSchedulerLogs).orderBy(desc(invoiceSchedulerLogs.createdAt));
+  }
+
+  async createInvoiceSchedulerLog(data: InsertInvoiceSchedulerLog): Promise<InvoiceSchedulerLog> {
+    const [result] = await db.insert(invoiceSchedulerLogs).values(data).returning();
+    return result;
+  }
+
+  async updateInvoiceSchedulerLog(id: number, data: Partial<InsertInvoiceSchedulerLog>): Promise<InvoiceSchedulerLog | undefined> {
+    const [result] = await db.update(invoiceSchedulerLogs).set(data).where(eq(invoiceSchedulerLogs.id, id)).returning();
+    return result;
+  }
+
+  async getCheckedOutBookingsInRange(startDate: string, endDate: string): Promise<Booking[]> {
+    return db.select().from(bookings).where(
+      and(
+        eq(bookings.status, "checked_out"),
+        gte(bookings.checkOut, startDate),
+        lte(bookings.checkOut, endDate)
+      )
+    ).orderBy(bookings.checkOut);
   }
 }
 

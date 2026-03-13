@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStaffSchema } from "@shared/schema";
+import { runTaxInvoiceJob, startScheduler, refreshScheduler } from "./tax-invoice-scheduler";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -852,6 +853,34 @@ export async function registerRoutes(
       res.json({ deleted: count });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============= TAX INVOICE SCHEDULER =============
+  app.get("/api/invoice-scheduler-logs", async (_req, res) => {
+    const data = await storage.getInvoiceSchedulerLogs();
+    res.json(data);
+  });
+
+  app.post("/api/tax-invoices/send", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.body;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      const result = await runTaxInvoiceJob(startDate, endDate, "manual");
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to run tax invoice job" });
+    }
+  });
+
+  app.post("/api/tax-scheduler/refresh", async (_req, res) => {
+    try {
+      await refreshScheduler();
+      res.json({ message: "Scheduler refreshed" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to refresh scheduler" });
     }
   });
 

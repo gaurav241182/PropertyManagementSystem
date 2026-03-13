@@ -336,3 +336,20 @@ export const bookingCharges = pgTable("booking_charges", {
 export const insertBookingChargeSchema = createInsertSchema(bookingCharges).omit({ id: true, createdAt: true });
 export type InsertBookingCharge = z.infer<typeof insertBookingChargeSchema>;
 export type BookingCharge = typeof bookingCharges.$inferSelect;
+
+// ============= INVOICE SCHEDULER LOGS =============
+export const invoiceSchedulerLogs = pgTable("invoice_scheduler_logs", {
+  id: serial("id").primaryKey(),
+  jobType: text("job_type").notNull().default("manual"),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  totalInvoices: integer("total_invoices").notNull().default(0),
+  emailsSent: integer("emails_sent").notNull().default(0),
+  status: text("status").notNull().default("running"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInvoiceSchedulerLogSchema = createInsertSchema(invoiceSchedulerLogs).omit({ id: true, createdAt: true });
+export type InsertInvoiceSchedulerLog = z.infer<typeof insertInvoiceSchedulerLogSchema>;
+export type InvoiceSchedulerLog = typeof invoiceSchedulerLogs.$inferSelect;
