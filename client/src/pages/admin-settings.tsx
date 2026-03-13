@@ -29,6 +29,8 @@ export default function AdminSettings() {
   const { data: archivedBookingsData } = useQuery<any[]>({ queryKey: ['/api/bookings-archived'] });
   const { data: roomsData } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
   const { data: schedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/invoice-scheduler-logs'] });
+  const { data: salarySchedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/salary-scheduler/logs'] });
+  const { data: salarySchedulerSettingsData } = useQuery<any>({ queryKey: ['/api/salary-scheduler/settings'] });
   const [archivalSearch, setArchivalSearch] = useState("");
   const [viewingArchived, setViewingArchived] = useState<any>(null);
 
@@ -36,6 +38,15 @@ export default function AdminSettings() {
   const [manualStartDate, setManualStartDate] = useState("");
   const [manualEndDate, setManualEndDate] = useState("");
   const [isSendingTaxInvoices, setIsSendingTaxInvoices] = useState(false);
+
+  const [salarySchedulerEnabled, setSalarySchedulerEnabled] = useState(false);
+  const [salarySchedulerDay, setSalarySchedulerDay] = useState(1);
+  const [salaryManualMonth, setSalaryManualMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [isGeneratingSalaries, setIsGeneratingSalaries] = useState(false);
+  const [viewingSalaryLog, setViewingSalaryLog] = useState<any>(null);
 
   const roomTypes = roomTypesData || [];
   const categories = categoriesData || [];
@@ -69,6 +80,13 @@ export default function AdminSettings() {
     setLocalManagerLimit(parseInt(settingsData?.discountLimitManager || "15"));
     setLocalReceptionistLimit(parseInt(settingsData?.discountLimitReceptionist || "5"));
   }, [settingsDataStr]);
+
+  useEffect(() => {
+    if (salarySchedulerSettingsData) {
+      setSalarySchedulerEnabled(salarySchedulerSettingsData.enabled || false);
+      setSalarySchedulerDay(salarySchedulerSettingsData.dayOfMonth || 1);
+    }
+  }, [salarySchedulerSettingsData]);
 
   const DAY_NAMES = [
     { value: 0, label: "Sun" },
@@ -665,20 +683,33 @@ export default function AdminSettings() {
     );
   };
 
-  const handleGenerateSalaries = async () => {
+  const handleSaveSalarySchedulerSettings = async (enabled: boolean, day: number) => {
     try {
-      await apiRequest("POST", "/api/salaries/generate");
-      const currentDate = new Date();
-      const currentMonth = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-      toast({
-        title: "Salaries Generated Successfully",
-        description: `Payroll records for ${currentMonth} have been created for all active staff.`,
-      });
+      await apiRequest("POST", "/api/salary-scheduler/settings", { enabled, dayOfMonth: day });
+      queryClient.invalidateQueries({ queryKey: ['/api/salary-scheduler/settings'] });
+      toast({ title: "Salary Scheduler Updated", description: enabled ? `Scheduler enabled. Runs on day ${day} of each month.` : "Scheduler disabled." });
     } catch {
+      toast({ title: "Error", description: "Failed to update salary scheduler settings.", variant: "destructive" });
+    }
+  };
+
+  const handleManualSalaryGeneration = async () => {
+    if (!salaryManualMonth) return;
+    setIsGeneratingSalaries(true);
+    try {
+      const res = await apiRequest("POST", "/api/salary-scheduler/run", { month: salaryManualMonth });
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/salary-scheduler/logs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
       toast({
-        title: "Salaries Generated",
-        description: "Salary generation triggered.",
+        title: result.success ? "Salaries Generated" : "Generation Failed",
+        description: result.message,
+        variant: result.success ? "default" : "destructive",
       });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to generate salaries.", variant: "destructive" });
+    } finally {
+      setIsGeneratingSalaries(false);
     }
   };
 
@@ -2005,6 +2036,214 @@ export default function AdminSettings() {
                  </div>
                </CardContent>
              </Card>
+
+             <Card>
+               <CardHeader>
+                 <CardTitle>Monthly Salary Scheduler</CardTitle>
+                 <CardDescription>Automatically generate salary records for all active staff at the beginning of each month.</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-6">
+                 <div className="flex items-center justify-between">
+                   <div className="space-y-0.5">
+                     <h3 className="font-medium">Enable Monthly Salary Auto-Generation</h3>
+                     <p className="text-sm text-muted-foreground">Automatically create salary records for all active staff. Already generated salaries will not be duplicated.</p>
+                   </div>
+                   <Switch
+                     checked={salarySchedulerEnabled}
+                     onCheckedChange={(checked) => {
+                       setSalarySchedulerEnabled(checked);
+                       handleSaveSalarySchedulerSettings(checked, salarySchedulerDay);
+                     }}
+                     data-testid="switch-salary-scheduler"
+                   />
+                 </div>
+
+                 {salarySchedulerEnabled && (
+                   <div className="border p-4 rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                     <div className="flex items-center gap-4">
+                       <div className="space-y-1">
+                         <Label className="font-medium">Run on Day of Month</Label>
+                         <Select
+                           value={String(salarySchedulerDay)}
+                           onValueChange={(val) => {
+                             const day = Number(val);
+                             setSalarySchedulerDay(day);
+                             handleSaveSalarySchedulerSettings(true, day);
+                           }}
+                         >
+                           <SelectTrigger className="w-24" data-testid="select-salary-scheduler-day">
+                             <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {Array.from({ length: 28 }, (_, i) => (
+                               <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}{i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}</SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+                       <p className="text-sm text-muted-foreground mt-5">The job generates salary records for the current month for all active staff at 1:00 AM.</p>
+                     </div>
+                   </div>
+                 )}
+
+                 <div className="pt-4 border-t space-y-3">
+                   <h3 className="font-medium text-lg">Generate Salaries Now</h3>
+                   <p className="text-sm text-muted-foreground">Manually generate salary records for a specific month. Staff with existing records for the month will be skipped.</p>
+                   <div className="flex items-end gap-4">
+                     <div className="space-y-1.5">
+                       <Label>Month</Label>
+                       <Input type="month" value={salaryManualMonth} onChange={e => setSalaryManualMonth(e.target.value)} className="w-48" data-testid="input-salary-manual-month" />
+                     </div>
+                     <Button
+                       onClick={handleManualSalaryGeneration}
+                       disabled={isGeneratingSalaries || !salaryManualMonth}
+                       data-testid="button-generate-salaries-now"
+                     >
+                       {isGeneratingSalaries ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                       Generate Salaries Now
+                     </Button>
+                   </div>
+                 </div>
+               </CardContent>
+             </Card>
+
+             <Card>
+               <CardHeader>
+                 <div className="flex items-center gap-2">
+                   <FileText className="h-5 w-5 text-gray-600" />
+                   <CardTitle>Salary Scheduler Logs</CardTitle>
+                 </div>
+                 <CardDescription>History of automated and manual salary generation jobs. Click a row to see per-employee details.</CardDescription>
+               </CardHeader>
+               <CardContent>
+                 {(!salarySchedulerLogsData || salarySchedulerLogsData.length === 0) ? (
+                   <p className="text-sm text-muted-foreground text-center py-6">No salary generation runs yet.</p>
+                 ) : (
+                   <div className="overflow-x-auto">
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Date</TableHead>
+                           <TableHead>Type</TableHead>
+                           <TableHead>Month</TableHead>
+                           <TableHead className="text-center">Total Staff</TableHead>
+                           <TableHead className="text-center">Generated</TableHead>
+                           <TableHead className="text-center">Skipped</TableHead>
+                           <TableHead>Status</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {salarySchedulerLogsData.map((log: any) => (
+                           <TableRow
+                             key={log.id}
+                             className="cursor-pointer hover:bg-muted/50"
+                             onClick={() => setViewingSalaryLog(log)}
+                             data-testid={`row-salary-log-${log.id}`}
+                           >
+                             <TableCell className="text-xs whitespace-nowrap">
+                               {log.createdAt ? new Date(log.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}
+                             </TableCell>
+                             <TableCell>
+                               <Badge variant={log.jobType === "scheduled" ? "default" : "outline"} className="text-xs">
+                                 {log.jobType === "scheduled" ? "Auto" : "Manual"}
+                               </Badge>
+                             </TableCell>
+                             <TableCell className="font-mono text-sm">{log.month}</TableCell>
+                             <TableCell className="text-center">{log.totalStaff}</TableCell>
+                             <TableCell className="text-center font-medium text-green-700">{log.generated}</TableCell>
+                             <TableCell className="text-center font-medium text-amber-600">{log.skipped}</TableCell>
+                             <TableCell>
+                               {log.status === "success" && <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle className="h-3 w-3 mr-1" />Success</Badge>}
+                               {log.status === "failed" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>}
+                               {log.status === "running" && <Badge className="bg-blue-100 text-blue-700 border-blue-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Running</Badge>}
+                             </TableCell>
+                           </TableRow>
+                         ))}
+                       </TableBody>
+                     </Table>
+                   </div>
+                 )}
+               </CardContent>
+             </Card>
+
+             <Dialog open={!!viewingSalaryLog} onOpenChange={(open) => !open && setViewingSalaryLog(null)}>
+               <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+                 <DialogHeader>
+                   <DialogTitle>Salary Generation Details</DialogTitle>
+                   <DialogDescription>
+                     {viewingSalaryLog?.jobType === "scheduled" ? "Automated" : "Manual"} run for month {viewingSalaryLog?.month} &mdash; {viewingSalaryLog?.createdAt ? new Date(viewingSalaryLog.createdAt).toLocaleString() : ""}
+                   </DialogDescription>
+                 </DialogHeader>
+                 {(() => {
+                   if (!viewingSalaryLog?.details) return <p className="text-sm text-muted-foreground py-4">No detailed breakdown available for this run.</p>;
+                   let parsed: any = {};
+                   try { parsed = JSON.parse(viewingSalaryLog.details); } catch { return <p className="text-sm text-muted-foreground py-4">Could not parse details.</p>; }
+                   return (
+                     <div className="space-y-4 py-2">
+                       {parsed.generated?.length > 0 && (
+                         <div>
+                           <h4 className="font-medium text-green-700 flex items-center gap-2 mb-2"><CheckCircle className="h-4 w-4" /> Generated ({parsed.generated.length})</h4>
+                           <div className="border rounded-md">
+                             <Table>
+                               <TableHeader>
+                                 <TableRow>
+                                   <TableHead>Employee ID</TableHead>
+                                   <TableHead>Name</TableHead>
+                                 </TableRow>
+                               </TableHeader>
+                               <TableBody>
+                                 {parsed.generated.map((g: any, i: number) => (
+                                   <TableRow key={i}>
+                                     <TableCell className="font-mono text-xs">{g.employeeId || "—"}</TableCell>
+                                     <TableCell>{g.name}</TableCell>
+                                   </TableRow>
+                                 ))}
+                               </TableBody>
+                             </Table>
+                           </div>
+                         </div>
+                       )}
+                       {parsed.skipped?.length > 0 && (
+                         <div>
+                           <h4 className="font-medium text-amber-600 flex items-center gap-2 mb-2"><AlertTriangle className="h-4 w-4" /> Skipped ({parsed.skipped.length})</h4>
+                           <div className="border rounded-md">
+                             <Table>
+                               <TableHeader>
+                                 <TableRow>
+                                   <TableHead>Employee ID</TableHead>
+                                   <TableHead>Name</TableHead>
+                                   <TableHead>Reason</TableHead>
+                                 </TableRow>
+                               </TableHeader>
+                               <TableBody>
+                                 {parsed.skipped.map((s: any, i: number) => (
+                                   <TableRow key={i}>
+                                     <TableCell className="font-mono text-xs">{s.employeeId || "—"}</TableCell>
+                                     <TableCell>{s.name}</TableCell>
+                                     <TableCell className="text-xs text-muted-foreground">{s.reason}</TableCell>
+                                   </TableRow>
+                                 ))}
+                               </TableBody>
+                             </Table>
+                           </div>
+                         </div>
+                       )}
+                       {(!parsed.generated?.length && !parsed.skipped?.length) && (
+                         <p className="text-sm text-muted-foreground">No staff were processed in this run.</p>
+                       )}
+                     </div>
+                   );
+                 })()}
+                 {viewingSalaryLog?.errorMessage && (
+                   <div className="bg-red-50 border border-red-200 rounded-md p-3 mt-2">
+                     <p className="text-sm text-red-700"><span className="font-medium">Error:</span> {viewingSalaryLog.errorMessage}</p>
+                   </div>
+                 )}
+                 <DialogFooter>
+                   <Button variant="outline" onClick={() => setViewingSalaryLog(null)}>Close</Button>
+                 </DialogFooter>
+               </DialogContent>
+             </Dialog>
           </TabsContent>
 
           {/* Categories */}

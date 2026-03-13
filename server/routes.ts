@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStaffSchema } from "@shared/schema";
 import { runTaxInvoiceJob, startScheduler, refreshScheduler } from "./tax-invoice-scheduler";
+import { runSalaryGenerationJob, startSalaryScheduler, refreshSalaryScheduler } from "./salary-scheduler";
 
 function getHotelId(req: Request): number | null {
   return req.session?.user?.hotelId || null;
@@ -1280,6 +1281,48 @@ export async function registerRoutes(
       enabled: enabled?.value === "true",
       dayOfMonth: dayOfMonth ? Number(dayOfMonth.value) : 1,
       hour: hour ? Number(hour.value) : 2,
+    });
+  });
+
+  // ============= SALARY SCHEDULER =============
+  app.get("/api/salary-scheduler/logs", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const data = await storage.getSalarySchedulerLogs(hotelId, branchId);
+    res.json(data);
+  });
+
+  app.post("/api/salary-scheduler/run", async (req, res) => {
+    try {
+      const hotelId = getHotelId(req);
+      const branchId = await getBranchIdValidated(req);
+      const { month } = req.body;
+      if (!month) {
+        return res.status(400).json({ message: "month is required (e.g. 2026-03)" });
+      }
+      const result = await runSalaryGenerationJob(month, "manual", hotelId, branchId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to run salary generation" });
+    }
+  });
+
+  app.post("/api/salary-scheduler/settings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const { enabled, dayOfMonth } = req.body;
+    if (enabled !== undefined) await storage.upsertSetting("salarySchedulerEnabled", String(enabled), hotelId);
+    if (dayOfMonth !== undefined) await storage.upsertSetting("salarySchedulerDay", String(dayOfMonth), hotelId);
+    await refreshSalaryScheduler();
+    res.json({ message: "Salary scheduler settings updated" });
+  });
+
+  app.get("/api/salary-scheduler/settings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const enabled = await storage.getSetting("salarySchedulerEnabled", hotelId);
+    const dayOfMonth = await storage.getSetting("salarySchedulerDay", hotelId);
+    res.json({
+      enabled: enabled?.value === "true",
+      dayOfMonth: dayOfMonth ? Number(dayOfMonth.value) : 1,
     });
   });
 

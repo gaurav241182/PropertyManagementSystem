@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
-  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, branches,
+  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -23,6 +23,7 @@ import {
   type InsertRoomPricing, type RoomPricing,
   type InsertRoomBlock, type RoomBlock,
   type InsertInvoiceSchedulerLog, type InvoiceSchedulerLog,
+  type InsertSalarySchedulerLog, type SalarySchedulerLog,
   type InsertBranch, type Branch,
 } from "@shared/schema";
 
@@ -160,6 +161,10 @@ export interface IStorage {
   getInvoiceSchedulerLogs(hotelId?: number | null, branchId?: number | null): Promise<InvoiceSchedulerLog[]>;
   createInvoiceSchedulerLog(data: InsertInvoiceSchedulerLog): Promise<InvoiceSchedulerLog>;
   updateInvoiceSchedulerLog(id: number, data: Partial<InsertInvoiceSchedulerLog>): Promise<InvoiceSchedulerLog | undefined>;
+
+  getSalarySchedulerLogs(hotelId?: number | null, branchId?: number | null): Promise<SalarySchedulerLog[]>;
+  createSalarySchedulerLog(data: InsertSalarySchedulerLog): Promise<SalarySchedulerLog>;
+  updateSalarySchedulerLog(id: number, data: Partial<InsertSalarySchedulerLog>): Promise<SalarySchedulerLog | undefined>;
 
   getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null, branchId?: number | null): Promise<Booking[]>;
 }
@@ -780,6 +785,24 @@ export class DatabaseStorage implements IStorage {
 
   async updateInvoiceSchedulerLog(id: number, data: Partial<InsertInvoiceSchedulerLog>): Promise<InvoiceSchedulerLog | undefined> {
     const [result] = await db.update(invoiceSchedulerLogs).set(data).where(eq(invoiceSchedulerLogs.id, id)).returning();
+    return result;
+  }
+
+  async getSalarySchedulerLogs(hotelId?: number | null, branchId?: number | null): Promise<SalarySchedulerLog[]> {
+    const conditions = buildScopeConditions(salarySchedulerLogs.hotelId, salarySchedulerLogs.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(salarySchedulerLogs).where(and(...conditions)).orderBy(desc(salarySchedulerLogs.createdAt));
+    }
+    return db.select().from(salarySchedulerLogs).orderBy(desc(salarySchedulerLogs.createdAt));
+  }
+
+  async createSalarySchedulerLog(data: InsertSalarySchedulerLog): Promise<SalarySchedulerLog> {
+    const [result] = await db.insert(salarySchedulerLogs).values(data).returning();
+    return result;
+  }
+
+  async updateSalarySchedulerLog(id: number, data: Partial<InsertSalarySchedulerLog>): Promise<SalarySchedulerLog | undefined> {
+    const [result] = await db.update(salarySchedulerLogs).set(data).where(eq(salarySchedulerLogs.id, id)).returning();
     return result;
   }
 
