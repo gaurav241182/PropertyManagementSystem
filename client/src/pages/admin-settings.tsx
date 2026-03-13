@@ -95,6 +95,12 @@ export default function AdminSettings() {
       facility: invoiceSettings?.taxableItems?.facility ?? true,
       other: invoiceSettings?.taxableItems?.other ?? false,
     },
+    taxRates: {
+      room: invoiceSettings?.taxRates?.room ?? 12,
+      food: invoiceSettings?.taxRates?.food ?? 5,
+      facility: invoiceSettings?.taxRates?.facility ?? 18,
+      other: invoiceSettings?.taxRates?.other ?? 0,
+    },
     autoSend: {
       email: invoiceSettings?.autoSend?.email ?? true,
       whatsapp: invoiceSettings?.autoSend?.whatsapp ?? false,
@@ -1260,7 +1266,23 @@ export default function AdminSettings() {
                       {parsedInvoiceSettings.taxableItems.room && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="room-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
-                           <Input className="h-8 w-20" type="number" defaultValue="12" id="room-tax-rate" />
+                           <Input 
+                             className="h-8 w-20" 
+                             type="number" 
+                             defaultValue={parsedInvoiceSettings.taxRates.room} 
+                             key={`room-rate-${parsedInvoiceSettings.taxRates.room}`}
+                             id="room-tax-rate"
+                             onBlur={(e) => {
+                               const val = parseFloat(e.target.value) || 0;
+                               if (val !== parsedInvoiceSettings.taxRates.room) {
+                                 const updated = {
+                                   ...parsedInvoiceSettings,
+                                   taxRates: { ...parsedInvoiceSettings.taxRates, room: val }
+                                 };
+                                 handleSaveInvoiceSettings(updated);
+                               }
+                             }}
+                           />
                         </div>
                       )}
                     </div>
@@ -1286,7 +1308,23 @@ export default function AdminSettings() {
                       {parsedInvoiceSettings.taxableItems.food && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="food-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
-                           <Input className="h-8 w-20" type="number" defaultValue="5" id="food-tax-rate" />
+                           <Input 
+                             className="h-8 w-20" 
+                             type="number" 
+                             defaultValue={parsedInvoiceSettings.taxRates.food} 
+                             key={`food-rate-${parsedInvoiceSettings.taxRates.food}`}
+                             id="food-tax-rate"
+                             onBlur={(e) => {
+                               const val = parseFloat(e.target.value) || 0;
+                               if (val !== parsedInvoiceSettings.taxRates.food) {
+                                 const updated = {
+                                   ...parsedInvoiceSettings,
+                                   taxRates: { ...parsedInvoiceSettings.taxRates, food: val }
+                                 };
+                                 handleSaveInvoiceSettings(updated);
+                               }
+                             }}
+                           />
                         </div>
                       )}
                     </div>
@@ -1312,7 +1350,23 @@ export default function AdminSettings() {
                       {parsedInvoiceSettings.taxableItems.facility && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="facility-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
-                           <Input className="h-8 w-20" type="number" defaultValue="18" id="facility-tax-rate" />
+                           <Input 
+                             className="h-8 w-20" 
+                             type="number" 
+                             defaultValue={parsedInvoiceSettings.taxRates.facility} 
+                             key={`facility-rate-${parsedInvoiceSettings.taxRates.facility}`}
+                             id="facility-tax-rate"
+                             onBlur={(e) => {
+                               const val = parseFloat(e.target.value) || 0;
+                               if (val !== parsedInvoiceSettings.taxRates.facility) {
+                                 const updated = {
+                                   ...parsedInvoiceSettings,
+                                   taxRates: { ...parsedInvoiceSettings.taxRates, facility: val }
+                                 };
+                                 handleSaveInvoiceSettings(updated);
+                               }
+                             }}
+                           />
                         </div>
                       )}
                     </div>
@@ -1338,7 +1392,23 @@ export default function AdminSettings() {
                       {parsedInvoiceSettings.taxableItems.other && (
                         <div className="flex items-center gap-2">
                            <Label htmlFor="other-tax-rate" className="text-xs whitespace-nowrap">Tax Rate %</Label>
-                           <Input className="h-8 w-20" type="number" defaultValue="0" id="other-tax-rate" />
+                           <Input 
+                             className="h-8 w-20" 
+                             type="number" 
+                             defaultValue={parsedInvoiceSettings.taxRates.other} 
+                             key={`other-rate-${parsedInvoiceSettings.taxRates.other}`}
+                             id="other-tax-rate"
+                             onBlur={(e) => {
+                               const val = parseFloat(e.target.value) || 0;
+                               if (val !== parsedInvoiceSettings.taxRates.other) {
+                                 const updated = {
+                                   ...parsedInvoiceSettings,
+                                   taxRates: { ...parsedInvoiceSettings.taxRates, other: val }
+                                 };
+                                 handleSaveInvoiceSettings(updated);
+                               }
+                             }}
+                           />
                         </div>
                       )}
                     </div>
