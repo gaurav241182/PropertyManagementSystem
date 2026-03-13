@@ -76,6 +76,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const { data: staffData = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
   const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: hotelsData = [] } = useQuery<any[]>({ queryKey: ['/api/hotels'] });
+  const { data: branchesData = [] } = useQuery<any[]>({ queryKey: ['/api/branches'] });
 
   const currency = (settingsData as Record<string, string>)?.currency || "USD";
   const cs = getCurrencySymbol(currency);
@@ -249,6 +250,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [transport, setTransport] = useState(0);
   const [hra, setHra] = useState(0);
   const [allowance, setAllowance] = useState(0);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const totalSalary = basicSalary + transport + hra + allowance;
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -299,6 +301,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setState(emp.state || "");
     setCity(emp.city || "");
     setAddress(emp.address || "");
+    setSelectedBranchId(emp.branchId || null);
     setEmergencyName(emp.emergencyName || "");
     setEmergencyRelation(emp.emergencyRelation || "");
     setEmergencyPhone(emp.emergencyPhone || "");
@@ -331,6 +334,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setJoiningDate(""); setWelfareFund(false); setBonus(0); setPoliceVerification(false);
     setEmergencyName(""); setEmergencyRelation(""); setEmergencyPhone("");
     setIdCardNumber(""); setPhotoPreview(null);
+    setSelectedBranchId(null);
     setCreateLogin(false); setLoginPassword(""); setFormErrors({});
     setDialogMode("add");
     setIsDialogOpen(true);
@@ -447,6 +451,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       city: city || null,
       address: address || null,
       countryCode,
+      branchId: selectedBranchId || null,
       basicPay: String(basicSalary),
       hra: String(hra),
       transport: String(transport),
@@ -603,6 +608,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <ViewField label="Job Role" value={staffRole} />
                       <ViewField label="Joining Date" value={joiningDate} />
                       <ViewField label="Status" value={editingStaff.status} />
+                      <ViewField label="Assigned Branch" value={selectedBranchId ? branchesData.find((b: any) => b.id === selectedBranchId)?.name || "Unknown" : "Unassigned"} />
                     </div>
                     <div className="bg-muted/30 p-4 rounded-lg border">
                       <div className="flex justify-between items-center mb-3">
@@ -805,6 +811,20 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       </Select>
                       <FieldError field="staffRole" />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Assign to Branch</Label>
+                      <Select value={String(selectedBranchId || "")} onValueChange={(val) => setSelectedBranchId(val ? Number(val) : null)}>
+                        <SelectTrigger data-testid="select-branch"><SelectValue placeholder="Select Branch (Optional)" /></SelectTrigger>
+                        <SelectContent>
+                          {branchesData && branchesData.map((branch: any) => (
+                            <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label>Joining Date <Req /></Label>
                       <Input type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} className={formErrors.joiningDate ? "border-red-500" : ""} data-testid="input-join-date" />
