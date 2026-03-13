@@ -919,11 +919,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         
         if (category === 'Food' && invoiceSettings.taxableItems.food) {
           isTaxable = true;
-        } else if (category === 'Facility') {
+        } else if (category === 'Facility' && invoiceSettings.taxableItems.facility) {
           const matchedFacility = facilitiesData.find((f: any) => charge.item && charge.item.includes(f.name));
-          if (matchedFacility && matchedFacility.taxable) {
-            isTaxable = true;
-          } else if (!matchedFacility && invoiceSettings.taxableItems.facility) {
+          if (matchedFacility) {
+            isTaxable = matchedFacility.taxable !== false;
+          } else {
             isTaxable = true;
           }
         } else if (category === 'Other' && invoiceSettings.taxableItems.other) {
