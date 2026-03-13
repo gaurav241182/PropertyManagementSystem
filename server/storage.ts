@@ -413,7 +413,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStaff(hotelId?: number | null, branchId?: number | null): Promise<Staff[]> {
-    const conditions = buildScopeConditions(staff.hotelId, staff.branchId, hotelId, branchId);
+    const conditions: any[] = [];
+    if (hotelId) conditions.push(eq(staff.hotelId, hotelId));
+    // Include staff with branchId matching the selected branch OR with NULL branchId (unassigned)
+    if (branchId) {
+      conditions.push(or(eq(staff.branchId, branchId), isNull(staff.branchId)));
+    }
     if (conditions.length > 0) {
       return db.select().from(staff).where(and(...conditions)).orderBy(staff.name);
     }
