@@ -176,3 +176,15 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Typical workflow: Owner creates buffets like "Breakfast Buffet" or special meals like "Valentine's Package"
   - Items can be toggled inactive without deletion (useful for seasonal/unavailable items)
   - Menus can be managed independently of individual item availability
+- 2026-03-13: Platform Admin Hotel Management Enhancements
+  - **Monthly SaaS Charges**: Replaced subscription plan dropdown with free-text `monthlyCharges` field in hotels schema and onboarding form
+  - **Hotel Owner Login Fix**: `createHotelWithOwner` now passes `adminPassword` to platform_users table (was defaulting to "password123")
+  - **Reset Password**: SaaS admin can reset hotel owner password via POST /api/hotels/:id/reset-owner-password
+  - **Activate/Deactivate Hotel**: Toggle between Active/Deactivated status; deactivated hotels block owner login with message "Your hotel account has been deactivated. Please contact support."
+  - **Archive Hotel**: Only allowed if hotel is already deactivated; archived hotels hidden from active use, owner login blocked
+  - **Permanent Delete**: Requires admin password confirmation; cascading delete of all associated data (rooms, bookings, staff, orders, expenses, settings, etc.) via POST /api/hotels/:id/delete-permanent
+  - **Custom Domain**: New `customDomain` field in hotels schema for white-label deployments (e.g., hotelname.com)
+  - **From Email**: New `fromEmail` field in hotels schema for Resend sender address configuration with explanatory note in UI
+  - Schema: added `monthlyCharges`, `customDomain`, `fromEmail` columns to hotels table
+  - Storage: added `deleteHotelWithData()`, `getHotelById()` methods
+  - Login: checks hotel status for owner role — blocks login if hotel is Deactivated or Archived

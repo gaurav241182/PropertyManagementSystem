@@ -25,6 +25,15 @@ export async function registerRoutes(
     if (user.status !== "Active") {
       return res.status(403).json({ message: "Account is deactivated. Contact your administrator." });
     }
+    if (user.hotelId && user.role === "owner") {
+      const hotel = await storage.getHotelById(user.hotelId);
+      if (hotel && hotel.status === "Deactivated") {
+        return res.status(403).json({ message: "Your hotel account has been deactivated. Please contact support." });
+      }
+      if (hotel && hotel.status === "Archived") {
+        return res.status(403).json({ message: "Your hotel account has been archived. Please contact support." });
+      }
+    }
     req.session.user = {
       id: user.id,
       name: user.name,
@@ -131,6 +140,54 @@ export async function registerRoutes(
   app.delete("/api/hotels/:id", async (req, res) => {
     await storage.deleteHotel(Number(req.params.id));
     res.status(204).send();
+  });
+
+  app.post("/api/hotels/:id/reset-owner-password", async (req, res) => {
+    if (!req.session.user || req.session.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only platform admins can reset passwords" });
+    }
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+    const hotel = await storage.getHotelById(Number(req.params.id));
+    if (!hotel) return res.status(404).json({ message: "Hotel not found" });
+    const users = await storage.getPlatformUsers();
+    const owner = users.find(u => u.hotelId === hotel.id && u.role === "owner");
+    if (!owner) return res.status(404).json({ message: "Hotel owner not found" });
+    await storage.updatePlatformUser(owner.id, { password: newPassword } as any);
+    res.json({ message: "Password reset successfully" });
+  });
+
+  app.post("/api/hotels/:id/archive", async (req, res) => {
+    if (!req.session.user || req.session.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only platform admins can archive hotels" });
+    }
+    const hotel = await storage.getHotelById(Number(req.params.id));
+    if (!hotel) return res.status(404).json({ message: "Hotel not found" });
+    if (hotel.status !== "Deactivated") {
+      return res.status(400).json({ message: "Hotel must be deactivated before archiving" });
+    }
+    const updated = await storage.updateHotel(hotel.id, { status: "Archived" } as any);
+    res.json(updated);
+  });
+
+  app.post("/api/hotels/:id/delete-permanent", async (req, res) => {
+    if (!req.session.user || req.session.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only platform admins can delete hotels" });
+    }
+    const { adminPassword } = req.body;
+    if (!adminPassword) {
+      return res.status(400).json({ message: "Admin password is required for permanent deletion" });
+    }
+    const admin = await storage.getPlatformUserByEmail(req.session.user.email);
+    if (!admin || admin.password !== adminPassword) {
+      return res.status(401).json({ message: "Incorrect admin password" });
+    }
+    const hotel = await storage.getHotelById(Number(req.params.id));
+    if (!hotel) return res.status(404).json({ message: "Hotel not found" });
+    await storage.deleteHotelWithData(hotel.id);
+    res.json({ message: "Hotel and all associated data permanently deleted" });
   });
 
   // ============= PLATFORM USERS =============

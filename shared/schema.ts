@@ -8,6 +8,7 @@ export const hotels = pgTable("hotels", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   plan: text("plan").notNull().default("starter"),
+  monthlyCharges: text("monthly_charges").notNull().default("0"),
   country: text("country").notNull().default(""),
   city: text("city").notNull().default(""),
   taxId: text("tax_id").default(""),
@@ -20,6 +21,8 @@ export const hotels = pgTable("hotels", {
   logoUrl: text("logo_url").default(""),
   branches: text("branches").notNull().default("[]"),
   status: text("status").notNull().default("Active"),
+  customDomain: text("custom_domain").default(""),
+  fromEmail: text("from_email").default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

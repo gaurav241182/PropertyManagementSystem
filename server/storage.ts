@@ -32,6 +32,8 @@ export interface IStorage {
   createHotelWithOwner(data: InsertHotel): Promise<Hotel>;
   updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined>;
   deleteHotel(id: number): Promise<void>;
+  deleteHotelWithData(id: number): Promise<void>;
+  getHotelById(id: number): Promise<Hotel | undefined>;
 
   // Platform Users
   getPlatformUsers(): Promise<PlatformUser[]>;
@@ -164,12 +166,15 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.insert(hotels).values(data).returning();
     return result;
   }
-  async createHotelWithOwner(data: InsertHotel): Promise<Hotel> {
+  async createHotelWithOwner(data: any): Promise<Hotel> {
     return await db.transaction(async (tx) => {
-      const [hotel] = await tx.insert(hotels).values(data).returning();
+      const password = data.adminPassword || "password123";
+      const { adminPassword, ...hotelData } = data;
+      const [hotel] = await tx.insert(hotels).values(hotelData).returning();
       await tx.insert(platformUsers).values({
         name: data.ownerName,
         email: data.ownerEmail,
+        password: password,
         role: "owner",
         hotelId: hotel.id,
         status: "Active",
@@ -183,6 +188,41 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHotel(id: number): Promise<void> {
     await db.delete(hotels).where(eq(hotels.id, id));
+  }
+  async deleteHotelWithData(id: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      const hotelRooms = await tx.select().from(rooms);
+      const hotelBookings = await tx.select().from(bookings);
+      for (const booking of hotelBookings) {
+        await tx.delete(bookingCharges).where(eq(bookingCharges.bookingId, booking.bookingId));
+        await tx.delete(orderItems).where(
+          inArray(orderItems.orderId, 
+            (await tx.select({ orderId: orders.orderId }).from(orders).where(eq(orders.bookingId, booking.bookingId))).map(o => o.orderId)
+          )
+        );
+        await tx.delete(orders).where(eq(orders.bookingId, booking.bookingId));
+      }
+      await tx.delete(bookings);
+      await tx.delete(roomPricing);
+      await tx.delete(roomBlocks);
+      await tx.delete(rooms);
+      await tx.delete(roomTypes);
+      await tx.delete(staff);
+      await tx.delete(salaries);
+      await tx.delete(expenses);
+      await tx.delete(categories);
+      await tx.delete(menuItems);
+      await tx.delete(menus);
+      await tx.delete(facilities);
+      await tx.delete(settings);
+      await tx.delete(invoiceSchedulerLogs);
+      await tx.delete(platformUsers).where(eq(platformUsers.hotelId, id));
+      await tx.delete(hotels).where(eq(hotels.id, id));
+    });
+  }
+  async getHotelById(id: number): Promise<Hotel | undefined> {
+    const [result] = await db.select().from(hotels).where(eq(hotels.id, id));
+    return result;
   }
 
   // Platform Users

@@ -28,7 +28,10 @@ import {
   Lock,
   Loader2,
   CheckCircle2,
-  ImageIcon
+  ImageIcon,
+  KeyRound,
+  Archive,
+  AlertTriangle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,6 +45,7 @@ import {
 const INITIAL_FORM = {
   name: "",
   plan: "",
+  monthlyCharges: "",
   country: "",
   city: "",
   taxId: "",
@@ -52,6 +56,8 @@ const INITIAL_FORM = {
   ownerIdNumber: "",
   adminLogin: "",
   adminPassword: "",
+  customDomain: "",
+  fromEmail: "",
 };
 
 const INITIAL_BRANCHES = [{ name: "", city: "", address: "" }];
@@ -67,6 +73,10 @@ export default function PlatformHotels() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [resetPasswordDialog, setResetPasswordDialog] = useState<Hotel | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<Hotel | null>(null);
+  const [deleteAdminPassword, setDeleteAdminPassword] = useState("");
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
 
@@ -78,6 +88,52 @@ export default function PlatformHotels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
       queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ id, newPassword }: { id: number; newPassword: string }) => {
+      const res = await apiRequest("POST", `/api/hotels/${id}/reset-owner-password`, { newPassword });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password Reset", description: "Hotel owner password has been reset successfully." });
+      setResetPasswordDialog(null);
+      setResetPasswordValue("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Reset Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/hotels/${id}/archive`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
+      toast({ title: "Hotel Archived", description: "The hotel has been archived and hidden from active listings." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Archive Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async ({ id, adminPassword }: { id: number; adminPassword: string }) => {
+      const res = await apiRequest("POST", `/api/hotels/${id}/delete-permanent`, { adminPassword });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
+      toast({ title: "Hotel Deleted", description: "The hotel and all associated data have been permanently deleted." });
+      setDeleteDialog(null);
+      setDeleteAdminPassword("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -147,10 +203,6 @@ export default function PlatformHotels() {
       toast({ title: "Missing Required Field", description: "Hotel Brand Name is required.", variant: "destructive" });
       return;
     }
-    if (!form.plan) {
-      toast({ title: "Missing Required Field", description: "Subscription Plan is required.", variant: "destructive" });
-      return;
-    }
     if (!form.ownerName.trim()) {
       toast({ title: "Missing Required Field", description: "Owner Full Name is required.", variant: "destructive" });
       return;
@@ -172,7 +224,8 @@ export default function PlatformHotels() {
 
     createMutation.mutate({
       name: form.name,
-      plan: form.plan,
+      plan: form.plan || "custom",
+      monthlyCharges: form.monthlyCharges || "0",
       country: form.country,
       city: form.city,
       taxId: form.taxId,
@@ -182,8 +235,11 @@ export default function PlatformHotels() {
       ownerDob: form.ownerDob || null,
       ownerIdNumber: form.ownerIdNumber,
       adminLogin: form.adminLogin,
+      adminPassword: form.adminPassword,
       logoUrl: logoPreview || "",
       branches: JSON.stringify(validBranches),
+      customDomain: form.customDomain,
+      fromEmail: form.fromEmail,
     });
   };
 
@@ -194,7 +250,7 @@ export default function PlatformHotels() {
   );
 
   const getPlanLabel = (plan: string) => {
-    const labels: Record<string, string> = { starter: "Starter", pro: "Professional", enterprise: "Enterprise" };
+    const labels: Record<string, string> = { starter: "Starter", pro: "Professional", enterprise: "Enterprise", custom: "Custom" };
     return labels[plan] || plan;
   };
 
@@ -269,17 +325,14 @@ export default function PlatformHotels() {
                               <ImageIcon className="h-3 w-3" /> {logoFileName}
                             </p>
                           )}
-                          <Label>Subscription Plan <span className="text-red-500">*</span></Label>
-                          <Select value={form.plan} onValueChange={(v) => updateField("plan", v)}>
-                            <SelectTrigger data-testid="select-plan">
-                              <SelectValue placeholder="Select Plan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="starter">Starter ($49/mo)</SelectItem>
-                              <SelectItem value="pro">Professional ($149/mo)</SelectItem>
-                              <SelectItem value="enterprise">Enterprise ($499/mo)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <Label>Monthly SaaS Charges</Label>
+                          <Input 
+                            type="text" 
+                            placeholder="e.g. 4999" 
+                            value={form.monthlyCharges}
+                            onChange={(e) => updateField("monthlyCharges", e.target.value)}
+                            data-testid="input-monthly-charges"
+                          />
                         </div>
                       </div>
 
@@ -317,6 +370,29 @@ export default function PlatformHotels() {
                           onChange={(e) => updateField("taxId", e.target.value)}
                           data-testid="input-tax-id"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Custom Domain (White Labelling)</Label>
+                        <Input 
+                          placeholder="e.g. hotelname.com or stay.hotelname.com" 
+                          value={form.customDomain}
+                          onChange={(e) => updateField("customDomain", e.target.value)}
+                          data-testid="input-custom-domain"
+                        />
+                        <p className="text-xs text-muted-foreground">Used for white-label deployments so the PMS can run under the hotel's own domain.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>From Email Address</Label>
+                        <Input 
+                          type="email" 
+                          placeholder="e.g. reservations@hotelname.com" 
+                          value={form.fromEmail}
+                          onChange={(e) => updateField("fromEmail", e.target.value)}
+                          data-testid="input-from-email"
+                        />
+                        <p className="text-xs text-muted-foreground">This email address will be used as the sender address when sending invoices and notifications through the email service (Resend). Domain verification may be required in the future.</p>
                       </div>
                     </div>
                   </TabsContent>
@@ -523,7 +599,7 @@ export default function PlatformHotels() {
                     <TableHead>Branches</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Owner</TableHead>
-                    <TableHead>Plan</TableHead>
+                    <TableHead>Monthly Charges</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -560,10 +636,17 @@ export default function PlatformHotels() {
                         </TableCell>
                         <TableCell>{hotel.ownerName}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize">{getPlanLabel(hotel.plan)}</Badge>
+                          {hotel.monthlyCharges && hotel.monthlyCharges !== "0" 
+                            ? hotel.monthlyCharges 
+                            : "—"
+                          }
                         </TableCell>
                         <TableCell>
-                          <Badge variant="default" className={hotel.status === "Active" ? "bg-green-600 hover:bg-green-700" : ""}>
+                          <Badge variant="default" className={
+                            hotel.status === "Active" ? "bg-green-600 hover:bg-green-700" : 
+                            hotel.status === "Deactivated" ? "bg-red-600 hover:bg-red-700" : 
+                            hotel.status === "Archived" ? "bg-gray-500 hover:bg-gray-600" : ""
+                          }>
                             {hotel.status}
                           </Badge>
                         </TableCell>
@@ -576,35 +659,61 @@ export default function PlatformHotels() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => {
-                                localStorage.setItem("selectedHotelId", String(hotel.id));
-                                window.location.href = "/admin";
-                              }}>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Login as Owner
-                              </DropdownMenuItem>
+                              {hotel.status !== "Archived" && (
+                                <DropdownMenuItem onClick={() => {
+                                  localStorage.setItem("selectedHotelId", String(hotel.id));
+                                  window.location.href = "/admin";
+                                }}>
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Login as Owner
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => {
                                 toast({ title: "Branches", description: `${hotel.name} has ${branchList.length} branch(es): ${branchList.map((b: any) => b.name).join(", ") || "None"}` });
                               }}>
                                 <GitBranch className="mr-2 h-4 w-4" />
                                 View Branches
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setResetPasswordDialog(hotel);
+                                setResetPasswordValue("");
+                              }}>
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                Reset Owner Password
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {hotel.status !== "Archived" && (
+                                <DropdownMenuItem 
+                                  className={hotel.status === "Active" ? "text-red-600" : "text-green-600"}
+                                  onClick={() => {
+                                    const newStatus = hotel.status === "Active" ? "Deactivated" : "Active";
+                                    updateMutation.mutate({ id: hotel.id, data: { status: newStatus } });
+                                    toast({ 
+                                      title: newStatus === "Deactivated" ? "Hotel Deactivated" : "Hotel Activated",
+                                      description: `${hotel.name} has been ${newStatus === "Deactivated" ? "deactivated" : "activated"}.`
+                                    });
+                                  }}
+                                >
+                                  <Power className="mr-2 h-4 w-4" />
+                                  {hotel.status === "Active" ? "Deactivate" : "Activate"}
+                                </DropdownMenuItem>
+                              )}
+                              {hotel.status === "Deactivated" && (
+                                <DropdownMenuItem onClick={() => archiveMutation.mutate(hotel.id)}>
+                                  <Archive className="mr-2 h-4 w-4" />
+                                  Archive Hotel
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
-                                className={hotel.status === "Active" ? "text-red-600" : "text-green-600"}
+                                className="text-red-600"
                                 onClick={() => {
-                                  updateMutation.mutate({ 
-                                    id: hotel.id, 
-                                    data: { status: hotel.status === "Active" ? "Suspended" : "Active" }
-                                  });
-                                  toast({ 
-                                    title: hotel.status === "Active" ? "Hotel Suspended" : "Hotel Activated",
-                                    description: `${hotel.name} has been ${hotel.status === "Active" ? "suspended" : "activated"}.`
-                                  });
+                                  setDeleteDialog(hotel);
+                                  setDeleteAdminPassword("");
                                 }}
                               >
-                                <Power className="mr-2 h-4 w-4" />
-                                {hotel.status === "Active" ? "Suspend Account" : "Activate Account"}
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Permanently Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -617,6 +726,91 @@ export default function PlatformHotels() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!resetPasswordDialog} onOpenChange={(open) => { if (!open) { setResetPasswordDialog(null); setResetPasswordValue(""); } }}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Reset Owner Password</DialogTitle>
+              <CardDescription>Reset the password for {resetPasswordDialog?.ownerName} ({resetPasswordDialog?.name})</CardDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <Input 
+                  type="password" 
+                  placeholder="Enter new password (min 6 characters)" 
+                  value={resetPasswordValue}
+                  onChange={(e) => setResetPasswordValue(e.target.value)}
+                  data-testid="input-reset-password"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setResetPasswordDialog(null); setResetPasswordValue(""); }} data-testid="button-cancel-reset">
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (resetPasswordDialog) {
+                    resetPasswordMutation.mutate({ id: resetPasswordDialog.id, newPassword: resetPasswordValue });
+                  }
+                }}
+                disabled={resetPasswordMutation.isPending || resetPasswordValue.length < 6}
+                data-testid="button-confirm-reset"
+              >
+                {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Reset Password
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!deleteDialog} onOpenChange={(open) => { if (!open) { setDeleteDialog(null); setDeleteAdminPassword(""); } }}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Permanently Delete Hotel
+              </DialogTitle>
+              <CardDescription>
+                This action is irreversible. All data associated with <strong>{deleteDialog?.name}</strong> will be permanently deleted, including rooms, bookings, staff records, invoices, and all other data.
+              </CardDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <strong>Warning:</strong> This will permanently delete all hotel data including rooms, bookings, staff, expenses, orders, and settings. This cannot be undone.
+              </div>
+              <div className="space-y-2">
+                <Label>Enter your admin password to confirm</Label>
+                <Input 
+                  type="password" 
+                  placeholder="Admin password" 
+                  value={deleteAdminPassword}
+                  onChange={(e) => setDeleteAdminPassword(e.target.value)}
+                  data-testid="input-delete-admin-password"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setDeleteDialog(null); setDeleteAdminPassword(""); }} data-testid="button-cancel-delete">
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  if (deleteDialog) {
+                    permanentDeleteMutation.mutate({ id: deleteDialog.id, adminPassword: deleteAdminPassword });
+                  }
+                }}
+                disabled={permanentDeleteMutation.isPending || !deleteAdminPassword}
+                data-testid="button-confirm-delete"
+              >
+                {permanentDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Delete Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </PlatformLayout>
   );
