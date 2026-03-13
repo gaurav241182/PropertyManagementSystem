@@ -655,7 +655,9 @@ export async function registerRoutes(
 
   app.get("/api/staff/:id/dues", async (req, res) => {
     const staffId = Number(req.params.id);
+    console.log(`[DUES DEBUG] Checking dues for staffId=${staffId}`);
     const unpaid = await storage.getUnpaidSalariesByStaff(staffId);
+    console.log(`[DUES DEBUG] Found ${unpaid.length} unpaid records for staffId=${staffId}:`, unpaid.map(s => ({ id: s.id, staffId: s.staffId, netPay: s.netPay, status: s.status })));
     const totalDue = unpaid.reduce((sum, s) => sum + parseFloat(s.netPay || "0"), 0);
     res.json({ hasDues: unpaid.length > 0, count: unpaid.length, totalDue, records: unpaid });
   });

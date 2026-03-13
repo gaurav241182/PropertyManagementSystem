@@ -128,6 +128,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
       toast({ title: "Staff Deleted", description: "Employee and all associated records have been permanently removed.", variant: "destructive" });
       setStaffToDelete(null);
+      setStaffToDeleteName("");
       setIsDeleteAlertOpen(false);
       setDeletePassword("");
       setDeleteDues(null);
@@ -210,12 +211,14 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [dialogMode, setDialogMode] = useState<"view" | "edit" | "add">("add");
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<number | null>(null);
+  const [staffToDeleteName, setStaffToDeleteName] = useState<string>("");
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDues, setDeleteDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDues, setCheckingDues] = useState(false);
   const [duesForStaffId, setDuesForStaffId] = useState<number | null>(null);
   const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
   const [staffToDeactivate, setStaffToDeactivate] = useState<number | null>(null);
+  const [staffToDeactivateName, setStaffToDeactivateName] = useState<string>("");
   const [deactivatePassword, setDeactivatePassword] = useState("");
   const [deactivateDues, setDeactivateDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDeactivateDues, setCheckingDeactivateDues] = useState(false);
@@ -349,6 +352,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
       toast({ title: "Staff Deactivated", description: "Employee has been deactivated and moved to archived records." });
       setStaffToDeactivate(null);
+      setStaffToDeactivateName("");
       setIsDeactivateAlertOpen(false);
       setDeactivatePassword("");
       setDeactivateDues(null);
@@ -359,8 +363,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     },
   });
 
-  const openDeactivateDialog = async (staffId: number) => {
+  const openDeactivateDialog = async (staffId: number, staffName?: string) => {
     setStaffToDeactivate(staffId);
+    setStaffToDeactivateName(staffName || "");
     setDeactivatePassword("");
     setDeactivateDues(null);
     setDeactivateDuesForStaffId(staffId);
@@ -489,8 +494,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const isViewMode = dialogMode === "view";
   const isEditable = dialogMode === "edit" || dialogMode === "add";
 
-  const openDeleteDialog = async (staffId: number) => {
+  const openDeleteDialog = async (staffId: number, staffName?: string) => {
     setStaffToDelete(staffId);
+    setStaffToDeleteName(staffName || "");
     setDeletePassword("");
     setDeleteDues(null);
     setDuesForStaffId(staffId);
@@ -1074,11 +1080,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Button variant="ghost" size="icon" title="View Details" onClick={() => handleView(employee)} data-testid={`button-view-staff-${employee.id}`}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeactivateDialog(employee.id)}>
+                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeactivateDialog(employee.id, employee.name)}>
                           <Ban className="h-4 w-4" />
                         </Button>
                         {role === "owner" && (
-                        <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id)}>
+                        <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                         )}
@@ -1137,7 +1143,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleActivateStaff(employee.id)}>
                             <Power className="h-3 w-3 mr-1" /> Activate
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1154,7 +1160,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
         setIsDeleteAlertOpen(open);
-        if (!open) { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }
+        if (!open) { setStaffToDelete(null); setStaffToDeleteName(""); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1164,20 +1170,20 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </div>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>This action cannot be undone. This will permanently delete the staff record along with all associated salary records.</p>
+                <p>This action cannot be undone. This will permanently delete <strong>{staffToDeleteName || "this staff"}</strong> along with all associated salary records.</p>
 
                 {checkingDues && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues for {staffToDeleteName || "staff"}...
                   </div>
                 )}
 
                 {deleteDues && duesForStaffId === staffToDelete && deleteDues?.hasDues && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-red-700 font-medium">Outstanding Dues Found</p>
+                    <p className="text-red-700 font-medium">Outstanding Dues Found for {staffToDeleteName || "Staff"}</p>
                     <p className="text-red-600 text-sm mt-1">
-                      This staff has {deleteDues.count} unpaid salary record(s) totalling {cs}{deleteDues.totalDue.toFixed(2)}.
-                      Please clear all dues before deleting this staff member.
+                      <strong>{staffToDeleteName || "This staff"}</strong> has {deleteDues.count} unpaid salary record(s) totalling {cs}{deleteDues.totalDue.toFixed(2)}.
+                      Please clear all dues before deleting.
                     </p>
                   </div>
                 )}
@@ -1205,7 +1211,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setStaffToDelete(null); setStaffToDeleteName(""); setDeletePassword(""); setDeleteDues(null); setDuesForStaffId(null); }}>Cancel</AlertDialogCancel>
             {deleteDues && duesForStaffId === staffToDelete && !deleteDues.hasDues && (
               <AlertDialogAction
                 onClick={confirmDelete}
@@ -1222,7 +1228,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
       <AlertDialog open={isDeactivateAlertOpen} onOpenChange={(open) => {
         setIsDeactivateAlertOpen(open);
-        if (!open) { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); setDeactivateDuesForStaffId(null); }
+        if (!open) { setStaffToDeactivate(null); setStaffToDeactivateName(""); setDeactivatePassword(""); setDeactivateDues(null); setDeactivateDuesForStaffId(null); }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1232,20 +1238,20 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </div>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>This will deactivate the staff member and move them to archived records. They will no longer appear in active staff lists or be included in salary generation.</p>
+                <p>This will deactivate <strong>{staffToDeactivateName || "this staff member"}</strong> and move them to archived records. They will no longer appear in active staff lists or be included in salary generation.</p>
 
                 {checkingDeactivateDues && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues for {staffToDeactivateName || "staff"}...
                   </div>
                 )}
 
                 {deactivateDues && deactivateDuesForStaffId === staffToDeactivate && deactivateDues?.hasDues && (
                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                    <p className="text-red-700 font-medium">Outstanding Dues Found</p>
+                    <p className="text-red-700 font-medium">Outstanding Dues Found for {staffToDeactivateName || "Staff"}</p>
                     <p className="text-red-600 text-sm mt-1">
-                      This staff has {deactivateDues.count} unpaid salary record(s) totalling {cs}{deactivateDues.totalDue.toFixed(2)}.
-                      Please clear all dues before deactivating this staff member.
+                      <strong>{staffToDeactivateName || "This staff"}</strong> has {deactivateDues.count} unpaid salary record(s) totalling {cs}{deactivateDues.totalDue.toFixed(2)}.
+                      Please clear all dues before deactivating.
                     </p>
                   </div>
                 )}
@@ -1273,7 +1279,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); }}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setStaffToDeactivate(null); setStaffToDeactivateName(""); setDeactivatePassword(""); setDeactivateDues(null); setDeactivateDuesForStaffId(null); }}>Cancel</AlertDialogCancel>
             {deactivateDues && !deactivateDues.hasDues && (
               <AlertDialogAction
                 onClick={confirmDeactivate}
