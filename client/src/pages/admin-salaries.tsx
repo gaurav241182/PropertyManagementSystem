@@ -84,15 +84,26 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     },
   });
 
-  const handlePay = (id: number) => {
-    updateSalaryMutation.mutate({
-      id,
-      data: { status: "Paid", paidDate: new Date().toISOString().split('T')[0] }
-    }, {
-      onSuccess: () => {
+  const paySalaryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/salaries/${id}/pay`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      if (data.overflowToNextMonth > 0) {
+        toast({ title: "Salary Paid", description: `Salary marked as paid. ${cs}${Number(data.overflowToNextMonth).toLocaleString()} excess advance carried forward to next month.` });
+      } else {
         toast({ title: "Salary Paid", description: "Employee salary has been marked as paid." });
       }
-    });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handlePay = (id: number) => {
+    paySalaryMutation.mutate(id);
   };
 
   const handleRevert = (id: number) => {

@@ -937,7 +937,7 @@ export async function registerRoutes(
       const skipped: number[] = [];
       for (const entry of staffSalaries) {
         const { staffId, netPay, bonus, welfareContribution } = entry;
-        if (existingSalaries.find(s => s.staffId === staffId)) {
+        if (existingSalaries.find((s: any) => s.staffId === staffId)) {
           skipped.push(staffId);
           continue;
         }
@@ -978,6 +978,108 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  async function carryForwardOverflow(salary: any, overflow: number, req: any, branchId: any) {
+    if (overflow <= 0) return;
+    const hotelId = getHotelId(req);
+    const staffMember = await storage.getStaffMember(salary.staffId);
+    if (!staffMember) return;
+    const [salYear, salMon] = salary.month.split("-").map(Number);
+    const nextMonth = new Date(salYear, salMon, 1);
+    const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+    const existingSalaries = await storage.getSalariesByMonth(nextMonthStr, hotelId, branchId);
+    const existingNext = existingSalaries.find((s: any) => s.staffId === salary.staffId);
+    if (existingNext) {
+      const existingNextAdvance = Number(existingNext.advanceAmount) || 0;
+      const nextNetPay = Number(existingNext.netPay) || 0;
+      const newNextAdvance = existingNextAdvance + overflow;
+      if (newNextAdvance >= nextNetPay) {
+        await storage.updateSalary(existingNext.id, {
+          advanceAmount: String(nextNetPay),
+          status: "Paid",
+          paidDate: new Date().toISOString().split('T')[0],
+        } as any);
+        const nextOverflow = newNextAdvance - nextNetPay;
+        if (nextOverflow > 0) {
+          await carryForwardOverflow(existingNext, nextOverflow, req, branchId);
+        }
+      } else {
+        await storage.updateSalary(existingNext.id, {
+          advanceAmount: String(newNextAdvance),
+        } as any);
+      }
+    } else {
+      const totalSalary = Number(staffMember.salary) || 0;
+      const bonusAmt = Number(staffMember.bonusAmount) || 0;
+      const basicPay = Number(staffMember.basicPay) || totalSalary;
+      const welfareAmount = staffMember.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+      const totalPay = totalSalary + bonusAmt;
+      const lastDayNext = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0);
+      if (overflow >= totalPay) {
+        const newSalary = await storage.createSalary({
+          staffId: salary.staffId,
+          month: nextMonthStr,
+          basicSalary: String(totalSalary),
+          bonus: String(bonusAmt),
+          deductions: "0",
+          welfareContribution: String(welfareAmount),
+          netPay: String(totalPay),
+          advanceAmount: String(totalPay),
+          dueDate: lastDayNext.toISOString().split('T')[0],
+          status: "Paid",
+          paidDate: new Date().toISOString().split('T')[0],
+          hotelId,
+          branchId,
+        });
+        const nextOverflow = overflow - totalPay;
+        if (nextOverflow > 0) {
+          await carryForwardOverflow(newSalary, nextOverflow, req, branchId);
+        }
+      } else {
+        await storage.createSalary({
+          staffId: salary.staffId,
+          month: nextMonthStr,
+          basicSalary: String(totalSalary),
+          bonus: String(bonusAmt),
+          deductions: "0",
+          welfareContribution: String(welfareAmount),
+          netPay: String(totalPay),
+          advanceAmount: String(overflow),
+          dueDate: lastDayNext.toISOString().split('T')[0],
+          status: "Pending",
+          paidDate: null,
+          hotelId,
+          branchId,
+        });
+      }
+    }
+  }
+
+  app.post("/api/salaries/:id/pay", async (req, res) => {
+    const salary = await storage.getSalary(Number(req.params.id));
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(salary, req, res, branchId)) return;
+    if (!salary) return res.status(404).json({ message: "Salary record not found" });
+
+    const advanceAmount = Number(salary.advanceAmount) || 0;
+    const netPay = Number(salary.netPay) || 0;
+
+    await storage.updateSalary(salary.id, {
+      status: "Paid",
+      paidDate: new Date().toISOString().split('T')[0],
+    } as any);
+
+    const overflow = advanceAmount - netPay;
+    if (overflow > 0) {
+      await storage.updateSalary(salary.id, {
+        advanceAmount: String(netPay),
+      } as any);
+      await carryForwardOverflow(salary, overflow, req, branchId);
+    }
+
+    const updated = await storage.getSalary(salary.id);
+    return res.json({ ...updated, overflowToNextMonth: overflow > 0 ? overflow : 0 });
+  });
+
   app.post("/api/salaries/:id/advance", async (req, res) => {
     const { amount } = req.body;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -1002,42 +1104,7 @@ export async function registerRoutes(
       } as any);
 
       if (overflow > 0) {
-        const hotelId = getHotelId(req);
-        const staffMember = await storage.getStaffMember(salary.staffId);
-        if (staffMember) {
-          const now = new Date();
-          const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
-          const existingSalaries = await storage.getSalariesByMonth(nextMonthStr, hotelId, branchId);
-          const existingNext = existingSalaries.find(s => s.staffId === salary.staffId);
-          if (existingNext) {
-            const existingNextAdvance = Number(existingNext.advanceAmount) || 0;
-            await storage.updateSalary(existingNext.id, {
-              advanceAmount: String(existingNextAdvance + overflow),
-            } as any);
-          } else {
-            const totalSalary = Number(staffMember.salary) || 0;
-            const bonusAmt = Number(staffMember.bonusAmount) || 0;
-            const basicPay = Number(staffMember.basicPay) || totalSalary;
-            const welfareAmount = staffMember.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
-            const lastDayNext = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0);
-            await storage.createSalary({
-              staffId: salary.staffId,
-              month: nextMonthStr,
-              basicSalary: String(totalSalary),
-              bonus: String(bonusAmt),
-              deductions: "0",
-              welfareContribution: String(welfareAmount),
-              netPay: String(totalSalary + bonusAmt),
-              advanceAmount: String(overflow),
-              dueDate: lastDayNext.toISOString().split('T')[0],
-              status: "Pending",
-              paidDate: null,
-              hotelId,
-              branchId,
-            });
-          }
-        }
+        await carryForwardOverflow(salary, overflow, req, branchId);
       }
 
       const updated = await storage.getSalary(salary.id);
