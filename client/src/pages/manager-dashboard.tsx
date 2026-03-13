@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { Booking, Staff, Expense } from "@shared/schema";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 export default function ManagerDashboard() {
   const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
   const { data: staffList, isLoading: staffLoading } = useQuery<Staff[]>({ queryKey: ['/api/staff'] });
   const { data: expensesList, isLoading: expensesLoading } = useQuery<Expense[]>({ queryKey: ['/api/expenses'] });
 
+  const { currencySymbol } = useHotelSettings();
   const isLoading = bookingsLoading || staffLoading || expensesLoading;
 
   const today = new Date().toISOString().split("T")[0];
@@ -51,7 +53,7 @@ export default function ManagerDashboard() {
     },
     {
       title: "Pending Expenses",
-      value: `$${pendingExpensesTotal.toFixed(2)}`,
+      value: `${currencySymbol}${pendingExpensesTotal.toFixed(2)}`,
       change: pendingExpensesTotal > 0 ? "Needs Approval" : "No pending",
       icon: Receipt,
       color: "text-amber-600",

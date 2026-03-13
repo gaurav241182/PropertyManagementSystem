@@ -13,8 +13,10 @@ import {
   Wrench,
   ShoppingCart
 } from "lucide-react";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 export default function AdminDashboard() {
+  const { formatCurrency } = useHotelSettings();
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
   const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({ queryKey: ['/api/rooms'] });
   const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({ queryKey: ['/api/expenses'] });
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
   const stats = [
     {
       title: "Total Revenue",
-      value: `$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: formatCurrency(totalRevenue),
       icon: CreditCard,
     },
     {
@@ -116,7 +118,7 @@ export default function AdminDashboard() {
                         <p className="text-xs text-muted-foreground">{booking.bookingId} · {booking.checkIn} to {booking.checkOut}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium" data-testid={`text-amount-${booking.id}`}>${parseFloat(booking.totalAmount || "0").toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-sm font-medium" data-testid={`text-amount-${booking.id}`}>{formatCurrency(parseFloat(booking.totalAmount || "0"))}</p>
                         <p className="text-xs text-muted-foreground">{booking.status}</p>
                       </div>
                     </div>

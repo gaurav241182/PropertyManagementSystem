@@ -57,7 +57,7 @@ import { differenceInYears, parseISO } from "date-fns";
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant } = useHotelSettings();
+  const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant, currencySymbol } = useHotelSettings();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [isReversalDialogOpen, setIsReversalDialogOpen] = useState(false);
@@ -93,6 +93,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   };
 
   const currency = (settingsData as Record<string, string>)?.currency || "USD";
+  const cs = currencySymbol;
   const taxes: any[] = (() => { try { return JSON.parse(getSetting('taxes', '[]')); } catch { return []; } })();
   const parsedInvoiceSettings = (() => { try { return JSON.parse(getSetting('invoiceSettings', '{}')); } catch { return {}; } })();
   const invoiceSettings = {
@@ -512,19 +513,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   </div>
 
   <table>
-    <thead><tr><th>#</th><th>Description</th><th>Amount (${currency})</th></tr></thead>
+    <thead><tr><th>#</th><th>Description</th><th>Amount (${cs})</th></tr></thead>
     <tbody>
       ${chargeRows.map((r: any, i: number) => `<tr><td>${i + 1}</td><td>${r.desc}</td><td>${r.amount.toFixed(2)}</td></tr>`).join("")}
     </tbody>
   </table>
 
   <div class="totals">
-    <div class="row sub"><span class="label">Subtotal</span><span>${currency} ${subtotal.toFixed(2)}</span></div>
-    ${discountAmount > 0 ? `<div class="row discount"><span class="label">${discount?.label || "Discount"}</span><span>- ${currency} ${discountAmount.toFixed(2)}</span></div>` : ""}
-    ${taxRows.map((t: any) => `<div class="row tax"><span class="label">${t.label} @ ${t.rate}%</span><span>${currency} ${t.amount.toFixed(2)}</span></div>`).join("")}
-    <div class="row"><span class="label">Total Tax</span><span>${currency} ${totalTax.toFixed(2)}</span></div>
-    ${booking.advance > 0 ? `<div class="row"><span class="label">Advance Paid</span><span>- ${currency} ${booking.advance.toFixed(2)}</span></div>` : ""}
-    <div class="row grand"><span>Total Due</span><span>${currency} ${totals.due.toFixed(2)}</span></div>
+    <div class="row sub"><span class="label">Subtotal</span><span>${cs} ${subtotal.toFixed(2)}</span></div>
+    ${discountAmount > 0 ? `<div class="row discount"><span class="label">${discount?.label || "Discount"}</span><span>- ${cs} ${discountAmount.toFixed(2)}</span></div>` : ""}
+    ${taxRows.map((t: any) => `<div class="row tax"><span class="label">${t.label} @ ${t.rate}%</span><span>${cs} ${t.amount.toFixed(2)}</span></div>`).join("")}
+    <div class="row"><span class="label">Total Tax</span><span>${cs} ${totalTax.toFixed(2)}</span></div>
+    ${booking.advance > 0 ? `<div class="row"><span class="label">Advance Paid</span><span>- ${cs} ${booking.advance.toFixed(2)}</span></div>` : ""}
+    <div class="row grand"><span>Total Due</span><span>${cs} ${totals.due.toFixed(2)}</span></div>
     ${booking.paymentMethod ? `<div class="row" style="font-size:11px;color:#888;"><span class="label">Payment Method</span><span>${booking.paymentMethod}</span></div>` : ""}
   </div>
 
@@ -1652,7 +1653,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <div>
-                          <span className="text-muted-foreground">Balance:</span> <span className="font-medium">{currency} {totals.due.toFixed(2)}</span>
+                          <span className="text-muted-foreground">Balance:</span> <span className="font-medium">{cs}{totals.due.toFixed(2)}</span>
                         </div>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">{booking.source}</Badge>
                       </div>
@@ -1775,7 +1776,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">{currency} {totals.due.toFixed(2)}</span>
+                              <span className="font-medium">{cs}{totals.due.toFixed(2)}</span>
                               <span className="text-xs text-muted-foreground">{booking.charges.length} extra charges</span>
                             </div>
                           </TableCell>
@@ -2209,7 +2210,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                    {/* Room Charges */}
                    <div className="flex justify-between text-sm">
                       <span>Room Charges ({checkoutBooking.type})</span>
-                      <span className="font-medium">{currency} {checkoutBooking.amount.toFixed(2)}</span>
+                      <span className="font-medium">{cs}{checkoutBooking.amount.toFixed(2)}</span>
                    </div>
 
                    {/* Extra Charges */}
@@ -2230,7 +2231,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                               )}
                               {charge.item} (x{charge.quantity})
                             </span>
-                            <span>{currency} {charge.amount.toFixed(2)}</span>
+                            <span>{cs}{charge.amount.toFixed(2)}</span>
                          </div>
                        ))}
                      </div>
@@ -2240,7 +2241,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
                    <div className="flex justify-between text-sm">
                       <span>Subtotal</span>
-                      <span>{currency} {totals.subtotal.toFixed(2)}</span>
+                      <span>{cs}{totals.subtotal.toFixed(2)}</span>
                    </div>
 
                    {/* Discount Section */}
@@ -2409,7 +2410,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                          {appliedDiscount.label}
                        </span>
                        <span className="flex items-center gap-2">
-                         <span className="font-medium">-{currency} {totals.discountAmount.toFixed(2)}</span>
+                         <span className="font-medium">-{cs}{totals.discountAmount.toFixed(2)}</span>
                          {checkoutBooking.status !== "Checked Out" && checkoutBooking.status !== "checked_out" && (
                            <button
                              onClick={() => { setAppliedDiscount(null); setShowDiscountPanel(false); setManualDiscountPercent(0); setCouponCode(""); setDiscountScope("all"); }}
@@ -2431,7 +2432,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                        totals.taxBreakdown.filter((t: any) => t.taxable).map((t: any, i: number) => (
                          <div key={i} className="flex justify-between text-xs text-muted-foreground">
                            <span>{t.label} @ {t.rate}%</span>
-                           <span>{currency} {t.amount.toFixed(2)}</span>
+                           <span>{cs}{t.amount.toFixed(2)}</span>
                          </div>
                        ))
                      ) : (
@@ -2452,16 +2453,16 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
                    <div className="flex justify-between text-sm font-medium">
                       <span>Total Tax</span>
-                      <span>{currency} {totals.tax.toFixed(2)}</span>
+                      <span>{cs}{totals.tax.toFixed(2)}</span>
                    </div>
                    <div className="flex justify-between text-sm text-green-600">
                       <span>Advance Payment</span>
-                      <span>-{currency} {checkoutBooking.advance.toFixed(2)}</span>
+                      <span>-{cs}{checkoutBooking.advance.toFixed(2)}</span>
                    </div>
 
                    <div className="border-t pt-2 mt-2 flex justify-between items-center bg-muted/20 p-2 rounded">
                       <span className="font-bold text-lg">Total Due</span>
-                      <span className="font-bold text-lg text-primary">{currency} {totals.due.toFixed(2)}</span>
+                      <span className="font-bold text-lg text-primary">{cs}{totals.due.toFixed(2)}</span>
                    </div>
 
                    {/* Payment Method - Only show if not checked out */}
@@ -2496,14 +2497,14 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                              <div key={i} className="flex justify-between text-sm">
                                <span>{t.label}</span>
                                <div className="text-right">
-                                 <span>{currency} {t.baseAmount.toFixed(2)}</span>
-                                 <span className="text-xs text-muted-foreground ml-1">(+{t.rate}% = {currency} {t.amount.toFixed(2)})</span>
+                                 <span>{cs}{t.baseAmount.toFixed(2)}</span>
+                                 <span className="text-xs text-muted-foreground ml-1">(+{t.rate}% = {cs}{t.amount.toFixed(2)})</span>
                                </div>
                              </div>
                            ))}
                            <div className="border-t pt-2 mt-2 flex justify-between font-medium text-sm">
                              <span>Taxable Total (incl. tax)</span>
-                             <span>{currency} {(totals.taxBreakdown.filter((t: any) => t.taxable).reduce((acc: number, t: any) => acc + t.baseAmount + t.amount, 0)).toFixed(2)}</span>
+                             <span>{cs}{(totals.taxBreakdown.filter((t: any) => t.taxable).reduce((acc: number, t: any) => acc + t.baseAmount + t.amount, 0)).toFixed(2)}</span>
                            </div>
                          </>
                        ) : (

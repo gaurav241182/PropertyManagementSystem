@@ -9,6 +9,7 @@ import { ShoppingCart, Plus, Minus, Utensils, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 interface MenuItem {
   id: number;
@@ -34,6 +35,7 @@ export default function GuestMenu() {
   const urlParams = new URLSearchParams(window.location.search);
   const defaultTab = urlParams.get("tab") || "food";
 
+  const { currencySymbol } = useHotelSettings();
   const bookingId = sessionStorage.getItem("guestBookingId");
   const guestName = sessionStorage.getItem("guestName") || "";
   const roomNumber = sessionStorage.getItem("guestRoomNumber") || "";
@@ -187,7 +189,7 @@ export default function GuestMenu() {
                 {orderMutation.isPending ? "Sending..." : (
                   <>
                     <ShoppingCart className="mr-2 h-5 w-5 md:h-4 md:w-4" />
-                    Place Order (${getCartTotal().toFixed(2)})
+                    Place Order ({currencySymbol}{getCartTotal().toFixed(2)})
                   </>
                 )}
               </Button>
@@ -224,7 +226,7 @@ export default function GuestMenu() {
                         <div>
                           <div className="flex justify-between items-start">
                             <h3 className="font-bold line-clamp-1">{item.name}</h3>
-                            <span className="font-medium text-primary">${price}</span>
+                            <span className="font-medium text-primary">{currencySymbol}{price}</span>
                           </div>
                           <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
                         </div>
@@ -270,7 +272,7 @@ export default function GuestMenu() {
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{item.name}</CardTitle>
                           <Badge variant={price === 0 ? "secondary" : "outline"}>
-                            {price === 0 ? "Free" : `$${price}`}
+                            {price === 0 ? "Free" : `${currencySymbol}${price}`}
                           </Badge>
                         </div>
                         <CardDescription>{item.description}</CardDescription>

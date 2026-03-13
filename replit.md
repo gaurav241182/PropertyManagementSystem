@@ -151,3 +151,9 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Discount shown as purple line item in checkout breakdown, deducted before tax calculation (tax computed on discounted subtotal proportionally)
   - Invoice HTML updated: discount line appears between subtotal and tax rows with purple styling
   - `calculateTotals` updated to accept optional discount parameter; proportional tax adjustment via discountRatio
+- 2026-03-13: Centralized currency formatting — all pages now respect General Settings currency
+  - `use-hotel-settings.ts` hook extended with `currency`, `currencySymbol`, `formatCurrency()`, and exported `getCurrencySymbol()` utility
+  - CURRENCY_SYMBOLS map (25+ currencies) centralized in hook; removed duplicate maps from admin-salaries and admin-staff
+  - Fixed pages: admin-dashboard, admin-reports, admin-sales, admin-bookings, admin-salaries, admin-staff, manager-dashboard, guest-menu
+  - Invoice HTML generation updated to use currency symbol instead of currency code
+  - All monetary displays now use the configured currency symbol (e.g., ₹ for INR) instead of hardcoded $

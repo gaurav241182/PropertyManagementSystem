@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import type { Booking, Expense, Order } from "@shared/schema";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 export default function AdminReports() {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -64,10 +65,9 @@ export default function AdminReports() {
     return { totalRevenue: rev, totalExpenses: exp, netProfit: rev - exp };
   }, [bookings, expenses, orders]);
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A855F7', '#EC4899', '#F97316', '#06B6D4'];
+  const { formatCurrency } = useHotelSettings();
 
-  const formatCurrency = (val: number) =>
-    `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A855F7', '#EC4899', '#F97316', '#06B6D4'];
 
   if (isLoading) {
     return (

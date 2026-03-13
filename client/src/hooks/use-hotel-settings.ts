@@ -1,4 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: "₹", USD: "$", EUR: "€", GBP: "£", AUD: "A$", CAD: "C$",
+  JPY: "¥", CNY: "¥", AED: "د.إ", SGD: "S$", MYR: "RM", THB: "฿",
+  KRW: "₩", BRL: "R$", ZAR: "R", RUB: "₽", CHF: "CHF", SEK: "kr",
+  NZD: "NZ$", HKD: "HK$", PHP: "₱", IDR: "Rp", MXN: "MX$",
+};
+
+export function getCurrencySymbol(currencyCode: string): string {
+  return CURRENCY_SYMBOLS[currencyCode?.toUpperCase()] || currencyCode || "$";
+}
 
 export function useHotelSettings() {
   const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
@@ -9,6 +21,9 @@ export function useHotelSettings() {
   const ageRuleAdult = parseInt(settingsData.ageRuleAdult || "13");
   const ageRuleChild = parseInt(settingsData.ageRuleChild || "3");
   const ageRuleInfant = parseInt(settingsData.ageRuleInfant || "2");
+
+  const currency = settingsData.currency || "USD";
+  const currencySymbol = getCurrencySymbol(currency);
 
   const weekendDays: number[] = (() => {
     try {
@@ -29,6 +44,10 @@ export function useHotelSettings() {
     return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
   };
 
+  const formatCurrency = useCallback((amount: number, decimals: number = 2): string => {
+    return `${currencySymbol}${amount.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  }, [currencySymbol]);
+
   return {
     checkInTime,
     checkOutTime,
@@ -39,5 +58,8 @@ export function useHotelSettings() {
     ageRuleInfant,
     weekendDays,
     isWeekendDay,
+    currency,
+    currencySymbol,
+    formatCurrency,
   };
 }

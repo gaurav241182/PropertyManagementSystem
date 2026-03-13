@@ -14,10 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹", USD: "$", EUR: "€", GBP: "£", AUD: "A$", CAD: "C$", JPY: "¥", CNY: "¥", AED: "د.إ", SGD: "S$",
-};
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 function getEndOfMonth(monthStr: string): string {
   if (!monthStr) return "-";
@@ -30,11 +27,9 @@ function getEndOfMonth(monthStr: string): string {
 export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
 
+  const { currencySymbol: cs } = useHotelSettings();
   const { data: salariesData = [], isLoading: salariesLoading } = useQuery<any[]>({ queryKey: ['/api/salaries'] });
   const { data: staffData = [], isLoading: staffLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
-  const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
-  const currency = (settingsData as Record<string, string>)?.currency || "USD";
-  const cs = CURRENCY_SYMBOLS[currency?.toUpperCase()] || currency || "$";
 
   const staffMap = new Map(staffData.map((s: any) => [s.id, s]));
 

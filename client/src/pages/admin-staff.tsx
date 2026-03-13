@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
+import { getCurrencySymbol } from "@/hooks/use-hotel-settings";
 
 import {
   AlertDialog,
@@ -28,14 +29,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹", USD: "$", EUR: "€", GBP: "£", AUD: "A$", CAD: "C$", JPY: "¥", CNY: "¥", AED: "د.إ", SGD: "S$",
-};
-
-function getCurrencySymbol(currency: string): string {
-  return CURRENCY_SYMBOLS[currency?.toUpperCase()] || currency || "$";
-}
 
 function generateEmployeeIdPrefix(hotelName: string): string {
   if (!hotelName) return "EMP";

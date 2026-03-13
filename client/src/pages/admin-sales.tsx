@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Filter, UtensilsCrossed, Sparkles, DollarSign, Download, BedDouble, Loader2 } from "lucide-react";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 export default function AdminSales({ role = "owner" }: { role?: "owner" | "manager" }) {
   const [period, setPeriod] = useState("this_month");
@@ -17,6 +18,8 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<Booking[]>({ queryKey: ['/api/bookings'] });
   const { data: orders = [], isLoading: ordersLoading } = useQuery<(Order & { items?: OrderItem[] })[]>({ queryKey: ['/api/orders'] });
   const { data: roomTypesData = [], isLoading: roomTypesLoading } = useQuery<RoomType[]>({ queryKey: ['/api/room-types'] });
+
+  const { currencySymbol } = useHotelSettings();
 
   const isLoading = bookingsLoading || ordersLoading || roomTypesLoading;
 
@@ -134,7 +137,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
             <CardContent>
               <div className="flex items-center gap-2">
                 <DollarSign className="h-8 w-8 text-primary" />
-                <div className="text-3xl font-bold text-primary" data-testid="text-total-revenue">${totalRevenue.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-primary" data-testid="text-total-revenue">{currencySymbol}{totalRevenue.toLocaleString()}</div>
               </div>
             </CardContent>
           </Card>
@@ -145,7 +148,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
             <CardContent>
               <div className="flex items-center gap-2">
                 <BedDouble className="h-5 w-5 text-blue-500" />
-                <div className="text-2xl font-bold" data-testid="text-room-revenue">${totalRoomRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold" data-testid="text-room-revenue">{currencySymbol}{totalRoomRevenue.toLocaleString()}</div>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {totalRevenue > 0 ? Math.round((totalRoomRevenue / totalRevenue) * 100) : 0}% of total revenue
@@ -159,7 +162,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
             <CardContent>
               <div className="flex items-center gap-2">
                 <UtensilsCrossed className="h-5 w-5 text-orange-500" />
-                <div className="text-2xl font-bold" data-testid="text-fb-revenue">${totalFbRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold" data-testid="text-fb-revenue">{currencySymbol}{totalFbRevenue.toLocaleString()}</div>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {totalRevenue > 0 ? Math.round((totalFbRevenue / totalRevenue) * 100) : 0}% of total revenue
@@ -173,7 +176,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
             <CardContent>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
-                <div className="text-2xl font-bold" data-testid="text-facility-revenue">${totalFacilityRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold" data-testid="text-facility-revenue">{currencySymbol}{totalFacilityRevenue.toLocaleString()}</div>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {totalRevenue > 0 ? Math.round((totalFacilityRevenue / totalRevenue) * 100) : 0}% of total revenue
@@ -237,7 +240,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
                           </Badge>
                         </TableCell>
                         <TableCell>{item.count}</TableCell>
-                        <TableCell>${item.revenue.toLocaleString()}</TableCell>
+                        <TableCell>{currencySymbol}{item.revenue.toLocaleString()}</TableCell>
                         <TableCell className="text-right text-muted-foreground">
                           {totalRevenue > 0 ? ((item.revenue / totalRevenue) * 100).toFixed(1) : "0.0"}%
                         </TableCell>
@@ -273,7 +276,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
                       <TableRow key={item.id} data-testid={`row-room-sales-${item.id}`}>
                         <TableCell className="font-medium">{item.type}</TableCell>
                         <TableCell>{item.bookings}</TableCell>
-                        <TableCell>${item.revenue.toLocaleString()}</TableCell>
+                        <TableCell>{currencySymbol}{item.revenue.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -314,7 +317,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
                       <TableRow key={item.id} data-testid={`row-fb-sales-${item.id}`}>
                         <TableCell className="font-medium">{item.item}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>${item.revenue.toLocaleString()}</TableCell>
+                        <TableCell>{currencySymbol}{item.revenue.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -355,7 +358,7 @@ export default function AdminSales({ role = "owner" }: { role?: "owner" | "manag
                       <TableRow key={item.id} data-testid={`row-facility-sales-${item.id}`}>
                         <TableCell className="font-medium">{item.service}</TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>${item.revenue.toLocaleString()}</TableCell>
+                        <TableCell>{currencySymbol}{item.revenue.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
