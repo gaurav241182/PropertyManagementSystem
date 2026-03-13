@@ -145,11 +145,13 @@ export interface IStorage {
   deleteBookingCharge(id: number): Promise<void>;
 
   getRoomPricing(roomTypeId?: number, hotelId?: number | null, branchId?: number | null): Promise<RoomPricing[]>;
+  getRoomPricingById(id: number): Promise<RoomPricing | undefined>;
   upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing>;
   bulkUpsertRoomPricing(data: InsertRoomPricing[]): Promise<RoomPricing[]>;
   updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined>;
 
   getRoomBlocks(hotelId?: number | null, branchId?: number | null): Promise<RoomBlock[]>;
+  getRoomBlockById(id: number): Promise<RoomBlock | undefined>;
   createRoomBlock(data: InsertRoomBlock): Promise<RoomBlock>;
   bulkCreateRoomBlocks(data: InsertRoomBlock[]): Promise<RoomBlock[]>;
   deleteRoomBlock(id: number): Promise<void>;
@@ -689,6 +691,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(roomPricing).orderBy(roomPricing.roomTypeId, roomPricing.date);
   }
 
+  async getRoomPricingById(id: number): Promise<RoomPricing | undefined> {
+    const [result] = await db.select().from(roomPricing).where(eq(roomPricing.id, id));
+    return result;
+  }
   async upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing> {
     const [existing] = await db.select().from(roomPricing)
       .where(and(eq(roomPricing.roomTypeId, data.roomTypeId), eq(roomPricing.date, data.date)));
@@ -725,6 +731,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(roomBlocks).orderBy(desc(roomBlocks.createdAt));
   }
 
+  async getRoomBlockById(id: number): Promise<RoomBlock | undefined> {
+    const [result] = await db.select().from(roomBlocks).where(eq(roomBlocks.id, id));
+    return result;
+  }
   async createRoomBlock(data: InsertRoomBlock): Promise<RoomBlock> {
     const [result] = await db.insert(roomBlocks).values(data).returning();
     return result;

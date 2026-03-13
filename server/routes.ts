@@ -1015,6 +1015,9 @@ export async function registerRoutes(
 
   // ============= BOOKING CHARGES =============
   app.get("/api/booking-charges/:bookingId", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
+    const booking = await storage.getBookingByBookingId(req.params.bookingId);
+    if (!checkRecordScope(booking, req, res, branchId)) return;
     const data = await storage.getBookingCharges(req.params.bookingId);
     res.json(data);
   });
@@ -1066,6 +1069,9 @@ export async function registerRoutes(
   });
 
   app.patch("/api/room-pricing/:id/lock", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
+    const record = await storage.getRoomPricingById(Number(req.params.id));
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const { isLocked } = req.body;
     const data = await storage.updateRoomPricingLock(Number(req.params.id), isLocked);
     if (!data) return res.status(404).json({ message: "Not found" });
@@ -1096,6 +1102,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/room-blocks/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
+    const record = await storage.getRoomBlockById(Number(req.params.id));
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteRoomBlock(Number(req.params.id));
     res.status(204).send();
   });
@@ -1105,7 +1114,15 @@ export async function registerRoutes(
     if (!roomIds || !startDate || !endDate) {
       return res.status(400).json({ message: "roomIds, startDate, and endDate are required" });
     }
-    const count = await storage.deleteRoomBlocksByRoomAndDateRange(roomIds, startDate, endDate);
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const userRooms = await storage.getRooms(hotelId, branchId);
+    const userRoomIds = new Set(userRooms.map(r => r.id));
+    const validRoomIds = (roomIds as number[]).filter(id => userRoomIds.has(id));
+    if (validRoomIds.length === 0) {
+      return res.json({ deleted: 0 });
+    }
+    const count = await storage.deleteRoomBlocksByRoomAndDateRange(validRoomIds, startDate, endDate);
     res.json({ deleted: count });
   });
 
