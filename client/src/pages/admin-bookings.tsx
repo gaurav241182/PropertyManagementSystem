@@ -104,6 +104,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       facility: parsedInvoiceSettings?.taxableItems?.facility ?? true,
       other: parsedInvoiceSettings?.taxableItems?.other ?? false
     },
+    taxRates: {
+      room: parsedInvoiceSettings?.taxRates?.room ?? 12,
+      food: parsedInvoiceSettings?.taxRates?.food ?? 5,
+      facility: parsedInvoiceSettings?.taxRates?.facility ?? 18,
+      other: parsedInvoiceSettings?.taxRates?.other ?? 0
+    },
     autoSend: {
       email: parsedInvoiceSettings?.autoSend?.email ?? true,
       whatsapp: parsedInvoiceSettings?.autoSend?.whatsapp ?? false
@@ -863,9 +869,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     if (matchedTax) return matchedTax.rate || 0;
     const allTax = taxes.find((t: any) => t.appliedTo === "All");
     if (allTax) return allTax.rate || 0;
-    if (category === "Room") return 12;
-    if (category === "Food") return 5;
-    if (category === "Facility") return 18;
+    if (category === "Room") return invoiceSettings.taxRates.room;
+    if (category === "Food") return invoiceSettings.taxRates.food;
+    if (category === "Facility") return invoiceSettings.taxRates.facility;
+    if (category === "Other") return invoiceSettings.taxRates.other;
     return 0;
   };
 
