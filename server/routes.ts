@@ -12,7 +12,7 @@ function checkRecordScope(
   record: { hotelId?: number | null; branchId?: number | null } | undefined | null,
   req: Request,
   res: Response,
-  branchId?: number | null
+  activeBranchId?: number | null
 ): boolean {
   if (!record) {
     res.status(404).json({ message: "Not found" });
@@ -24,23 +24,26 @@ function checkRecordScope(
     res.status(403).json({ message: "Access denied" });
     return false;
   }
+  if (activeBranchId && record.branchId && record.branchId !== activeBranchId) {
+    res.status(403).json({ message: "Access denied - wrong branch" });
+    return false;
+  }
   return true;
 }
 
 async function getBranchIdValidated(req: Request): Promise<number | null> {
+  if (req.session?.user?.role === "super_admin") return null;
+
   const header = req.headers["x-branch-id"];
   if (!header) return null;
   const parsed = Number(header);
   if (isNaN(parsed) || parsed <= 0) return null;
 
-  const branch = await storage.getBranch(parsed);
-  if (!branch) return null;
-
-  if (req.session?.user?.role === "super_admin") return parsed;
-
   const userHotelId = req.session?.user?.hotelId;
   if (!userHotelId) return null;
-  if (branch.hotelId !== userHotelId) return null;
+
+  const branch = await storage.getBranch(parsed);
+  if (!branch || branch.hotelId !== userHotelId) return null;
 
   return parsed;
 }
@@ -317,15 +320,17 @@ export async function registerRoutes(
   });
 
   app.patch("/api/room-types/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getRoomType(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateRoomType(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/room-types/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getRoomType(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteRoomType(Number(req.params.id));
     res.status(204).send();
   });
@@ -346,15 +351,17 @@ export async function registerRoutes(
   });
 
   app.patch("/api/rooms/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getRoom(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateRoom(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/rooms/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getRoom(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteRoom(Number(req.params.id));
     res.status(204).send();
   });
@@ -368,8 +375,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/bookings/:bookingId", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const data = await storage.getBookingByBookingId(req.params.bookingId);
-    if (!checkRecordScope(data, req, res)) return;
+    if (!checkRecordScope(data, req, res, branchId)) return;
     res.json(data);
   });
 
@@ -452,8 +460,9 @@ export async function registerRoutes(
   });
 
   app.patch("/api/bookings/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getBooking(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const updates = { ...req.body };
     if (updates.status === "checked_in" && !updates.checkedInAt) {
       updates.checkedInAt = new Date();
@@ -471,8 +480,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/bookings/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getBooking(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteBooking(Number(req.params.id));
     res.status(204).send();
   });
@@ -485,16 +495,18 @@ export async function registerRoutes(
   });
 
   app.patch("/api/bookings/:id/archive", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getBooking(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.archiveBooking(Number(req.params.id));
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
   });
 
   app.patch("/api/bookings/:id/unarchive", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getBooking(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.unarchiveBooking(Number(req.params.id));
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
@@ -595,7 +607,8 @@ export async function registerRoutes(
   app.patch("/api/staff/:id", async (req, res) => {
     try {
       const record = await storage.getStaffMember(Number(req.params.id));
-      if (!checkRecordScope(record, req, res)) return;
+      const branchId = await getBranchIdValidated(req);
+      if (!checkRecordScope(record, req, res, branchId)) return;
       const partialSchema = insertStaffSchema.partial();
       const parsed = partialSchema.parse(req.body);
       const data = await storage.updateStaff(Number(req.params.id), parsed);
@@ -607,8 +620,9 @@ export async function registerRoutes(
   });
 
   app.delete("/api/staff/:id", async (req, res) => {
+    const branchId = await getBranchIdValidated(req);
     const record = await storage.getStaffMember(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteStaff(Number(req.params.id));
     res.status(204).send();
   });
@@ -630,14 +644,16 @@ export async function registerRoutes(
 
   app.patch("/api/expenses/:id", async (req, res) => {
     const record = await storage.getExpense(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateExpense(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/expenses/:id", async (req, res) => {
     const record = await storage.getExpense(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteExpense(Number(req.params.id));
     res.status(204).send();
   });
@@ -689,20 +705,23 @@ export async function registerRoutes(
 
   app.patch("/api/categories/:id", async (req, res) => {
     const record = await storage.getCategory(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateCategory(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/categories/type/:type", async (req, res) => {
     const hotelId = getHotelId(req);
-    await storage.deleteCategoryByType(req.params.type, hotelId);
+    const branchId = await getBranchIdValidated(req);
+    await storage.deleteCategoryByType(req.params.type, hotelId, branchId);
     res.status(204).send();
   });
 
   app.delete("/api/categories/:id", async (req, res) => {
     const record = await storage.getCategory(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteCategory(Number(req.params.id));
     res.status(204).send();
   });
@@ -724,14 +743,16 @@ export async function registerRoutes(
 
   app.patch("/api/menu-items/:id", async (req, res) => {
     const record = await storage.getMenuItem(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateMenuItem(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/menu-items/:id", async (req, res) => {
     const record = await storage.getMenuItem(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteMenuItem(Number(req.params.id));
     res.status(204).send();
   });
@@ -764,14 +785,16 @@ export async function registerRoutes(
 
   app.patch("/api/menus/:id", async (req, res) => {
     const record = await storage.getMenu(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateMenu(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/menus/:id", async (req, res) => {
     const record = await storage.getMenu(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteMenu(Number(req.params.id));
     res.status(204).send();
   });
@@ -793,14 +816,16 @@ export async function registerRoutes(
 
   app.patch("/api/facilities/:id", async (req, res) => {
     const record = await storage.getFacility(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateFacility(Number(req.params.id), req.body);
     res.json(data);
   });
 
   app.delete("/api/facilities/:id", async (req, res) => {
     const record = await storage.getFacility(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteFacility(Number(req.params.id));
     res.status(204).send();
   });
@@ -835,7 +860,8 @@ export async function registerRoutes(
 
   app.patch("/api/orders/:id", async (req, res) => {
     const record = await storage.getOrder(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateOrder(Number(req.params.id), req.body);
     if (!data) return res.status(404).json({ message: "Not found" });
     if (data.status === "Fulfilled" || data.status === "Accepted") {
@@ -900,7 +926,8 @@ export async function registerRoutes(
 
   app.patch("/api/salaries/:id", async (req, res) => {
     const record = await storage.getSalary(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     const data = await storage.updateSalary(Number(req.params.id), req.body);
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
@@ -912,7 +939,8 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Valid advance amount is required" });
     }
     const salary = await storage.getSalary(Number(req.params.id));
-    if (!checkRecordScope(salary, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(salary, req, res, branchId)) return;
     if (!salary) return res.status(404).json({ message: "Salary record not found" });
 
     const advanceNum = Number(amount);
@@ -930,7 +958,6 @@ export async function registerRoutes(
 
       if (overflow > 0) {
         const hotelId = getHotelId(req);
-        const branchId = await getBranchIdValidated(req);
         const staffMember = await storage.getStaffMember(salary.staffId);
         if (staffMember) {
           const now = new Date();
@@ -980,7 +1007,8 @@ export async function registerRoutes(
 
   app.delete("/api/salaries/:id", async (req, res) => {
     const record = await storage.getSalary(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteSalary(Number(req.params.id));
     res.status(204).send();
   });
@@ -1007,7 +1035,8 @@ export async function registerRoutes(
 
   app.delete("/api/booking-charges/:id", async (req, res) => {
     const record = await storage.getBookingCharge(Number(req.params.id));
-    if (!checkRecordScope(record, req, res)) return;
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
     await storage.deleteBookingCharge(Number(req.params.id));
     res.status(204).send();
   });

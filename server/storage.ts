@@ -97,7 +97,7 @@ export interface IStorage {
   createCategoriesBulk(items: InsertCategory[]): Promise<Category[]>;
   updateCategory(id: number, data: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<void>;
-  deleteCategoryByType(type: string, hotelId?: number | null): Promise<void>;
+  deleteCategoryByType(type: string, hotelId?: number | null, branchId?: number | null): Promise<void>;
   syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
 
   getMenuItems(hotelId?: number | null, branchId?: number | null): Promise<MenuItem[]>;
@@ -475,12 +475,11 @@ export class DatabaseStorage implements IStorage {
   async deleteCategory(id: number): Promise<void> {
     await db.delete(categories).where(eq(categories.id, id));
   }
-  async deleteCategoryByType(type: string, hotelId?: number | null): Promise<void> {
-    if (hotelId) {
-      await db.delete(categories).where(and(eq(categories.type, type), eq(categories.hotelId, hotelId)));
-    } else {
-      await db.delete(categories).where(eq(categories.type, type));
-    }
+  async deleteCategoryByType(type: string, hotelId?: number | null, branchId?: number | null): Promise<void> {
+    const conditions = [eq(categories.type, type)];
+    if (hotelId) conditions.push(eq(categories.hotelId, hotelId));
+    if (branchId) conditions.push(eq(categories.branchId, branchId));
+    await db.delete(categories).where(and(...conditions));
   }
   async syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null, branchId?: number | null): Promise<Category[]> {
     const conditions = [eq(categories.type, type)];
