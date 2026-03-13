@@ -188,3 +188,20 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Schema: added `monthlyCharges`, `customDomain`, `fromEmail` columns to hotels table
   - Storage: added `deleteHotelWithData()`, `getHotelById()` methods
   - Login: checks hotel status for owner role — blocks login if hotel is Deactivated or Archived
+- 2026-03-13: **CRITICAL Multi-Tenancy Fix** — Full data isolation per hotel
+  - Added `hotelId: integer("hotel_id")` column to ALL data tables: roomTypes, rooms, bookings, staff, expenses, categories, menuItems, menus, facilities, orders, settings, salaries, bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs
+  - Removed global `.unique()` from rooms.roomNumber, staff.employeeId, settings.key (now unique per hotel)
+  - Storage layer: All GET methods accept optional `hotelId` parameter and filter when provided
+  - Routes layer: `getHotelId(req)` helper extracts hotelId from session; injected into all GET queries and POST/PATCH bodies
+  - Super_admin (platform admin) has null hotelId → sees ALL data across hotels (no filter)
+  - Hotel owners/managers have hotelId set → only see their own hotel's data
+  - Tax invoice scheduler updated to filter by hotelId
+  - deleteHotelWithData() now uses hotelId filter for cascading deletes
+
+## Multi-Tenancy Architecture
+- Each hotel's data is isolated by `hotel_id` column on every data table
+- `platform_users.hotel_id` links users to their hotel
+- Session stores `hotelId` from authenticated user
+- All API routes inject hotelId from session into queries and creates
+- Super_admin role has null hotelId = sees all data (platform-wide)
+- Owner/manager roles have hotelId = filtered to their hotel only

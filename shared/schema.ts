@@ -50,6 +50,7 @@ export type PlatformUser = typeof platformUsers.$inferSelect;
 // ============= ROOM TYPES =============
 export const roomTypes = pgTable("room_types", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   name: text("name").notNull(),
   beds: text("beds").notNull().default("1 Queen Bed"),
   maxAdults: integer("max_adults").notNull().default(2),
@@ -67,13 +68,14 @@ export type RoomType = typeof roomTypes.$inferSelect;
 // ============= ROOMS =============
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
-  roomNumber: text("room_number").notNull().unique(),
+  hotelId: integer("hotel_id"),
+  roomNumber: text("room_number").notNull(),
   roomName: text("room_name").notNull().default(""),
   roomTypeId: integer("room_type_id").notNull(),
   floor: integer("floor").notNull().default(1),
   description: text("description").notNull().default(""),
   photos: text("photos").notNull().default("[]"),
-  status: text("status").notNull().default("available"), // available, occupied, maintenance, blocked
+  status: text("status").notNull().default("available"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -84,6 +86,7 @@ export type Room = typeof rooms.$inferSelect;
 // ============= BOOKINGS =============
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   bookingId: text("booking_id").notNull().unique(),
   guestName: text("guest_name").notNull(),
   guestEmail: text("guest_email"),
@@ -96,10 +99,10 @@ export const bookings = pgTable("bookings", {
   nights: integer("nights").notNull().default(1),
   adults: integer("adults").notNull().default(1),
   children: integer("children").notNull().default(0),
-  status: text("status").notNull().default("confirmed"), // confirmed, checked_in, checked_out, cancelled
+  status: text("status").notNull().default("confirmed"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
-  paymentMethod: text("payment_method").default("Cash"), // Cash, Card, UPI
+  paymentMethod: text("payment_method").default("Cash"),
   notes: text("notes"),
   discountInfo: text("discount_info"),
   checkedInAt: timestamp("checked_in_at"),
@@ -116,7 +119,8 @@ export type Booking = typeof bookings.$inferSelect;
 // ============= STAFF =============
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
-  employeeId: text("employee_id").notNull().unique(),
+  hotelId: integer("hotel_id"),
+  employeeId: text("employee_id").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(),
   email: text("email"),
@@ -154,6 +158,7 @@ export type Staff = typeof staff.$inferSelect;
 // ============= EXPENSES =============
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   date: date("date").notNull(),
   recordDate: date("record_date").notNull(),
   category: text("category").notNull(),
@@ -162,7 +167,7 @@ export const expenses = pgTable("expenses", {
   qty: text("qty").notNull().default("1"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
-  status: text("status").notNull().default("Pending"), // Pending, Paid, Rejected
+  status: text("status").notNull().default("Pending"),
   hasReceipt: boolean("has_receipt").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -174,6 +179,7 @@ export type Expense = typeof expenses.$inferSelect;
 // ============= CATEGORIES (Expense/Inventory) =============
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   type: text("type").notNull(),
   subtype: text("subtype").notNull().default(""),
   item: text("item").notNull(),
@@ -187,9 +193,10 @@ export type Category = typeof categories.$inferSelect;
 // ============= MENU ITEMS (Restaurant) =============
 export const menuItems = pgTable("menu_items", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
-  category: text("category").notNull().default("Food"), // Food, Beverage, Dessert, Other
+  category: text("category").notNull().default("Food"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   available: boolean("available").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -202,13 +209,14 @@ export type MenuItem = typeof menuItems.$inferSelect;
 // ============= MENUS & BUFFETS (Collections) =============
 export const menus = pgTable("menus", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   name: text("name").notNull(),
-  type: text("type").notNull().default("Daily"), // Daily, Buffet, Event, Seasonal
+  type: text("type").notNull().default("Daily"),
   startDate: date("start_date"),
   endDate: date("end_date"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   active: boolean("active").notNull().default(true),
-  itemIds: text("item_ids").notNull().default("[]"), // JSON array of menu item IDs
+  itemIds: text("item_ids").notNull().default("[]"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -219,10 +227,11 @@ export type Menu = typeof menus.$inferSelect;
 // ============= FACILITIES =============
 export const facilities = pgTable("facilities", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
-  unit: text("unit").notNull().default("item"), // item, person, night, stay, trip, session
+  unit: text("unit").notNull().default("item"),
   isFree: boolean("is_free").notNull().default(true),
   isDefault: boolean("is_default").notNull().default(false),
   taxable: boolean("taxable").notNull().default(false),
@@ -237,12 +246,13 @@ export type Facility = typeof facilities.$inferSelect;
 // ============= ORDERS (Food & Facility) =============
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   orderId: text("order_id").notNull().unique(),
   bookingId: text("booking_id").notNull(),
   guestName: text("guest_name").notNull(),
   roomNumber: text("room_number").notNull(),
-  type: text("type").notNull().default("Food"), // Food, Facility
-  status: text("status").notNull().default("Pending"), // Pending, Accepted, Fulfilled, Cancelled
+  type: text("type").notNull().default("Food"),
+  status: text("status").notNull().default("Pending"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -268,7 +278,8 @@ export type OrderItem = typeof orderItems.$inferSelect;
 // ============= SETTINGS (Key-Value Store) =============
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
-  key: text("key").notNull().unique(),
+  hotelId: integer("hotel_id"),
+  key: text("key").notNull(),
   value: text("value").notNull(),
 });
 
@@ -279,6 +290,7 @@ export type Setting = typeof settings.$inferSelect;
 // ============= SALARIES =============
 export const salaries = pgTable("salaries", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   staffId: integer("staff_id").notNull(),
   month: text("month").notNull(),
   basicSalary: decimal("basic_salary", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -288,7 +300,7 @@ export const salaries = pgTable("salaries", {
   netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull().default("0"),
   advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   dueDate: date("due_date"),
-  status: text("status").notNull().default("Pending"), // Pending, Paid
+  status: text("status").notNull().default("Pending"),
   paidDate: date("paid_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -300,6 +312,7 @@ export type Salary = typeof salaries.$inferSelect;
 // ============= ROOM PRICING (Per-date rates) =============
 export const roomPricing = pgTable("room_pricing", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   roomTypeId: integer("room_type_id").notNull(),
   date: date("date").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -314,6 +327,7 @@ export type RoomPricing = typeof roomPricing.$inferSelect;
 // ============= ROOM BLOCKS (Date-range blocking) =============
 export const roomBlocks = pgTable("room_blocks", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   roomId: integer("room_id").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -328,10 +342,11 @@ export type RoomBlock = typeof roomBlocks.$inferSelect;
 // ============= BOOKING CHARGES (Auto-linked from orders) =============
 export const bookingCharges = pgTable("booking_charges", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   bookingId: text("booking_id").notNull(),
   orderId: text("order_id"),
   description: text("description").notNull(),
-  category: text("category").notNull().default("Room"), // Room, Food, Facility, Tax
+  category: text("category").notNull().default("Room"),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -343,6 +358,7 @@ export type BookingCharge = typeof bookingCharges.$inferSelect;
 // ============= INVOICE SCHEDULER LOGS =============
 export const invoiceSchedulerLogs = pgTable("invoice_scheduler_logs", {
   id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
   jobType: text("job_type").notNull().default("manual"),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),

@@ -13,11 +13,11 @@ interface InvoiceSettings {
   taxRates: { room: number; food: number; facility: number; other: number };
 }
 
-async function getHotelSettings(): Promise<{
+async function getHotelSettings(hotelId?: number | null): Promise<{
   hotelName: string; hotelAddress: string; hotelPhone: string; hotelEmail: string; hotelGst: string;
   currency: string; invoiceSettings: InvoiceSettings; taxReportingEmails: string[]; schedulerEnabled: boolean; schedulerDay: number;
 }> {
-  const allSettings = await storage.getSettings();
+  const allSettings = await storage.getSettings(hotelId);
   const settingsMap: Record<string, string> = {};
   allSettings.forEach(s => { settingsMap[s.key] = s.value; });
 
@@ -75,7 +75,7 @@ function getCurrencySymbol(code: string): string {
   return map[code] || code;
 }
 
-export async function runTaxInvoiceJob(startDate: string, endDate: string, jobType: "manual" | "scheduled"): Promise<{ logId: number; success: boolean; message: string }> {
+export async function runTaxInvoiceJob(startDate: string, endDate: string, jobType: "manual" | "scheduled", hotelId?: number | null): Promise<{ logId: number; success: boolean; message: string }> {
   const logRecord = await storage.createInvoiceSchedulerLog({
     jobType,
     startDate,
@@ -84,10 +84,11 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
     emailsSent: 0,
     status: "running",
     errorMessage: null,
+    hotelId,
   });
 
   try {
-    const hotelSettings = await getHotelSettings();
+    const hotelSettings = await getHotelSettings(hotelId);
     const { taxReportingEmails, invoiceSettings } = hotelSettings;
 
     if (taxReportingEmails.length === 0) {
@@ -98,10 +99,10 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
       return { logId: logRecord.id, success: false, message: "No recipient emails configured." };
     }
 
-    const checkedOutBookings = await storage.getCheckedOutBookingsInRange(startDate, endDate);
-    const allCharges = await storage.getAllBookingCharges();
-    const allRoomTypes = await storage.getRoomTypes();
-    const allRooms = await storage.getRooms();
+    const checkedOutBookings = await storage.getCheckedOutBookingsInRange(startDate, endDate, hotelId);
+    const allCharges = await storage.getAllBookingCharges(hotelId);
+    const allRoomTypes = await storage.getRoomTypes(hotelId);
+    const allRooms = await storage.getRooms(hotelId);
     const cs = getCurrencySymbol(hotelSettings.currency);
 
     const chargesByBooking: Record<string, BookingCharge[]> = {};
@@ -119,7 +120,7 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
 
       if (!hasAnyTaxableItems(charges, invoiceSettings)) continue;
 
-      const pdfBuffer = await generateInvoicePDF({
+      const pdfBuffer: any = await generateInvoicePDF({
         booking,
         charges,
         roomType,

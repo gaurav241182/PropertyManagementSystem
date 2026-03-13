@@ -1,8 +1,12 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStaffSchema } from "@shared/schema";
 import { runTaxInvoiceJob, startScheduler, refreshScheduler } from "./tax-invoice-scheduler";
+
+function getHotelId(req: Request): number | null {
+  return req.session?.user?.hotelId || null;
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -217,13 +221,15 @@ export async function registerRoutes(
   });
 
   // ============= ROOM TYPES =============
-  app.get("/api/room-types", async (_req, res) => {
-    const data = await storage.getRoomTypes();
+  app.get("/api/room-types", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getRoomTypes(hotelId);
     res.json(data);
   });
 
   app.post("/api/room-types", async (req, res) => {
-    const data = await storage.createRoomType(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createRoomType({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -239,13 +245,15 @@ export async function registerRoutes(
   });
 
   // ============= ROOMS =============
-  app.get("/api/rooms", async (_req, res) => {
-    const data = await storage.getRooms();
+  app.get("/api/rooms", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getRooms(hotelId);
     res.json(data);
   });
 
   app.post("/api/rooms", async (req, res) => {
-    const data = await storage.createRoom(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createRoom({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -261,8 +269,9 @@ export async function registerRoutes(
   });
 
   // ============= BOOKINGS =============
-  app.get("/api/bookings", async (_req, res) => {
-    const data = await storage.getBookings();
+  app.get("/api/bookings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getBookings(hotelId);
     res.json(data);
   });
 
@@ -277,8 +286,9 @@ export async function registerRoutes(
     if (!checkIn || !checkOut) {
       return res.status(400).json({ message: "checkIn and checkOut query parameters are required" });
     }
-    const allRooms = await storage.getRooms();
-    const allBookings = await storage.getBookings();
+    const hotelId = getHotelId(req);
+    const allRooms = await storage.getRooms(hotelId);
+    const allBookings = await storage.getBookings(hotelId);
     const bookedRoomIds = new Set<number>();
     for (const b of allBookings) {
       if (b.status === "cancelled" || b.status === "checked_out") continue;
@@ -294,6 +304,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/bookings", async (req, res) => {
+    const hotelId = getHotelId(req);
     const { facilityCharges, overrideCapacity, ...bookingData } = req.body;
     const errors: string[] = [];
     if (!bookingData.guestName) errors.push("Guest name is required");
@@ -310,7 +321,7 @@ export async function registerRoutes(
     const sessionUser = req.session.user;
     const canOverride = overrideCapacity && sessionUser && (sessionUser.role === "owner" || sessionUser.role === "manager");
     if (!canOverride && bookingData.roomTypeId) {
-      const allRoomTypes = await storage.getRoomTypes();
+      const allRoomTypes = await storage.getRoomTypes(hotelId);
       const roomType = allRoomTypes.find(rt => rt.id === Number(bookingData.roomTypeId));
       if (roomType) {
         const adults = Number(bookingData.adults) || 0;
@@ -330,7 +341,7 @@ export async function registerRoutes(
     if (overlaps.length > 0) {
       return res.status(409).json({ message: `Room is already booked for the selected dates (conflicts with booking ${overlaps[0].bookingId})` });
     }
-    const data = await storage.createBooking(bookingData);
+    const data = await storage.createBooking({ ...bookingData, hotelId });
     if (facilityCharges && Array.isArray(facilityCharges) && facilityCharges.length > 0) {
       for (const charge of facilityCharges) {
         await storage.createBookingCharge({
@@ -338,6 +349,7 @@ export async function registerRoutes(
           description: charge.description,
           category: charge.category || "Facility",
           amount: charge.amount,
+          hotelId,
         });
       }
     }
@@ -366,8 +378,9 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  app.get("/api/bookings-archived", async (_req, res) => {
-    const data = await storage.getArchivedBookings();
+  app.get("/api/bookings-archived", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getArchivedBookings(hotelId);
     res.json(data);
   });
 
@@ -402,7 +415,7 @@ export async function registerRoutes(
     res.json({
       bookingId: booking.bookingId,
       guestName: booking.guestName,
-      roomNumber: "", // will be resolved from room
+      roomNumber: "",
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
       status: booking.status,
@@ -421,14 +434,16 @@ export async function registerRoutes(
   });
 
   // ============= STAFF =============
-  app.get("/api/staff", async (_req, res) => {
-    const data = await storage.getStaff();
+  app.get("/api/staff", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getStaff(hotelId);
     res.json(data);
   });
 
   app.post("/api/staff", async (req, res) => {
     try {
-      const parsed = insertStaffSchema.parse(req.body);
+      const hotelId = getHotelId(req);
+      const parsed = insertStaffSchema.parse({ ...req.body, hotelId });
       const data = await storage.createStaff(parsed);
       
       const totalSalary = Number(data.salary) || 0;
@@ -460,6 +475,7 @@ export async function registerRoutes(
           dueDate: dueDateStr,
           status: "Pending",
           paidDate: null,
+          hotelId,
         });
       }
       
@@ -487,13 +503,15 @@ export async function registerRoutes(
   });
 
   // ============= EXPENSES =============
-  app.get("/api/expenses", async (_req, res) => {
-    const data = await storage.getExpenses();
+  app.get("/api/expenses", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getExpenses(hotelId);
     res.json(data);
   });
 
   app.post("/api/expenses", async (req, res) => {
-    const data = await storage.createExpense(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createExpense({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -509,17 +527,20 @@ export async function registerRoutes(
   });
 
   // ============= CATEGORIES =============
-  app.get("/api/categories", async (_req, res) => {
-    const data = await storage.getCategories();
+  app.get("/api/categories", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getCategories(hotelId);
     res.json(data);
   });
 
   app.post("/api/categories", async (req, res) => {
-    const data = await storage.createCategory(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createCategory({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
   app.post("/api/categories/bulk", async (req, res) => {
+    const hotelId = getHotelId(req);
     const { type, taxable, subtypes } = req.body;
     if (!type || !Array.isArray(subtypes)) {
       return res.status(400).json({ message: "type and subtypes array required" });
@@ -529,17 +550,19 @@ export async function registerRoutes(
       subtype: s.subtype || "",
       item: s.item || "",
       taxable: taxable || false,
+      hotelId,
     }));
     const data = await storage.createCategoriesBulk(items);
     res.status(201).json(data);
   });
 
   app.put("/api/categories/sync", async (req, res) => {
+    const hotelId = getHotelId(req);
     const { type, taxable, subtypes } = req.body;
     if (!type || !Array.isArray(subtypes)) {
       return res.status(400).json({ message: "type and subtypes array required" });
     }
-    const data = await storage.syncCategoryType(type, taxable || false, subtypes);
+    const data = await storage.syncCategoryType(type, taxable || false, subtypes, hotelId);
     res.json(data);
   });
 
@@ -550,7 +573,8 @@ export async function registerRoutes(
   });
 
   app.delete("/api/categories/type/:type", async (req, res) => {
-    await storage.deleteCategoryByType(req.params.type);
+    const hotelId = getHotelId(req);
+    await storage.deleteCategoryByType(req.params.type, hotelId);
     res.status(204).send();
   });
 
@@ -560,13 +584,15 @@ export async function registerRoutes(
   });
 
   // ============= MENU ITEMS =============
-  app.get("/api/menu-items", async (_req, res) => {
-    const data = await storage.getMenuItems();
+  app.get("/api/menu-items", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getMenuItems(hotelId);
     res.json(data);
   });
 
   app.post("/api/menu-items", async (req, res) => {
-    const data = await storage.createMenuItem(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createMenuItem({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -582,8 +608,9 @@ export async function registerRoutes(
   });
 
   // ============= MENUS & BUFFETS =============
-  app.get("/api/menus", async (_req, res) => {
-    const data = await storage.getMenus();
+  app.get("/api/menus", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getMenus(hotelId);
     const today = new Date().toISOString().split('T')[0];
     const updated = [];
     for (const menu of data) {
@@ -599,7 +626,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/menus", async (req, res) => {
-    const data = await storage.createMenu(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createMenu({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -615,13 +643,15 @@ export async function registerRoutes(
   });
 
   // ============= FACILITIES =============
-  app.get("/api/facilities", async (_req, res) => {
-    const data = await storage.getFacilities();
+  app.get("/api/facilities", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getFacilities(hotelId);
     res.json(data);
   });
 
   app.post("/api/facilities", async (req, res) => {
-    const data = await storage.createFacility(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createFacility({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -637,10 +667,11 @@ export async function registerRoutes(
   });
 
   // ============= ORDERS =============
-  app.get("/api/orders", async (_req, res) => {
-    const allOrders = await storage.getOrders();
+  app.get("/api/orders", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getOrders(hotelId);
     const ordersWithItems = await Promise.all(
-      allOrders.map(async (order) => {
+      data.map(async (order) => {
         const items = await storage.getOrderItems(order.orderId);
         return { ...order, items };
       })
@@ -649,64 +680,75 @@ export async function registerRoutes(
   });
 
   app.post("/api/orders", async (req, res) => {
+    const hotelId = getHotelId(req);
     const { items, ...orderData } = req.body;
-    const order = await storage.createOrder(orderData);
+    const data = await storage.createOrder({ ...orderData, hotelId });
     if (items && Array.isArray(items)) {
       for (const item of items) {
-        await storage.createOrderItem({ ...item, orderId: order.orderId });
+        await storage.createOrderItem({ ...item, orderId: data.orderId });
       }
     }
-    const orderItemsList = await storage.getOrderItems(order.orderId);
-    res.status(201).json({ ...order, items: orderItemsList });
+    const orderItems = await storage.getOrderItems(data.orderId);
+    res.status(201).json({ ...data, items: orderItems });
   });
 
   app.patch("/api/orders/:id", async (req, res) => {
-    const order = await storage.updateOrder(Number(req.params.id), req.body);
-    if (!order) return res.status(404).json({ message: "Not found" });
-
-    if (req.body.status === "Fulfilled" && order.bookingId) {
-      const items = await storage.getOrderItems(order.orderId);
-      const desc = items.map(i => `${i.itemName} x${i.quantity}`).join(", ");
-      await storage.createBookingCharge({
-        bookingId: order.bookingId,
-        orderId: order.orderId,
-        description: desc || `${order.type} Order ${order.orderId}`,
-        category: order.type === "Food" ? "Food" : "Facility",
-        amount: order.totalAmount,
-      });
+    const data = await storage.updateOrder(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    if (data.status === "Fulfilled" || data.status === "Accepted") {
+      const booking = await storage.getBookingByBookingId(data.bookingId);
+      if (booking && data.status === "Fulfilled") {
+        const items = await storage.getOrderItems(data.orderId);
+        for (const item of items) {
+          const existingCharges = await storage.getBookingCharges(data.bookingId);
+          const alreadyCharged = existingCharges.some(c => c.orderId === data.orderId && c.description === item.itemName);
+          if (!alreadyCharged) {
+            await storage.createBookingCharge({
+              bookingId: data.bookingId,
+              orderId: data.orderId,
+              description: item.itemName,
+              category: data.type === "Food" ? "Food" : "Facility",
+              amount: String(Number(item.price) * item.quantity),
+              hotelId: data.hotelId,
+            });
+          }
+        }
+      }
     }
-
-    const orderItems = await storage.getOrderItems(order.orderId);
-    res.json({ ...order, items: orderItems });
+    const orderItems = await storage.getOrderItems(data.orderId);
+    res.json({ ...data, items: orderItems });
   });
 
   // ============= SETTINGS =============
-  app.get("/api/settings", async (_req, res) => {
-    const data = await storage.getSettings();
-    const settingsObj: Record<string, string> = {};
-    data.forEach((s) => { settingsObj[s.key] = s.value; });
-    res.json(settingsObj);
+  app.get("/api/settings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getSettings(hotelId);
+    const result: Record<string, string> = {};
+    for (const s of data) {
+      result[s.key] = s.value;
+    }
+    res.json(result);
   });
 
   app.post("/api/settings", async (req, res) => {
-    const entries = Object.entries(req.body) as [string, string][];
+    const hotelId = getHotelId(req);
+    const entries = Object.entries(req.body);
     for (const [key, value] of entries) {
-      await storage.upsertSetting(key, String(value));
+      await storage.upsertSetting(key, String(value), hotelId);
     }
     res.json({ message: "Settings saved" });
   });
 
   // ============= SALARIES =============
   app.get("/api/salaries", async (req, res) => {
-    const month = req.query.month as string | undefined;
-    const data = month
-      ? await storage.getSalariesByMonth(month)
-      : await storage.getSalaries();
+    const hotelId = getHotelId(req);
+    const data = await storage.getSalaries(hotelId);
     res.json(data);
   });
 
   app.post("/api/salaries", async (req, res) => {
-    const data = await storage.createSalary(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createSalary({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
@@ -716,183 +758,149 @@ export async function registerRoutes(
     res.json(data);
   });
 
-  app.delete("/api/salaries/:id", async (req, res) => {
-    await storage.deleteSalary(Number(req.params.id));
-    res.json({ success: true });
-  });
-
   app.post("/api/salaries/:id/advance", async (req, res) => {
-    try {
-      const salaryId = Number(req.params.id);
-      const { amount } = req.body;
-      const advanceAmount = Number(amount) || 0;
-      if (advanceAmount <= 0) {
-        return res.status(400).json({ message: "Advance amount must be greater than 0" });
-      }
+    const { amount } = req.body;
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ message: "Valid advance amount is required" });
+    }
+    const salary = await storage.updateSalary(Number(req.params.id), {});
+    if (!salary) return res.status(404).json({ message: "Salary record not found" });
 
-      const allSalaries = await storage.getSalaries();
-      const salary = allSalaries.find((s: any) => s.id === salaryId);
-      if (!salary) return res.status(404).json({ message: "Salary record not found" });
+    const advanceNum = Number(amount);
+    const existingAdvance = Number(salary.advanceAmount) || 0;
+    const newAdvance = existingAdvance + advanceNum;
+    const netPay = Number(salary.netPay) || 0;
 
-      const netPay = Number(salary.netPay) || 0;
-      const existingAdvance = Number(salary.advanceAmount) || 0;
-      const totalAdvance = existingAdvance + advanceAmount;
-      const pendingAfterAdvance = netPay - totalAdvance;
+    if (newAdvance >= netPay) {
+      const overflow = newAdvance - netPay;
+      await storage.updateSalary(salary.id, {
+        advanceAmount: String(netPay),
+        status: "Paid",
+        paidDate: new Date().toISOString().split('T')[0],
+      } as any);
 
-      if (pendingAfterAdvance <= 0) {
-        await storage.updateSalary(salaryId, {
-          advanceAmount: String(totalAdvance),
-          status: "Paid",
-          paidDate: new Date().toISOString().split('T')[0],
-        });
-
-        if (pendingAfterAdvance < 0) {
-          const overflow = Math.abs(pendingAfterAdvance);
-          const [yearStr, monthStr] = salary.month.split("-");
-          let nextYear = parseInt(yearStr);
-          let nextMonth = parseInt(monthStr) + 1;
-          if (nextMonth > 12) { nextMonth = 1; nextYear++; }
-          const nextMonthKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-          const nextLastDay = new Date(nextYear, nextMonth, 0);
-          const nextDueDate = nextLastDay.toISOString().split('T')[0];
-
-          const existingNext = allSalaries.find(
-            (s: any) => s.staffId === salary.staffId && s.month === nextMonthKey
-          );
-
+      if (overflow > 0) {
+        const hotelId = getHotelId(req);
+        const staffMember = await storage.getStaffMember(salary.staffId);
+        if (staffMember) {
+          const now = new Date();
+          const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+          const existingSalaries = await storage.getSalariesByMonth(nextMonthStr, hotelId);
+          const existingNext = existingSalaries.find(s => s.staffId === salary.staffId);
           if (existingNext) {
-            const existNextAdv = Number(existingNext.advanceAmount) || 0;
+            const existingNextAdvance = Number(existingNext.advanceAmount) || 0;
             await storage.updateSalary(existingNext.id, {
-              advanceAmount: String(existNextAdv + overflow),
-            });
+              advanceAmount: String(existingNextAdvance + overflow),
+            } as any);
           } else {
+            const totalSalary = Number(staffMember.salary) || 0;
+            const bonusAmt = Number(staffMember.bonusAmount) || 0;
+            const basicPay = Number(staffMember.basicPay) || totalSalary;
+            const welfareAmount = staffMember.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+            const lastDayNext = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0);
             await storage.createSalary({
               staffId: salary.staffId,
-              month: nextMonthKey,
-              basicSalary: salary.basicSalary,
-              bonus: salary.bonus,
+              month: nextMonthStr,
+              basicSalary: String(totalSalary),
+              bonus: String(bonusAmt),
               deductions: "0",
-              welfareContribution: salary.welfareContribution,
-              netPay: salary.netPay,
+              welfareContribution: String(welfareAmount),
+              netPay: String(totalSalary + bonusAmt),
               advanceAmount: String(overflow),
-              dueDate: nextDueDate,
+              dueDate: lastDayNext.toISOString().split('T')[0],
               status: "Pending",
               paidDate: null,
+              hotelId,
             });
           }
         }
-      } else {
-        await storage.updateSalary(salaryId, {
-          advanceAmount: String(totalAdvance),
-        });
       }
 
-      const updated = (await storage.getSalaries()).find((s: any) => s.id === salaryId);
-      res.json(updated);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to process advance" });
+      const updated = await storage.updateSalary(salary.id, {});
+      return res.json({ ...updated, overflowToNextMonth: overflow > 0 ? overflow : 0 });
     }
+
+    const updated = await storage.updateSalary(salary.id, {
+      advanceAmount: String(newAdvance),
+    } as any);
+    res.json(updated);
+  });
+
+  app.delete("/api/salaries/:id", async (req, res) => {
+    await storage.deleteSalary(Number(req.params.id));
+    res.status(204).send();
   });
 
   // ============= BOOKING CHARGES =============
-  app.get("/api/booking-charges", async (req, res) => {
-    const data = await storage.getAllBookingCharges();
-    res.json(data);
-  });
-
   app.get("/api/booking-charges/:bookingId", async (req, res) => {
     const data = await storage.getBookingCharges(req.params.bookingId);
     res.json(data);
   });
 
+  app.get("/api/booking-charges", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getAllBookingCharges(hotelId);
+    res.json(data);
+  });
+
   app.post("/api/booking-charges", async (req, res) => {
-    const data = await storage.createBookingCharge(req.body);
+    const hotelId = getHotelId(req);
+    const data = await storage.createBookingCharge({ ...req.body, hotelId });
     res.status(201).json(data);
   });
 
   app.delete("/api/booking-charges/:id", async (req, res) => {
     await storage.deleteBookingCharge(Number(req.params.id));
-    res.json({ success: true });
+    res.status(204).send();
   });
 
   // ============= ROOM PRICING =============
   app.get("/api/room-pricing", async (req, res) => {
+    const hotelId = getHotelId(req);
     const roomTypeId = req.query.roomTypeId ? Number(req.query.roomTypeId) : undefined;
-    const data = await storage.getRoomPricing(roomTypeId);
+    const data = await storage.getRoomPricing(roomTypeId, hotelId);
     res.json(data);
   });
 
   app.post("/api/room-pricing", async (req, res) => {
-    try {
-      const { roomTypeId, date, price, isLocked } = req.body;
-      if (!roomTypeId || !date || price === undefined) {
-        return res.status(400).json({ message: "roomTypeId, date, and price are required" });
-      }
-      const result = await storage.upsertRoomPricing({
-        roomTypeId,
-        date,
-        price: String(price),
-        isLocked: isLocked ?? false,
-      });
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    const hotelId = getHotelId(req);
+    const data = await storage.upsertRoomPricing({ ...req.body, hotelId });
+    res.status(201).json(data);
   });
 
   app.post("/api/room-pricing/bulk", async (req, res) => {
-    try {
-      const items = req.body;
-      if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ message: "Request body must be a non-empty array" });
-      }
-      const mapped = items.map((item: any) => ({
-        roomTypeId: item.roomTypeId,
-        date: item.date,
-        price: String(item.price),
-        isLocked: item.isLocked ?? false,
-      }));
-      const results = await storage.bulkUpsertRoomPricing(mapped);
-      res.json(results);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    const hotelId = getHotelId(req);
+    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId }));
+    const data = await storage.bulkUpsertRoomPricing(items);
+    res.status(201).json(data);
   });
 
   app.patch("/api/room-pricing/:id/lock", async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      const { isLocked } = req.body;
-      if (typeof isLocked !== "boolean") {
-        return res.status(400).json({ message: "isLocked must be a boolean" });
-      }
-      const result = await storage.updateRoomPricingLock(id, isLocked);
-      if (!result) return res.status(404).json({ message: "Pricing record not found" });
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    const { isLocked } = req.body;
+    const data = await storage.updateRoomPricingLock(Number(req.params.id), isLocked);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
   });
 
   // ============= ROOM BLOCKS =============
-  app.get("/api/room-blocks", async (_req, res) => {
-    const data = await storage.getRoomBlocks();
+  app.get("/api/room-blocks", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getRoomBlocks(hotelId);
     res.json(data);
   });
 
   app.post("/api/room-blocks", async (req, res) => {
-    try {
-      const items = req.body;
-      if (Array.isArray(items)) {
-        const results = await storage.bulkCreateRoomBlocks(items);
-        res.status(201).json(results);
-      } else {
-        const result = await storage.createRoomBlock(items);
-        res.status(201).json(result);
-      }
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    const hotelId = getHotelId(req);
+    const data = await storage.createRoomBlock({ ...req.body, hotelId });
+    res.status(201).json(data);
+  });
+
+  app.post("/api/room-blocks/bulk", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId }));
+    const data = await storage.bulkCreateRoomBlocks(items);
+    res.status(201).json(data);
   });
 
   app.delete("/api/room-blocks/:id", async (req, res) => {
@@ -901,103 +909,100 @@ export async function registerRoutes(
   });
 
   app.post("/api/room-blocks/unblock", async (req, res) => {
-    try {
-      const { roomIds, startDate, endDate } = req.body;
-      if (!roomIds || !startDate || !endDate) {
-        return res.status(400).json({ message: "roomIds, startDate, and endDate are required" });
-      }
-      const count = await storage.deleteRoomBlocksByRoomAndDateRange(roomIds, startDate, endDate);
-      res.json({ deleted: count });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    const { roomIds, startDate, endDate } = req.body;
+    if (!roomIds || !startDate || !endDate) {
+      return res.status(400).json({ message: "roomIds, startDate, and endDate are required" });
     }
+    const count = await storage.deleteRoomBlocksByRoomAndDateRange(roomIds, startDate, endDate);
+    res.json({ deleted: count });
   });
 
-  // ============= TAX INVOICE SCHEDULER =============
-  app.get("/api/invoice-scheduler-logs", async (_req, res) => {
-    const data = await storage.getInvoiceSchedulerLogs();
+  // ============= INVOICE SCHEDULER =============
+  app.get("/api/invoice-scheduler/logs", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getInvoiceSchedulerLogs(hotelId);
     res.json(data);
   });
 
-  app.post("/api/tax-invoices/send", async (req, res) => {
+  app.post("/api/invoice-scheduler/run", async (req, res) => {
     try {
       const { startDate, endDate } = req.body;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
-      const result = await runTaxInvoiceJob(startDate, endDate, "manual");
+      const hotelId = getHotelId(req);
+      const result = await runTaxInvoiceJob(startDate, endDate, "manual", hotelId);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to run tax invoice job" });
+      res.status(500).json({ message: error.message });
     }
   });
 
-  app.post("/api/tax-scheduler/refresh", async (_req, res) => {
-    try {
-      await refreshScheduler();
-      res.json({ message: "Scheduler refreshed" });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to refresh scheduler" });
-    }
+  app.post("/api/invoice-scheduler/settings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const { enabled, dayOfMonth, hour } = req.body;
+    if (enabled !== undefined) await storage.upsertSetting("schedulerEnabled", String(enabled), hotelId);
+    if (dayOfMonth !== undefined) await storage.upsertSetting("schedulerDayOfMonth", String(dayOfMonth), hotelId);
+    if (hour !== undefined) await storage.upsertSetting("schedulerHour", String(hour), hotelId);
+    refreshScheduler();
+    res.json({ message: "Scheduler settings updated" });
+  });
+
+  app.get("/api/invoice-scheduler/settings", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const enabled = await storage.getSetting("schedulerEnabled", hotelId);
+    const dayOfMonth = await storage.getSetting("schedulerDayOfMonth", hotelId);
+    const hour = await storage.getSetting("schedulerHour", hotelId);
+    res.json({
+      enabled: enabled?.value === "true",
+      dayOfMonth: dayOfMonth ? Number(dayOfMonth.value) : 1,
+      hour: hour ? Number(hour.value) : 2,
+    });
   });
 
   // ============= ROOM CALENDAR STATUS =============
   app.get("/api/rooms/calendar-status", async (req, res) => {
     try {
-      const { roomTypeId, roomId, startDate: qStart, endDate: qEnd } = req.query;
-      if (!qStart || !qEnd) {
-        return res.status(400).json({ message: "startDate and endDate query parameters are required (YYYY-MM-DD)" });
+      const { startDate, endDate, roomTypeId, roomId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate query parameters are required" });
       }
 
-      const startDateStr = qStart as string;
-      const endDateStr = qEnd as string;
+      const hotelId = getHotelId(req);
+      const allRooms = await storage.getRooms(hotelId);
+      const allBookings = await storage.getBookings(hotelId);
+      const allBlocks = await storage.getRoomBlocks(hotelId);
 
-      const allRooms = await storage.getRooms();
       let filteredRooms = allRooms;
-      if (roomTypeId) {
+      if (roomTypeId && roomTypeId !== "all") {
         filteredRooms = filteredRooms.filter(r => r.roomTypeId === Number(roomTypeId));
       }
-      if (roomId) {
+      if (roomId && roomId !== "all") {
         filteredRooms = filteredRooms.filter(r => r.id === Number(roomId));
       }
 
-      const allBookings = await storage.getBookings();
-      const activeBookings = allBookings.filter(b =>
-        b.status !== "cancelled" && b.status !== "checked_out" &&
-        b.checkIn <= endDateStr && b.checkOut > startDateStr
-      );
+      const result: Record<string, any> = {};
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
 
-      const allBlocks = await storage.getRoomBlocks();
-      const relevantBlocks = allBlocks.filter(b =>
-        b.startDate <= endDateStr && b.endDate >= startDateStr
-      );
-
-      const result: Record<string, { status: string; bookingStatus: string; bookedCount: number; checkedInCount: number; blockedCount: number; availableCount: number; totalRooms: number }> = {};
-
-      const start = new Date(startDateStr);
-      const end = new Date(endDateStr);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateKey = d.toISOString().split("T")[0];
+        const dateKey = d.toISOString().split('T')[0];
         let bookedCount = 0;
         let checkedInCount = 0;
         let blockedCount = 0;
         let availableCount = 0;
 
         for (const room of filteredRooms) {
-          if (room.status === "blocked" || room.status === "maintenance") {
-            blockedCount++;
-            continue;
-          }
-
-          const hasBlock = relevantBlocks.some(b =>
-            b.roomId === room.id && b.startDate <= dateKey && b.endDate >= dateKey
+          const isBlocked = allBlocks.some(
+            b => b.roomId === room.id && b.startDate <= dateKey && b.endDate >= dateKey
           );
-          if (hasBlock) {
+          if (isBlocked) {
             blockedCount++;
             continue;
           }
 
-          const booking = activeBookings.find(b =>
+          const booking = allBookings.find(
+            b => b.status !== "cancelled" && b.status !== "checked_out" &&
             b.roomId === room.id && b.checkIn <= dateKey && b.checkOut > dateKey
           );
           if (booking) {
