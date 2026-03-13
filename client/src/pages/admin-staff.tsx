@@ -211,6 +211,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteDues, setDeleteDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDues, setCheckingDues] = useState(false);
+  const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
+  const [staffToDeactivate, setStaffToDeactivate] = useState<number | null>(null);
+  const [deactivatePassword, setDeactivatePassword] = useState("");
+  const [deactivateDues, setDeactivateDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
+  const [checkingDeactivateDues, setCheckingDeactivateDues] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   const [employeeId, setEmployeeId] = useState("");
@@ -331,9 +336,46 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setIsDialogOpen(true);
   };
 
-  const handleToggleStatus = (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === "Active" ? "inactive" : "active";
-    updateStaffMutation.mutate({ id, data: { status: newStatus } });
+  const deactivateStaffMutation = useMutation({
+    mutationFn: ({ id, password }: { id: number; password: string }) => apiRequest("POST", `/api/staff/${id}/deactivate`, { password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Staff Deactivated", description: "Employee has been deactivated and moved to archived records." });
+      setStaffToDeactivate(null);
+      setIsDeactivateAlertOpen(false);
+      setDeactivatePassword("");
+      setDeactivateDues(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openDeactivateDialog = async (staffId: number) => {
+    setStaffToDeactivate(staffId);
+    setDeactivatePassword("");
+    setDeactivateDues(null);
+    setIsDeactivateAlertOpen(true);
+    setCheckingDeactivateDues(true);
+    try {
+      const res = await apiRequest("GET", `/api/staff/${staffId}/dues`);
+      const data = await res.json();
+      setDeactivateDues(data);
+    } catch {
+      setDeactivateDues({ hasDues: false, count: 0, totalDue: 0 });
+    } finally {
+      setCheckingDeactivateDues(false);
+    }
+  };
+
+  const confirmDeactivate = () => {
+    if (staffToDeactivate && deactivatePassword) {
+      deactivateStaffMutation.mutate({ id: staffToDeactivate, password: deactivatePassword });
+    }
+  };
+
+  const handleActivateStaff = (id: number) => {
+    updateStaffMutation.mutate({ id, data: { status: "active" } });
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1006,7 +1048,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Button variant="ghost" size="icon" title="View Details" onClick={() => handleView(employee)} data-testid={`button-view-staff-${employee.id}`}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleToggleStatus(employee.id, employee.status)}>
+                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeactivateDialog(employee.id)}>
                           <Ban className="h-4 w-4" />
                         </Button>
                         {role === "owner" && (
@@ -1066,7 +1108,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <TableCell><Badge variant="secondary">{employee.status}</Badge></TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleToggleStatus(employee.id, employee.status)}>
+                          <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleActivateStaff(employee.id)}>
                             <Power className="h-3 w-3 mr-1" /> Activate
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id)}>
@@ -1146,6 +1188,74 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               >
                 {deleteStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Permanently Delete
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeactivateAlertOpen} onOpenChange={(open) => {
+        setIsDeactivateAlertOpen(open);
+        if (!open) { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-amber-600 mb-2">
+              <Ban className="h-5 w-5" />
+              <AlertDialogTitle>Deactivate Staff Member?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>This will deactivate the staff member and move them to archived records. They will no longer appear in active staff lists or be included in salary generation.</p>
+
+                {checkingDeactivateDues && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues...
+                  </div>
+                )}
+
+                {deactivateDues?.hasDues && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-red-700 font-medium">Outstanding Dues Found</p>
+                    <p className="text-red-600 text-sm mt-1">
+                      This staff has {deactivateDues.count} unpaid salary record(s) totalling {cs}{deactivateDues.totalDue.toFixed(2)}.
+                      Please clear all dues before deactivating this staff member.
+                    </p>
+                  </div>
+                )}
+
+                {deactivateDues && !deactivateDues.hasDues && (
+                  <div className="space-y-2">
+                    <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                      <p className="text-green-700 text-sm">No outstanding dues. Staff can be deactivated.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="deactivate-password" className="text-sm font-medium">Enter your password to confirm</Label>
+                      <Input
+                        id="deactivate-password"
+                        type="password"
+                        placeholder="Enter your login password"
+                        value={deactivatePassword}
+                        onChange={(e) => setDeactivatePassword(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && deactivatePassword) confirmDeactivate(); }}
+                        data-testid="input-deactivate-password"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setStaffToDeactivate(null); setDeactivatePassword(""); setDeactivateDues(null); }}>Cancel</AlertDialogCancel>
+            {deactivateDues && !deactivateDues.hasDues && (
+              <AlertDialogAction
+                onClick={confirmDeactivate}
+                disabled={!deactivatePassword || deactivateStaffMutation.isPending}
+                className="bg-amber-600 text-white hover:bg-amber-700"
+              >
+                {deactivateStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Deactivate Staff
               </AlertDialogAction>
             )}
           </AlertDialogFooter>

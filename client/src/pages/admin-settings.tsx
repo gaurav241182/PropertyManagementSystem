@@ -31,7 +31,9 @@ export default function AdminSettings() {
   const { data: schedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/invoice-scheduler-logs'] });
   const { data: salarySchedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/salary-scheduler/logs'] });
   const { data: salarySchedulerSettingsData } = useQuery<any>({ queryKey: ['/api/salary-scheduler/settings'] });
+  const { data: allStaffData } = useQuery<any[]>({ queryKey: ['/api/staff'] });
   const [archivalSearch, setArchivalSearch] = useState("");
+  const [staffArchivalSearch, setStaffArchivalSearch] = useState("");
   const [viewingArchived, setViewingArchived] = useState<any>(null);
 
   const [taxEmailInput, setTaxEmailInput] = useState("");
@@ -290,6 +292,19 @@ export default function AdminSettings() {
     },
   });
 
+
+  const activateStaffMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/staff/${id}`, { status: "active" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Staff Activated", description: "The staff member has been restored to active status." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
   const unarchiveBookingMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -2827,6 +2842,102 @@ export default function AdminSettings() {
                 )}
               </DialogContent>
             </Dialog>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-gray-500" />
+                      Archived Staff Records
+                    </CardTitle>
+                    <CardDescription>Deactivated staff members are archived here. You can reactivate them to move them back to Staff Management.</CardDescription>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, employee ID, role..."
+                      value={staffArchivalSearch}
+                      onChange={(e) => setStaffArchivalSearch(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-staff-archival-search"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const inactiveStaff = (allStaffData || []).filter((s: any) => s.status === "Inactive");
+                  const filteredStaff = inactiveStaff.filter((s: any) => {
+                    if (!staffArchivalSearch.trim()) return true;
+                    const q = staffArchivalSearch.toLowerCase().trim();
+                    return (
+                      (s.firstName || "").toLowerCase().includes(q) ||
+                      (s.lastName || "").toLowerCase().includes(q) ||
+                      (s.employeeId || "").toLowerCase().includes(q) ||
+                      (s.role || "").toLowerCase().includes(q) ||
+                      (s.department || "").toLowerCase().includes(q) ||
+                      (`${s.firstName} ${s.lastName}`).toLowerCase().includes(q)
+                    );
+                  });
+                  if (filteredStaff.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p className="text-lg font-medium">No archived staff</p>
+                        <p className="text-sm">Deactivated staff members will appear here.</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50">
+                              <TableHead>Employee ID</TableHead>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Role</TableHead>
+                              <TableHead>Department</TableHead>
+                              <TableHead>Salary</TableHead>
+                              <TableHead>Joined</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredStaff.map((s: any) => (
+                              <TableRow key={s.id} className="bg-gray-50/60 text-gray-500" data-testid={`row-archived-staff-${s.id}`}>
+                                <TableCell className="font-mono text-xs">{s.employeeId || "—"}</TableCell>
+                                <TableCell className="font-medium">{s.firstName} {s.lastName}</TableCell>
+                                <TableCell>{s.role || "—"}</TableCell>
+                                <TableCell>{s.department || "—"}</TableCell>
+                                <TableCell>{currency} {s.salary || "0"}</TableCell>
+                                <TableCell>{s.joined || "—"}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                    onClick={() => activateStaffMutation.mutate(s.id)}
+                                    disabled={activateStaffMutation.isPending}
+                                    data-testid={`button-activate-staff-${s.id}`}
+                                  >
+                                    <ArchiveRestore className="h-3 w-3 mr-1" /> Reactivate
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="mt-4 text-xs text-muted-foreground">
+                        Total archived staff: {filteredStaff.length}
+                      </div>
+                    </>
+                  );
+                })()}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Dev Tools */}

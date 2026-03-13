@@ -620,6 +620,39 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/staff/:id/deactivate", async (req, res) => {
+    try {
+      const branchId = await getBranchIdValidated(req);
+      const record = await storage.getStaffMember(Number(req.params.id));
+      if (!checkRecordScope(record, req, res, branchId)) return;
+
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to deactivate staff" });
+      }
+      const sessionUser = (req as any).session?.user;
+      if (!sessionUser) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const dbUser = await storage.getPlatformUserByEmail(sessionUser.email);
+      if (!dbUser || dbUser.password !== password) {
+        return res.status(401).json({ message: "Incorrect password" });
+      }
+
+      const unpaid = await storage.getUnpaidSalariesByStaff(Number(req.params.id));
+      if (unpaid.length > 0) {
+        const totalDue = unpaid.reduce((sum, s) => sum + parseFloat(s.netPay || "0"), 0);
+        return res.status(400).json({ message: `Cannot deactivate staff with ${unpaid.length} unpaid salary record(s) totalling ₹${totalDue.toFixed(2)}. Please clear all dues first.` });
+      }
+
+      const data = await storage.updateStaff(Number(req.params.id), { status: "Inactive" } as any);
+      if (!data) return res.status(404).json({ message: "Not found" });
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to deactivate staff" });
+    }
+  });
+
   app.get("/api/staff/:id/dues", async (req, res) => {
     const staffId = Number(req.params.id);
     const unpaid = await storage.getUnpaidSalariesByStaff(staffId);
