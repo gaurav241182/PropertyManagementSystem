@@ -14,6 +14,7 @@ import { Utensils, Sparkles, Plus, Search, Filter, Clock, CheckCircle, ChefHat, 
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
 type OrderStatus = "Pending" | "Accepted" | "Fulfilled" | "Cancelled";
 type OrderType = "Food" | "Facility";
@@ -83,6 +84,7 @@ interface ApiBooking {
 
 export default function AdminOrders({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
+  const { currencySymbol } = useHotelSettings();
 
   const { data: orders = [] } = useQuery<ApiOrder[]>({ queryKey: ['/api/orders'] });
   const { data: menuItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
@@ -291,7 +293,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                                   <ChefHat className="h-3.5 w-3.5 text-primary" />
                                   {menu.name}
                                 </p>
-                                <p className="text-xs text-muted-foreground">${menu.price} &middot; {menu.type}</p>
+                                <p className="text-xs text-muted-foreground">{currencySymbol}{menu.price} &middot; {menu.type}</p>
                               </div>
                               <Button size="sm" variant="outline" onClick={() => addItemToOrder(`menu-${menu.id}`)} data-testid={`button-add-menu-order-${menu.id}`}>Add</Button>
                             </div>
@@ -305,7 +307,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                         <div key={item.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
                           <div>
                             <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">${item.price}</p>
+                            <p className="text-xs text-muted-foreground">{currencySymbol}{item.price}</p>
                           </div>
                           <Button size="sm" variant="outline" onClick={() => addItemToOrder(item.id.toString())}>Add</Button>
                         </div>
@@ -316,7 +318,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                         <div key={item.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
                           <div>
                             <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">${item.price} / {item.unit}</p>
+                            <p className="text-xs text-muted-foreground">{currencySymbol}{item.price} / {item.unit}</p>
                           </div>
                           <Button size="sm" variant="outline" onClick={() => addItemToOrder(item.id.toString())}>Add</Button>
                         </div>
@@ -347,7 +349,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                               <span>{item.itemId.startsWith("menu-") && <ChefHat className="inline h-3 w-3 mr-1 text-primary" />}{product?.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">${(parseFloat(product?.price || "0") * item.quantity).toFixed(2)}</span>
+                              <span className="font-medium">{currencySymbol}{(parseFloat(product?.price || "0") * item.quantity).toFixed(2)}</span>
                               <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => removeItemFromOrder(item.itemId)}>
                                 <span className="sr-only">Remove</span>
                                 &times;
@@ -359,7 +361,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                       <div className="p-2 bg-muted/20 flex justify-between font-bold">
                         <span>Total</span>
                         <span>
-                          ${newOrder.items.reduce((sum, item) => {
+                          {currencySymbol}{newOrder.items.reduce((sum, item) => {
                             const product = newOrder.type === "Food" 
                               ? findFoodProduct(item.itemId)
                               : facilityItems.find((f: ApiFacility) => f.id.toString() === item.itemId);
@@ -468,12 +470,12 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                     {order.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-sm">
                         <span>{item.quantity}x {item.itemName}</span>
-                        <span className="font-medium">${(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                        <span className="font-medium">{currencySymbol}{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                     <div className="border-t pt-2 flex justify-between font-bold">
                       <span>Total</span>
-                      <span>${parseFloat(order.totalAmount).toFixed(2)}</span>
+                      <span>{currencySymbol}{parseFloat(order.totalAmount).toFixed(2)}</span>
                     </div>
                   </div>
 
