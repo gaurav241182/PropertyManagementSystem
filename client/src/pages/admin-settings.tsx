@@ -106,6 +106,8 @@ export default function AdminSettings() {
       whatsapp: invoiceSettings?.autoSend?.whatsapp ?? false,
     },
   };
+  const [localTaxRates, setLocalTaxRates] = useState<{room: number; food: number; facility: number; other: number} | null>(null);
+  const effectiveTaxRates = localTaxRates ?? parsedInvoiceSettings.taxRates;
   const welfareSettings = (() => {
     try {
       const parsed = JSON.parse(settingsData?.welfareSettings || '{}');
@@ -1269,18 +1271,10 @@ export default function AdminSettings() {
                            <Input 
                              className="h-8 w-20" 
                              type="number" 
-                             defaultValue={parsedInvoiceSettings.taxRates.room} 
-                             key={`room-rate-${parsedInvoiceSettings.taxRates.room}`}
+                             value={effectiveTaxRates.room} 
                              id="room-tax-rate"
-                             onBlur={(e) => {
-                               const val = parseFloat(e.target.value) || 0;
-                               if (val !== parsedInvoiceSettings.taxRates.room) {
-                                 const updated = {
-                                   ...parsedInvoiceSettings,
-                                   taxRates: { ...parsedInvoiceSettings.taxRates, room: val }
-                                 };
-                                 handleSaveInvoiceSettings(updated);
-                               }
+                             onChange={(e) => {
+                               setLocalTaxRates(prev => ({ ...(prev ?? parsedInvoiceSettings.taxRates), room: parseFloat(e.target.value) || 0 }));
                              }}
                            />
                         </div>
@@ -1311,18 +1305,10 @@ export default function AdminSettings() {
                            <Input 
                              className="h-8 w-20" 
                              type="number" 
-                             defaultValue={parsedInvoiceSettings.taxRates.food} 
-                             key={`food-rate-${parsedInvoiceSettings.taxRates.food}`}
+                             value={effectiveTaxRates.food} 
                              id="food-tax-rate"
-                             onBlur={(e) => {
-                               const val = parseFloat(e.target.value) || 0;
-                               if (val !== parsedInvoiceSettings.taxRates.food) {
-                                 const updated = {
-                                   ...parsedInvoiceSettings,
-                                   taxRates: { ...parsedInvoiceSettings.taxRates, food: val }
-                                 };
-                                 handleSaveInvoiceSettings(updated);
-                               }
+                             onChange={(e) => {
+                               setLocalTaxRates(prev => ({ ...(prev ?? parsedInvoiceSettings.taxRates), food: parseFloat(e.target.value) || 0 }));
                              }}
                            />
                         </div>
@@ -1353,18 +1339,10 @@ export default function AdminSettings() {
                            <Input 
                              className="h-8 w-20" 
                              type="number" 
-                             defaultValue={parsedInvoiceSettings.taxRates.facility} 
-                             key={`facility-rate-${parsedInvoiceSettings.taxRates.facility}`}
+                             value={effectiveTaxRates.facility} 
                              id="facility-tax-rate"
-                             onBlur={(e) => {
-                               const val = parseFloat(e.target.value) || 0;
-                               if (val !== parsedInvoiceSettings.taxRates.facility) {
-                                 const updated = {
-                                   ...parsedInvoiceSettings,
-                                   taxRates: { ...parsedInvoiceSettings.taxRates, facility: val }
-                                 };
-                                 handleSaveInvoiceSettings(updated);
-                               }
+                             onChange={(e) => {
+                               setLocalTaxRates(prev => ({ ...(prev ?? parsedInvoiceSettings.taxRates), facility: parseFloat(e.target.value) || 0 }));
                              }}
                            />
                         </div>
@@ -1395,18 +1373,10 @@ export default function AdminSettings() {
                            <Input 
                              className="h-8 w-20" 
                              type="number" 
-                             defaultValue={parsedInvoiceSettings.taxRates.other} 
-                             key={`other-rate-${parsedInvoiceSettings.taxRates.other}`}
+                             value={effectiveTaxRates.other} 
                              id="other-tax-rate"
-                             onBlur={(e) => {
-                               const val = parseFloat(e.target.value) || 0;
-                               if (val !== parsedInvoiceSettings.taxRates.other) {
-                                 const updated = {
-                                   ...parsedInvoiceSettings,
-                                   taxRates: { ...parsedInvoiceSettings.taxRates, other: val }
-                                 };
-                                 handleSaveInvoiceSettings(updated);
-                               }
+                             onChange={(e) => {
+                               setLocalTaxRates(prev => ({ ...(prev ?? parsedInvoiceSettings.taxRates), other: parseFloat(e.target.value) || 0 }));
                              }}
                            />
                         </div>
@@ -1454,7 +1424,14 @@ export default function AdminSettings() {
                 </div>
                 
                 <div className="pt-4 flex justify-end">
-                  <Button onClick={() => handleSaveInvoiceSettings(parsedInvoiceSettings)}>
+                  <Button onClick={() => {
+                    const settingsToSave = {
+                      ...parsedInvoiceSettings,
+                      taxRates: effectiveTaxRates
+                    };
+                    handleSaveInvoiceSettings(settingsToSave);
+                    setLocalTaxRates(null);
+                  }}>
                     <Save className="mr-2 h-4 w-4" />
                     Save Invoice Settings
                   </Button>
