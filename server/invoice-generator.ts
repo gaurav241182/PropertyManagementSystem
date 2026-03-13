@@ -64,28 +64,34 @@ function computeInvoiceData(data: InvoiceData) {
   const roomNumber = room?.roomNumber || "";
 
   const roomAmount = parseFloat(booking.totalAmount || "0");
-  const chargeRows = [
+  const isRoomTaxable = isCategoryTaxable("Room", invoiceSettings) && getTaxRate("Room", invoiceSettings) > 0;
+
+  const allChargeRows = [
     { desc: `Room Charges - ${roomTypeName} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: roomAmount, category: "Room" },
     ...charges.map(c => ({ desc: `${c.category}: ${c.description}`, amount: parseFloat(c.amount || "0"), category: c.category }))
   ];
+
+  const chargeRows = allChargeRows.filter(r => {
+    if (r.category === "Room") return isRoomTaxable;
+    return isCategoryTaxable(r.category, invoiceSettings) && getTaxRate(r.category, invoiceSettings) > 0;
+  });
+
   const subtotal = chargeRows.reduce((s, r) => s + r.amount, 0);
 
   const taxBreakdown: { label: string; rate: number; amount: number; taxable: boolean }[] = [];
   const roomTaxRate = getTaxRate("Room", invoiceSettings);
-  const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
   if (isRoomTaxable) {
     taxBreakdown.push({ label: "Room Tax", rate: roomTaxRate, amount: roomAmount * roomTaxRate / 100, taxable: true });
   }
   const categoryTotals: Record<string, number> = {};
-  for (const c of charges) {
-    categoryTotals[c.category] = (categoryTotals[c.category] || 0) + parseFloat(c.amount || "0");
+  for (const r of chargeRows) {
+    if (r.category !== "Room") {
+      categoryTotals[r.category] = (categoryTotals[r.category] || 0) + r.amount;
+    }
   }
   for (const [cat, total] of Object.entries(categoryTotals)) {
     const rate = getTaxRate(cat, invoiceSettings);
-    const taxable = isCategoryTaxable(cat, invoiceSettings) && rate > 0;
-    if (taxable) {
-      taxBreakdown.push({ label: `${cat} Tax`, rate, amount: total * rate / 100, taxable: true });
-    }
+    taxBreakdown.push({ label: `${cat} Tax`, rate, amount: total * rate / 100, taxable: true });
   }
 
   const taxRows = taxBreakdown.filter(t => t.taxable);
@@ -249,28 +255,34 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   const roomNumber = room?.roomNumber || "";
 
   const roomAmount = parseFloat(booking.totalAmount || "0");
-  const chargeRows = [
+  const isRoomTaxableHTML = isCategoryTaxable("Room", invoiceSettings) && getTaxRate("Room", invoiceSettings) > 0;
+
+  const allChargeRowsHTML = [
     { desc: `Room Charges — ${roomTypeName} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: roomAmount, category: "Room" },
     ...charges.map(c => ({ desc: `${c.category}: ${c.description}`, amount: parseFloat(c.amount || "0"), category: c.category }))
   ];
+
+  const chargeRows = allChargeRowsHTML.filter(r => {
+    if (r.category === "Room") return isRoomTaxableHTML;
+    return isCategoryTaxable(r.category, invoiceSettings) && getTaxRate(r.category, invoiceSettings) > 0;
+  });
+
   const subtotal = chargeRows.reduce((s, r) => s + r.amount, 0);
 
   const taxBreakdown: { label: string; rate: number; amount: number; taxable: boolean }[] = [];
   const roomTaxRate = getTaxRate("Room", invoiceSettings);
-  const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
-  if (isRoomTaxable) {
+  if (isRoomTaxableHTML) {
     taxBreakdown.push({ label: "Room Tax", rate: roomTaxRate, amount: roomAmount * roomTaxRate / 100, taxable: true });
   }
-  const categoryTotals: Record<string, number> = {};
-  for (const c of charges) {
-    categoryTotals[c.category] = (categoryTotals[c.category] || 0) + parseFloat(c.amount || "0");
-  }
-  for (const [cat, total] of Object.entries(categoryTotals)) {
-    const rate = getTaxRate(cat, invoiceSettings);
-    const taxable = isCategoryTaxable(cat, invoiceSettings) && rate > 0;
-    if (taxable) {
-      taxBreakdown.push({ label: `${cat} Tax`, rate, amount: total * rate / 100, taxable: true });
+  const categoryTotalsHTML: Record<string, number> = {};
+  for (const r of chargeRows) {
+    if (r.category !== "Room") {
+      categoryTotalsHTML[r.category] = (categoryTotalsHTML[r.category] || 0) + r.amount;
     }
+  }
+  for (const [cat, total] of Object.entries(categoryTotalsHTML)) {
+    const rate = getTaxRate(cat, invoiceSettings);
+    taxBreakdown.push({ label: `${cat} Tax`, rate, amount: total * rate / 100, taxable: true });
   }
 
   const totalTax = taxBreakdown.filter(t => t.taxable).reduce((s, t) => s + t.amount, 0);

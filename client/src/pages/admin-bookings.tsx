@@ -445,13 +445,25 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const checkedOutStr = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
     const invoiceDate = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleDateString(undefined, { dateStyle: "long" }) : new Date().toLocaleDateString(undefined, { dateStyle: "long" });
 
-    const chargeRows = [
-      { desc: `Room Charges — ${booking.type} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: booking.amount },
-      ...booking.charges.map((c: any) => ({ desc: `${c.type}: ${c.item}`, amount: c.amount }))
-    ];
+    const taxableBreakdown = totals.taxBreakdown.filter((t: any) => t.taxable);
+    const taxableLabels = new Set(taxableBreakdown.map((t: any) => t.label));
+
+    const isRoomTaxed = taxableLabels.has("Room Charges");
+    const chargeRows: { desc: string; amount: number }[] = [];
+    if (isRoomTaxed) {
+      chargeRows.push({ desc: `Room Charges — ${booking.type} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: booking.amount });
+    }
+    if (booking.charges) {
+      for (const c of booking.charges) {
+        const chargeLabel = c.item || c.type;
+        if (taxableLabels.has(chargeLabel)) {
+          chargeRows.push({ desc: `${c.type}: ${c.item}`, amount: c.amount });
+        }
+      }
+    }
     const subtotal = chargeRows.reduce((s: number, r: any) => s + r.amount, 0);
 
-    const taxRows = totals.taxBreakdown.filter((t: any) => t.taxable);
+    const taxRows = taxableBreakdown;
     const totalTax = totals.tax;
     const discountAmount = totals.discountAmount;
 
