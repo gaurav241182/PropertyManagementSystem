@@ -693,11 +693,12 @@ export default function AdminSettings() {
     }
   };
 
-  const handleManualSalaryGeneration = async () => {
-    if (!salaryManualMonth) return;
+  const handleManualSalaryGeneration = async (overrideMonth?: string) => {
+    const month = overrideMonth || salaryManualMonth;
+    if (!month) return;
     setIsGeneratingSalaries(true);
     try {
-      const res = await apiRequest("POST", "/api/salary-scheduler/run", { month: salaryManualMonth });
+      const res = await apiRequest("POST", "/api/salary-scheduler/run", { month });
       const result = await res.json();
       queryClient.invalidateQueries({ queryKey: ['/api/salary-scheduler/logs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
@@ -2853,7 +2854,11 @@ export default function AdminSettings() {
                         Generates pending salary records for all active staff for the current month.
                       </p>
                     </div>
-                    <Button onClick={handleGenerateSalaries} className="bg-amber-600 hover:bg-amber-700">
+                    <Button onClick={() => {
+                      const now = new Date();
+                      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                      handleManualSalaryGeneration(month);
+                    }} className="bg-amber-600 hover:bg-amber-700">
                       <Play className="mr-2 h-4 w-4" />
                       Run Job
                     </Button>
