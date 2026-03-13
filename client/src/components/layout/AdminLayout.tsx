@@ -78,9 +78,11 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
   };
 
   const selectedHotelId = localStorage.getItem("selectedHotelId");
-  const currentHotel = selectedHotelId
-    ? hotelsData.find(h => h.id === Number(selectedHotelId)) || hotelsData[0]
-    : hotelsData[0];
+  const currentHotel = user?.hotelId
+    ? hotelsData.find(h => h.id === user.hotelId) || hotelsData[0]
+    : selectedHotelId
+      ? hotelsData.find(h => h.id === Number(selectedHotelId)) || hotelsData[0]
+      : hotelsData[0];
   const branches = currentHotel ? parseBranches(currentHotel.branches) : [];
   const branchNames = branches.map(b => b.name + (b.city ? ` - ${b.city}` : "")).filter(Boolean);
   const [currentBranch, setCurrentBranch] = useState("");
