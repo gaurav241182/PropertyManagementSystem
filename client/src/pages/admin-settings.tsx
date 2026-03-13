@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil, Clock, Users, CalendarDays } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Plus, Trash2, Edit, Save, BedDouble, CalendarRange, Sparkles, Terminal, Play, UtensilsCrossed, Mail, MessageCircle, ShieldCheck, Tags, Loader2, Pencil, Clock, Users, CalendarDays, Archive, ArchiveRestore, Search, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +27,10 @@ export default function AdminSettings() {
   const { data: facilitiesData, isLoading: facilitiesLoading } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
   const { data: menuItemsData, isLoading: menuItemsLoading } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
   const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
+  const { data: archivedBookingsData } = useQuery<any[]>({ queryKey: ['/api/bookings-archived'] });
+  const { data: roomsData } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
+  const [archivalSearch, setArchivalSearch] = useState("");
+  const [viewingArchived, setViewingArchived] = useState<any>(null);
 
   const roomTypes = roomTypesData || [];
   const categories = categoriesData || [];
@@ -277,6 +282,45 @@ export default function AdminSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
     },
+  });
+
+  const unarchiveBookingMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/bookings/${id}/unarchive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings-archived'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({ title: "Booking Restored", description: "The booking has been moved back to active bookings." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteArchivedBookingMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/bookings/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings-archived'] });
+      toast({ title: "Booking Deleted", description: "The archived booking has been permanently removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const archivedBookings = archivedBookingsData || [];
+  const allRooms = roomsData || [];
+  const getRoomNumber = (roomId: number) => allRooms.find((r: any) => r.id === roomId)?.roomNumber || `#${roomId}`;
+  const getRoomTypeName = (typeId: number) => roomTypes.find((rt: any) => rt.id === typeId)?.name || "Unknown";
+
+  const filteredArchivedBookings = archivedBookings.filter((b: any) => {
+    if (!archivalSearch.trim()) return true;
+    const q = archivalSearch.toLowerCase().trim();
+    const guestName = `${b.guestName} ${b.guestLastName || ""}`.toLowerCase();
+    return guestName.includes(q) || (b.bookingId || "").toLowerCase().includes(q) || (b.guestPhone || "").toLowerCase().includes(q) || (b.guestEmail || "").toLowerCase().includes(q);
   });
 
   const handleAddCategory = () => {
@@ -707,6 +751,7 @@ export default function AdminSettings() {
               <TabsTrigger value="restaurant" className="text-xs sm:text-sm whitespace-nowrap">Restaurant</TabsTrigger>
               <TabsTrigger value="communication" className="text-xs sm:text-sm whitespace-nowrap">Communication</TabsTrigger>
               <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice & Taxes</TabsTrigger>
+              <TabsTrigger value="archival" className="text-xs sm:text-sm whitespace-nowrap">Archival</TabsTrigger>
               <TabsTrigger value="devtools" className="text-xs sm:text-sm whitespace-nowrap text-amber-600">Dev Tools</TabsTrigger>
             </TabsList>
           </div>
@@ -2211,6 +2256,203 @@ export default function AdminSettings() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Archival */}
+          <TabsContent value="archival" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Archive className="h-5 w-5 text-gray-500" />
+                      Archived Customer Records
+                    </CardTitle>
+                    <CardDescription>Past bookings archived for record-keeping. Only the hotel owner can edit or delete archived records.</CardDescription>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, booking ID, phone..."
+                      value={archivalSearch}
+                      onChange={(e) => setArchivalSearch(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-archival-search"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredArchivedBookings.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Archive className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-lg font-medium">No archived records</p>
+                    <p className="text-sm">Checked-out bookings can be archived from the Bookings page to keep it clean.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Booking ID</TableHead>
+                          <TableHead>Guest</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Room</TableHead>
+                          <TableHead>Dates</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Archived On</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredArchivedBookings.map((b: any) => (
+                          <TableRow key={b.id} className="bg-gray-50/60 text-gray-500" data-testid={`row-archived-${b.id}`}>
+                            <TableCell className="font-mono text-xs text-gray-400">{b.bookingId}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-600">{b.guestName} {b.guestLastName || ""}</span>
+                                <span className="text-xs">{b.adults} Adult{b.adults !== 1 ? "s" : ""}{b.children > 0 ? `, ${b.children} Child${b.children !== 1 ? "ren" : ""}` : ""}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col text-xs">
+                                {b.guestEmail && <span>{b.guestEmail}</span>}
+                                {b.guestPhone && <span>{b.guestPhone}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span>Room {getRoomNumber(b.roomId)}</span>
+                                <span className="text-xs">{getRoomTypeName(b.roomTypeId)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col text-xs">
+                                <span>In: {b.checkIn}</span>
+                                <span>Out: {b.checkOut}</span>
+                                <span>{b.nights} night{b.nights !== 1 ? "s" : ""}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-600">{currency} {parseFloat(b.totalAmount || "0").toFixed(2)}</span>
+                                {parseFloat(b.advanceAmount || "0") > 0 && (
+                                  <span className="text-xs">Advance: {currency} {parseFloat(b.advanceAmount).toFixed(2)}</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {b.archivedAt ? new Date(b.archivedAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-500" title="View Details" onClick={() => setViewingArchived(b)} data-testid={`button-view-archived-${b.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-green-600" title="Restore to Bookings" onClick={() => unarchiveBookingMutation.mutate(b.id)} data-testid={`button-unarchive-${b.id}`}>
+                                  <ArchiveRestore className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" title="Delete Permanently" data-testid={`button-delete-archived-${b.id}`}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Archived Record?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete the booking record for {b.guestName} {b.guestLastName || ""} (#{b.bookingId}). This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteArchivedBookingMutation.mutate(b.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Total archived records: {filteredArchivedBookings.length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Dialog open={!!viewingArchived} onOpenChange={(open) => !open && setViewingArchived(null)}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="text-gray-600">Archived Booking Details</DialogTitle>
+                  <DialogDescription>Booking #{viewingArchived?.bookingId}</DialogDescription>
+                </DialogHeader>
+                {viewingArchived && (
+                  <div className="space-y-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Guest Name</Label>
+                        <p className="font-medium">{viewingArchived.guestName} {viewingArchived.guestLastName || ""}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Room</Label>
+                        <p className="font-medium">Room {getRoomNumber(viewingArchived.roomId)} — {getRoomTypeName(viewingArchived.roomTypeId)}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Email</Label>
+                        <p>{viewingArchived.guestEmail || "—"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Phone</Label>
+                        <p>{viewingArchived.guestPhone || "—"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Check-in</Label>
+                        <p>{viewingArchived.checkIn}{viewingArchived.checkedInAt ? ` (${new Date(viewingArchived.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })})` : ""}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Check-out</Label>
+                        <p>{viewingArchived.checkOut}{viewingArchived.checkedOutAt ? ` (${new Date(viewingArchived.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })})` : ""}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Nights</Label>
+                        <p>{viewingArchived.nights}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Guests</Label>
+                        <p>{viewingArchived.adults} Adult{viewingArchived.adults !== 1 ? "s" : ""}{viewingArchived.children > 0 ? `, ${viewingArchived.children} Child${viewingArchived.children !== 1 ? "ren" : ""}` : ""}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Total Amount</Label>
+                        <p className="font-medium">{currency} {parseFloat(viewingArchived.totalAmount || "0").toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Payment Method</Label>
+                        <p>{viewingArchived.paymentMethod || "—"}</p>
+                      </div>
+                      {viewingArchived.notes && (
+                        <div className="col-span-2">
+                          <Label className="text-xs text-muted-foreground">Notes</Label>
+                          <p className="text-muted-foreground">{viewingArchived.notes}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Booked On</Label>
+                        <p>{viewingArchived.createdAt ? new Date(viewingArchived.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Archived On</Label>
+                        <p>{viewingArchived.archivedAt ? new Date(viewingArchived.archivedAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Dev Tools */}

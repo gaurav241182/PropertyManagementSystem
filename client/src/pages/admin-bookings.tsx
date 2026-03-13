@@ -45,7 +45,8 @@ import {
   FileCheck,
   Clock,
   ShieldAlert,
-  Tags
+  Tags,
+  Archive
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -220,6 +221,20 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/rooms/calendar-status'] });
       toast({ title: "Booking Deleted", description: "Reservation has been permanently removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const archiveBookingMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/bookings/${id}/archive`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings-archived'] });
+      toast({ title: "Booking Archived", description: "The booking record has been moved to the archive." });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1674,6 +1689,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
                               <FileCheck className="h-3 w-3 mr-1" /> Invoice
                             </Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-gray-500" onClick={() => archiveBookingMutation.mutate(booking.id)} title="Archive this booking" data-testid={`button-archive-${booking.id}`}>
+                              <Archive className="h-3 w-3 mr-1" /> Archive
+                            </Button>
                           </>
                         )}
                         {role === "owner" && (
@@ -1806,6 +1824,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                                   </Button>
                                   <Button size="sm" variant="outline" className="h-8" onClick={() => openCheckoutDialog(booking)} title="View Invoice">
                                     <FileCheck className="h-3 w-3 mr-1" /> Invoice
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-8 text-gray-500" onClick={() => archiveBookingMutation.mutate(booking.id)} title="Archive this booking" data-testid={`button-archive-desktop-${booking.id}`}>
+                                    <Archive className="h-3 w-3" />
                                   </Button>
                                 </>
                               )}

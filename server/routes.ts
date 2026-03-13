@@ -308,6 +308,23 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/bookings-archived", async (_req, res) => {
+    const data = await storage.getArchivedBookings();
+    res.json(data);
+  });
+
+  app.patch("/api/bookings/:id/archive", async (req, res) => {
+    const data = await storage.archiveBooking(Number(req.params.id));
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.patch("/api/bookings/:id/unarchive", async (req, res) => {
+    const data = await storage.unarchiveBooking(Number(req.params.id));
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
   // ============= GUEST AUTH =============
   app.post("/api/guest/login", async (req, res) => {
     const { bookingId, lastName } = req.body;

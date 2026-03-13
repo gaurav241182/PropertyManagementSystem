@@ -54,10 +54,13 @@ export interface IStorage {
 
   // Bookings
   getBookings(): Promise<Booking[]>;
+  getArchivedBookings(): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | undefined>;
   getBookingByBookingId(bookingId: string): Promise<Booking | undefined>;
   createBooking(data: InsertBooking): Promise<Booking>;
   updateBooking(id: number, data: Partial<InsertBooking>): Promise<Booking | undefined>;
+  archiveBooking(id: number): Promise<Booking | undefined>;
+  unarchiveBooking(id: number): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<void>;
   getOverlappingBookings(roomId: number, checkIn: string, checkOut: string): Promise<Booking[]>;
 
@@ -228,7 +231,10 @@ export class DatabaseStorage implements IStorage {
 
   // Bookings
   async getBookings(): Promise<Booking[]> {
-    return db.select().from(bookings).orderBy(desc(bookings.createdAt));
+    return db.select().from(bookings).where(eq(bookings.archived, false)).orderBy(desc(bookings.createdAt));
+  }
+  async getArchivedBookings(): Promise<Booking[]> {
+    return db.select().from(bookings).where(eq(bookings.archived, true)).orderBy(desc(bookings.archivedAt));
   }
   async getBooking(id: number): Promise<Booking | undefined> {
     const [result] = await db.select().from(bookings).where(eq(bookings.id, id));
@@ -244,6 +250,14 @@ export class DatabaseStorage implements IStorage {
   }
   async updateBooking(id: number, data: Partial<InsertBooking>): Promise<Booking | undefined> {
     const [result] = await db.update(bookings).set(data).where(eq(bookings.id, id)).returning();
+    return result;
+  }
+  async archiveBooking(id: number): Promise<Booking | undefined> {
+    const [result] = await db.update(bookings).set({ archived: true, archivedAt: new Date() } as any).where(eq(bookings.id, id)).returning();
+    return result;
+  }
+  async unarchiveBooking(id: number): Promise<Booking | undefined> {
+    const [result] = await db.update(bookings).set({ archived: false, archivedAt: null } as any).where(eq(bookings.id, id)).returning();
     return result;
   }
   async deleteBooking(id: number): Promise<void> {
