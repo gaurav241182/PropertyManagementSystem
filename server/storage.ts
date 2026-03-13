@@ -2,7 +2,7 @@ import { eq, desc, and, gte, lte, lt, gt, ne, or, inArray, notInArray } from "dr
 import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
-  menuItems, facilities, orders, orderItems, settings, salaries,
+  menuItems, menus, facilities, orders, orderItems, settings, salaries,
   bookingCharges, roomPricing, roomBlocks,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
@@ -13,6 +13,7 @@ import {
   type InsertExpense, type Expense,
   type InsertCategory, type Category,
   type InsertMenuItem, type MenuItem,
+  type InsertMenu, type Menu,
   type InsertFacility, type Facility,
   type InsertOrder, type Order,
   type InsertOrderItem, type OrderItem,
@@ -91,6 +92,12 @@ export interface IStorage {
   createMenuItem(data: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, data: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
   deleteMenuItem(id: number): Promise<void>;
+
+  // Menus & Buffets
+  getMenus(): Promise<Menu[]>;
+  createMenu(data: InsertMenu): Promise<Menu>;
+  updateMenu(id: number, data: Partial<InsertMenu>): Promise<Menu | undefined>;
+  deleteMenu(id: number): Promise<void>;
 
   // Facilities
   getFacilities(): Promise<Facility[]>;
@@ -367,6 +374,22 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteMenuItem(id: number): Promise<void> {
     await db.delete(menuItems).where(eq(menuItems.id, id));
+  }
+
+  // Menus & Buffets
+  async getMenus(): Promise<Menu[]> {
+    return db.select().from(menus).orderBy(desc(menus.createdAt));
+  }
+  async createMenu(data: InsertMenu): Promise<Menu> {
+    const [result] = await db.insert(menus).values(data).returning();
+    return result;
+  }
+  async updateMenu(id: number, data: Partial<InsertMenu>): Promise<Menu | undefined> {
+    const [result] = await db.update(menus).set(data).where(eq(menus.id, id)).returning();
+    return result;
+  }
+  async deleteMenu(id: number): Promise<void> {
+    await db.delete(menus).where(eq(menus.id, id));
   }
 
   // Facilities

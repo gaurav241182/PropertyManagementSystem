@@ -523,6 +523,28 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ============= MENUS & BUFFETS =============
+  app.get("/api/menus", async (_req, res) => {
+    const data = await storage.getMenus();
+    res.json(data);
+  });
+
+  app.post("/api/menus", async (req, res) => {
+    const data = await storage.createMenu(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/menus/:id", async (req, res) => {
+    const data = await storage.updateMenu(Number(req.params.id), req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/menus/:id", async (req, res) => {
+    await storage.deleteMenu(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ============= FACILITIES =============
   app.get("/api/facilities", async (_req, res) => {
     const data = await storage.getFacilities();

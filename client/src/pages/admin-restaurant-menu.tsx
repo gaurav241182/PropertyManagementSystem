@@ -27,10 +27,22 @@ interface ApiMenuItem {
   createdAt: string;
 }
 
+interface ApiMenu {
+  id: number;
+  name: string;
+  type: string;
+  schedule: string;
+  price: string;
+  active: boolean;
+  itemIds: string;
+  createdAt: string;
+}
+
 export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
 
   const { data: availableItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
+  const { data: menusData = [] } = useQuery<ApiMenu[]>({ queryKey: ['/api/menus'] });
   const { data: settingsData } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const currency = settingsData?.currency || "USD";
 
@@ -63,6 +75,35 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     },
   });
 
+  const createMenuMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/menus", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+    },
+  });
+
+  const updateMenuMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const res = await apiRequest("PATCH", `/api/menus/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+    },
+  });
+
+  const deleteMenuMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/menus/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/menus'] });
+    },
+  });
+
   // Menu Items Management
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ApiMenuItem | null>(null);
@@ -75,30 +116,13 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
   });
 
   // Menus & Buffets Management
-  const [menus, setMenus] = useState([
-    { 
-      id: 1, 
-      name: "Breakfast Menu", 
-      type: "Daily", 
-      active: true, 
-      items: [1, 2, 4],
-      schedule: "Everyday 6am - 11am"
-    },
-    { 
-      id: 2, 
-      name: "Valentine's Special", 
-      type: "Event", 
-      active: false, 
-      items: [3, 5, 2],
-      schedule: "Feb 14, 2024"
-    }
-  ]);
-
   const [isMenuDialogOpen, setIsMenuDialogOpen] = useState(false);
+  const [editingMenu, setEditingMenu] = useState<ApiMenu | null>(null);
   const [newMenu, setNewMenu] = useState({
     name: "",
     type: "Daily",
     schedule: "",
+    price: 0,
     items: [] as number[]
   });
 
@@ -170,19 +194,75 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       return;
     }
 
-    setMenus([...menus, { id: Date.now(), ...newMenu, active: true }]);
-    setIsMenuDialogOpen(false);
-    setNewMenu({ name: "", type: "Daily", schedule: "", items: [] });
-    toast({ title: "Success", description: `${newMenu.name} has been created.` });
+    const itemIds = JSON.stringify(newMenu.items);
+    
+    if (editingMenu) {
+      updateMenuMutation.mutate({ 
+        id: editingMenu.id, 
+        name: newMenu.name,
+        type: newMenu.type,
+        schedule: newMenu.schedule,
+        price: newMenu.price,
+        itemIds
+      }, {
+        onSuccess: () => {
+          toast({ title: "Success", description: `${newMenu.name} has been updated.` });
+          setIsMenuDialogOpen(false);
+          setEditingMenu(null);
+          setNewMenu({ name: "", type: "Daily", schedule: "", price: 0, items: [] });
+        },
+      });
+    } else {
+      createMenuMutation.mutate({ 
+        name: newMenu.name,
+        type: newMenu.type,
+        schedule: newMenu.schedule,
+        price: newMenu.price,
+        itemIds,
+        active: true
+      }, {
+        onSuccess: () => {
+          toast({ title: "Success", description: `${newMenu.name} has been created.` });
+          setIsMenuDialogOpen(false);
+          setNewMenu({ name: "", type: "Daily", schedule: "", price: 0, items: [] });
+        },
+      });
+    }
+  };
+
+  const handleEditMenu = (menu: ApiMenu) => {
+    setEditingMenu(menu);
+    const parsedItems = JSON.parse(menu.itemIds || "[]");
+    setNewMenu({
+      name: menu.name,
+      type: menu.type,
+      schedule: menu.schedule,
+      price: parseFloat(menu.price),
+      items: parsedItems
+    });
+    setIsMenuDialogOpen(true);
   };
 
   const handleDeleteMenu = (id: number) => {
-    setMenus(menus.filter(m => m.id !== id));
-    toast({ title: "Deleted", description: "Menu has been removed." });
+    deleteMenuMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Deleted", description: "Menu has been removed." });
+      },
+    });
   };
 
-  const handleToggleMenu = (id: number) => {
-    setMenus(menus.map(m => m.id === id ? { ...m, active: !m.active } : m));
+  const handleToggleMenu = (menu: ApiMenu) => {
+    updateMenuMutation.mutate({ 
+      id: menu.id, 
+      active: !menu.active 
+    }, {
+      onSuccess: () => {
+        toast({ 
+          title: "Updated", 
+          description: `${menu.name} is now ${!menu.active ? 'Active' : 'Draft'}.` 
+        });
+      },
+    });
   };
 
   const toggleMenuItem = (itemId: number) => {
@@ -204,7 +284,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold tracking-tight font-serif text-primary">Restaurant Menu Management</h2>
-          <p className="text-muted-foreground">Manage menu items and create daily menus, buffets, and special meal collections.</p>
+          <p className="text-muted-foreground">Manage menu items and create daily menus, buffets, and special meal collections with pricing.</p>
         </div>
 
         <Tabs defaultValue="items" className="space-y-6">
@@ -381,7 +461,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-semibold">Create Menus & Buffets</h3>
-                <p className="text-sm text-muted-foreground">Organize items into themed collections like breakfast buffets, special occasion meals, etc.</p>
+                <p className="text-sm text-muted-foreground">Organize items into themed collections with pricing. Like "Breakfast Buffet - $25" or "Valentine's Special - $50".</p>
               </div>
               <Dialog open={isMenuDialogOpen} onOpenChange={setIsMenuDialogOpen}>
                 <DialogTrigger asChild>
@@ -392,7 +472,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[600px]">
                   <DialogHeader>
-                    <DialogTitle>Create New Menu or Buffet</DialogTitle>
+                    <DialogTitle>{editingMenu ? "Edit Menu or Buffet" : "Create New Menu or Buffet"}</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="space-y-2">
@@ -423,14 +503,25 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Schedule / Date</Label>
+                        <Label>Menu Price ({currency})</Label>
                         <Input 
-                          placeholder="e.g. Mon-Fri 6am-11am or Feb 14" 
-                          value={newMenu.schedule}
-                          onChange={(e) => setNewMenu({...newMenu, schedule: e.target.value})}
-                          data-testid="input-menu-schedule"
+                          type="number"
+                          placeholder="e.g. 25.00"
+                          step="0.01"
+                          value={newMenu.price}
+                          onChange={(e) => setNewMenu({...newMenu, price: parseFloat(e.target.value) || 0})}
+                          data-testid="input-menu-price"
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Schedule / Date</Label>
+                      <Input 
+                        placeholder="e.g. Mon-Fri 6am-11am or Feb 14" 
+                        value={newMenu.schedule}
+                        onChange={(e) => setNewMenu({...newMenu, schedule: e.target.value})}
+                        data-testid="input-menu-schedule"
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -462,13 +553,15 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsMenuDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddMenu} data-testid="button-create-menu">Create Menu</Button>
+                    <Button onClick={handleAddMenu} data-testid="button-create-menu">
+                      {editingMenu ? "Update Menu" : "Create Menu"}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
 
-            {menus.length === 0 ? (
+            {menusData.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <ChefHat className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-40" />
@@ -477,8 +570,9 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
               </Card>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {menus.map((menu) => {
-                  const menuItemsList = menu.items.map(itemId => availableItems.find((i: ApiMenuItem) => i.id === itemId)).filter(Boolean);
+                {menusData.map((menu) => {
+                  const itemIds = JSON.parse(menu.itemIds || "[]");
+                  const menuItemsList = itemIds.map((itemId: number) => availableItems.find((i: ApiMenuItem) => i.id === itemId)).filter(Boolean);
                   return (
                     <Card key={menu.id} className="relative" data-testid={`card-menu-${menu.id}`}>
                       <CardHeader className="pb-2">
@@ -506,21 +600,26 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                               <UtensilsCrossed className="h-3 w-3" />
                               {menu.type}
                             </span>
-                            <span>{menu.items.length} Items</span>
+                            <span>{itemIds.length} Items</span>
+                          </div>
+
+                          <div className="bg-primary/5 border border-primary/20 rounded p-3">
+                            <p className="text-sm text-muted-foreground">Menu Price:</p>
+                            <p className="text-2xl font-bold text-primary">{currency} {Number(menu.price).toFixed(2)}</p>
                           </div>
                           
                           {menuItemsList.length > 0 && (
                             <div className="border-t pt-3">
-                              <p className="text-sm font-medium mb-2">Items:</p>
+                              <p className="text-sm font-medium mb-2">Includes {menuItemsList.length} items:</p>
                               <div className="space-y-1">
-                                {menuItemsList.slice(0, 4).map((item: any) => (
+                                {menuItemsList.slice(0, 3).map((item: any) => (
                                   <div key={item.id} className="text-xs text-muted-foreground flex justify-between">
                                     <span>{item.name}</span>
                                     <span>{currency} {Number(item.price).toFixed(2)}</span>
                                   </div>
                                 ))}
-                                {menuItemsList.length > 4 && (
-                                  <div className="text-xs text-muted-foreground italic">+ {menuItemsList.length - 4} more items</div>
+                                {menuItemsList.length > 3 && (
+                                  <div className="text-xs text-muted-foreground italic">+ {menuItemsList.length - 3} more items</div>
                                 )}
                               </div>
                             </div>
@@ -530,7 +629,15 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => handleToggleMenu(menu.id)}
+                              onClick={() => handleEditMenu(menu)}
+                              data-testid={`button-edit-menu-${menu.id}`}
+                            >
+                              <Edit className="h-4 w-4 mr-1" /> Edit
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleToggleMenu(menu)}
                               data-testid={`button-toggle-menu-${menu.id}`}
                             >
                               {menu.active ? "Deactivate" : "Activate"}

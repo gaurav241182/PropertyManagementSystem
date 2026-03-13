@@ -196,6 +196,22 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({ id: tru
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type MenuItem = typeof menuItems.$inferSelect;
 
+// ============= MENUS & BUFFETS (Collections) =============
+export const menus = pgTable("menus", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("Daily"), // Daily, Buffet, Event, Seasonal
+  schedule: text("schedule").notNull().default(""),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
+  active: boolean("active").notNull().default(true),
+  itemIds: text("item_ids").notNull().default("[]"), // JSON array of menu item IDs
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMenuSchema = createInsertSchema(menus).omit({ id: true, createdAt: true });
+export type InsertMenu = z.infer<typeof insertMenuSchema>;
+export type Menu = typeof menus.$inferSelect;
+
 // ============= FACILITIES =============
 export const facilities = pgTable("facilities", {
   id: serial("id").primaryKey(),
