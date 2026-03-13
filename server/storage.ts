@@ -84,6 +84,8 @@ export interface IStorage {
   getStaffMember(id: number): Promise<Staff | undefined>;
   createStaff(data: InsertStaff): Promise<Staff>;
   updateStaff(id: number, data: Partial<InsertStaff>): Promise<Staff | undefined>;
+  getUnpaidSalariesByStaff(staffId: number): Promise<Salary[]>;
+  deleteStaffWithRecords(id: number): Promise<void>;
   deleteStaff(id: number): Promise<void>;
 
   getExpenses(hotelId?: number | null, branchId?: number | null): Promise<Expense[]>;
@@ -428,6 +430,15 @@ export class DatabaseStorage implements IStorage {
   async updateStaff(id: number, data: Partial<InsertStaff>): Promise<Staff | undefined> {
     const [result] = await db.update(staff).set(data).where(eq(staff.id, id)).returning();
     return result;
+  }
+  async getUnpaidSalariesByStaff(staffId: number): Promise<Salary[]> {
+    return db.select().from(salaries).where(
+      and(eq(salaries.staffId, staffId), ne(salaries.status, "Paid"))
+    );
+  }
+  async deleteStaffWithRecords(id: number): Promise<void> {
+    await db.delete(salaries).where(eq(salaries.staffId, id));
+    await db.delete(staff).where(eq(staff.id, id));
   }
   async deleteStaff(id: number): Promise<void> {
     await db.delete(staff).where(eq(staff.id, id));

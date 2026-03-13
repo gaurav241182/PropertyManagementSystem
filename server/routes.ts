@@ -620,11 +620,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/staff/:id/dues", async (req, res) => {
+    const staffId = Number(req.params.id);
+    const unpaid = await storage.getUnpaidSalariesByStaff(staffId);
+    const totalDue = unpaid.reduce((sum, s) => sum + parseFloat(s.netPay || "0"), 0);
+    res.json({ hasDues: unpaid.length > 0, count: unpaid.length, totalDue, records: unpaid });
+  });
+
   app.delete("/api/staff/:id", async (req, res) => {
     const branchId = await getBranchIdValidated(req);
     const record = await storage.getStaffMember(Number(req.params.id));
     if (!checkRecordScope(record, req, res, branchId)) return;
-    await storage.deleteStaff(Number(req.params.id));
+
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ message: "Password is required to delete staff" });
+    }
+    const sessionUser = (req as any).session?.user;
+    if (!sessionUser) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const dbUser = await storage.getPlatformUserByEmail(sessionUser.email);
+    if (!dbUser || dbUser.password !== password) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    const unpaid = await storage.getUnpaidSalariesByStaff(Number(req.params.id));
+    if (unpaid.length > 0) {
+      const totalDue = unpaid.reduce((sum, s) => sum + parseFloat(s.netPay || "0"), 0);
+      return res.status(400).json({ message: `Cannot delete staff with ${unpaid.length} unpaid salary record(s) totalling ₹${totalDue.toFixed(2)}. Please clear all dues first.` });
+    }
+
+    await storage.deleteStaffWithRecords(Number(req.params.id));
     res.status(204).send();
   });
 

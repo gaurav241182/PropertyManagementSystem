@@ -121,12 +121,15 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   });
 
   const deleteStaffMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/staff/${id}`),
+    mutationFn: ({ id, password }: { id: number; password: string }) => apiRequest("DELETE", `/api/staff/${id}`, { password }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
-      toast({ title: "Staff Deleted", description: "Employee has been permanently removed.", variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({ title: "Staff Deleted", description: "Employee and all associated records have been permanently removed.", variant: "destructive" });
       setStaffToDelete(null);
       setIsDeleteAlertOpen(false);
+      setDeletePassword("");
+      setDeleteDues(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -205,6 +208,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [dialogMode, setDialogMode] = useState<"view" | "edit" | "add">("add");
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState<number | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteDues, setDeleteDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
+  const [checkingDues, setCheckingDues] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   const [employeeId, setEmployeeId] = useState("");
@@ -431,8 +437,27 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const isViewMode = dialogMode === "view";
   const isEditable = dialogMode === "edit" || dialogMode === "add";
 
+  const openDeleteDialog = async (staffId: number) => {
+    setStaffToDelete(staffId);
+    setDeletePassword("");
+    setDeleteDues(null);
+    setIsDeleteAlertOpen(true);
+    setCheckingDues(true);
+    try {
+      const res = await apiRequest("GET", `/api/staff/${staffId}/dues`);
+      const data = await res.json();
+      setDeleteDues(data);
+    } catch {
+      setDeleteDues({ hasDues: false, count: 0, totalDue: 0 });
+    } finally {
+      setCheckingDues(false);
+    }
+  };
+
   const confirmDelete = () => {
-    if (staffToDelete) deleteStaffMutation.mutate(staffToDelete);
+    if (staffToDelete && deletePassword) {
+      deleteStaffMutation.mutate({ id: staffToDelete, password: deletePassword });
+    }
   };
 
   const Req = () => <span className="text-red-500">*</span>;
@@ -985,10 +1010,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <Ban className="h-4 w-4" />
                         </Button>
                         {role === "owner" && (
-                        <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
-                          setStaffToDelete(employee.id);
-                          setIsDeleteAlertOpen(true);
-                        }}>
+                        <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                         )}
@@ -1047,10 +1069,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleToggleStatus(employee.id, employee.status)}>
                             <Power className="h-3 w-3 mr-1" /> Activate
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => {
-                            setStaffToDelete(employee.id);
-                            setIsDeleteAlertOpen(true);
-                          }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1065,22 +1084,70 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       </div>
       )}
 
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
+        setIsDeleteAlertOpen(open);
+        if (!open) { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="flex items-center gap-2 text-destructive mb-2">
               <AlertTriangle className="h-5 w-5" />
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             </div>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the staff record and remove their data from our servers.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>This action cannot be undone. This will permanently delete the staff record along with all associated salary records.</p>
+
+                {checkingDues && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking outstanding dues...
+                  </div>
+                )}
+
+                {deleteDues?.hasDues && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-red-700 font-medium">Outstanding Dues Found</p>
+                    <p className="text-red-600 text-sm mt-1">
+                      This staff has {deleteDues.count} unpaid salary record(s) totalling {cs}{deleteDues.totalDue.toFixed(2)}.
+                      Please clear all dues before deleting this staff member.
+                    </p>
+                  </div>
+                )}
+
+                {deleteDues && !deleteDues.hasDues && (
+                  <div className="space-y-2">
+                    <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                      <p className="text-green-700 text-sm">No outstanding dues. Staff can be deleted.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="delete-password" className="text-sm font-medium">Enter your password to confirm</Label>
+                      <Input
+                        id="delete-password"
+                        type="password"
+                        placeholder="Enter your login password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && deletePassword) confirmDelete(); }}
+                        data-testid="input-delete-password"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setStaffToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Permanently Delete
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => { setStaffToDelete(null); setDeletePassword(""); setDeleteDues(null); }}>Cancel</AlertDialogCancel>
+            {deleteDues && !deleteDues.hasDues && (
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={!deletePassword || deleteStaffMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Permanently Delete
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
