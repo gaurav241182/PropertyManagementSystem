@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Plus, Minus, Utensils, Sparkles } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Utensils, Sparkles, ChefHat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -51,11 +51,16 @@ export default function GuestMenu() {
     queryKey: ['/api/menu-items'],
   });
 
+  const { data: rawMenus = [] } = useQuery<any[]>({
+    queryKey: ['/api/menus'],
+  });
+
   const { data: rawFacilities = [], isLoading: facilitiesLoading } = useQuery<FacilityItem[]>({
     queryKey: ['/api/facilities'],
   });
 
   const menuItems = rawMenuItems.filter(item => item.available);
+  const activeMenus = rawMenus.filter((m: any) => m.active);
   const facilityItems = rawFacilities.filter(item => item.active);
 
   const orderMutation = useMutation({
@@ -105,6 +110,10 @@ export default function GuestMenu() {
 
   const getCartTotal = () => {
     return cart.reduce((total, cartItem) => {
+      if (cartItem.type === 'food' && cartItem.itemId < 0) {
+        const menu = activeMenus.find((m: any) => m.id === Math.abs(cartItem.itemId));
+        return total + (Number(menu?.price || 0) * cartItem.qty);
+      }
       const item = cartItem.type === 'food' 
         ? menuItems.find(i => i.id === cartItem.itemId) 
         : facilityItems.find(i => i.id === cartItem.itemId);
@@ -116,9 +125,28 @@ export default function GuestMenu() {
     const foodItems = cart.filter(c => c.type === 'food');
     const facilityCartItems = cart.filter(c => c.type === 'facility');
 
-    const buildOrderItems = (cartItems: typeof cart, items: (MenuItem | FacilityItem)[]) => {
+    const buildFoodOrderItems = (cartItems: typeof cart) => {
       return cartItems.map(ci => {
-        const item = items.find(i => i.id === ci.itemId)!;
+        if (ci.itemId < 0) {
+          const menu = activeMenus.find((m: any) => m.id === Math.abs(ci.itemId));
+          return {
+            itemName: menu?.name || "Unknown Menu",
+            price: String(Number(menu?.price || 0)),
+            quantity: ci.qty,
+          };
+        }
+        const item = menuItems.find(i => i.id === ci.itemId)!;
+        return {
+          itemName: item.name,
+          price: String(getItemPrice(item)),
+          quantity: ci.qty,
+        };
+      });
+    };
+
+    const buildFacilityOrderItems = (cartItems: typeof cart) => {
+      return cartItems.map(ci => {
+        const item = facilityItems.find(i => i.id === ci.itemId)!;
         return {
           itemName: item.name,
           price: String(getItemPrice(item)),
@@ -130,8 +158,12 @@ export default function GuestMenu() {
     const timestamp = Date.now();
 
     if (foodItems.length > 0) {
-      const items = buildOrderItems(foodItems, menuItems);
+      const items = buildFoodOrderItems(foodItems);
       const totalAmount = foodItems.reduce((sum, ci) => {
+        if (ci.itemId < 0) {
+          const menu = activeMenus.find((m: any) => m.id === Math.abs(ci.itemId));
+          return sum + Number(menu?.price || 0) * ci.qty;
+        }
         const item = menuItems.find(i => i.id === ci.itemId)!;
         return sum + getItemPrice(item) * ci.qty;
       }, 0);
@@ -150,7 +182,7 @@ export default function GuestMenu() {
     }
 
     if (facilityCartItems.length > 0) {
-      const items = buildOrderItems(facilityCartItems, facilityItems);
+      const items = buildFacilityOrderItems(facilityCartItems);
       const totalAmount = facilityCartItems.reduce((sum, ci) => {
         const item = facilityItems.find(i => i.id === ci.itemId)!;
         return sum + getItemPrice(item) * ci.qty;
@@ -210,49 +242,105 @@ export default function GuestMenu() {
           <TabsContent value="food" className="space-y-6">
             {menuLoading ? (
               <p className="text-muted-foreground">Loading menu...</p>
-            ) : menuItems.length === 0 ? (
+            ) : menuItems.length === 0 && activeMenus.length === 0 ? (
               <p className="text-muted-foreground">No menu items available at the moment.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {menuItems.map(item => {
-                  const cartItem = cart.find(c => c.itemId === item.id && c.type === 'food');
-                  const price = getItemPrice(item);
-                  return (
-                    <Card key={item.id} className="overflow-hidden flex flex-row h-32 md:h-auto">
-                      <div className="w-24 md:w-32 bg-muted shrink-0 flex items-center justify-center text-muted-foreground">
-                        <Utensils className="h-8 w-8 opacity-20" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between p-3 md:p-4">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <h3 className="font-bold line-clamp-1">{item.name}</h3>
-                            <span className="font-medium text-primary">{currencySymbol}{price}</span>
-                          </div>
-                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
-                        </div>
-                        
-                        <div className="flex justify-end pt-2">
-                          {cartItem ? (
-                            <div className="flex items-center gap-3 bg-muted/50 rounded-md px-2 py-1">
-                              <button onClick={() => removeFromCart(item.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-background transition-colors">
-                                <Minus className="h-3 w-3" />
-                              </button>
-                              <span className="font-medium text-sm w-4 text-center">{cartItem.qty}</span>
-                              <button onClick={() => addToCart(item.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-                                <Plus className="h-3 w-3" />
-                              </button>
+              <>
+                {activeMenus.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <ChefHat className="h-5 w-5 text-primary" /> Menus & Buffets
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {activeMenus.map((menu: any) => {
+                        const menuCartItem = cart.find(c => c.itemId === -menu.id && c.type === 'food');
+                        const price = Number(menu.price);
+                        return (
+                          <Card key={`menu-${menu.id}`} className="overflow-hidden flex flex-row h-32 md:h-auto border-primary/20 bg-primary/5">
+                            <div className="w-24 md:w-32 bg-primary/10 shrink-0 flex items-center justify-center text-primary">
+                              <ChefHat className="h-8 w-8 opacity-40" />
                             </div>
-                          ) : (
-                            <Button size="sm" variant="outline" onClick={() => addToCart(item.id, 'food')} className="h-8 text-xs">
-                              Add to Order
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
+                            <div className="flex-1 flex flex-col justify-between p-3 md:p-4">
+                              <div>
+                                <div className="flex justify-between items-start">
+                                  <h3 className="font-bold line-clamp-1">{menu.name}</h3>
+                                  <span className="font-medium text-primary">{currencySymbol}{price.toFixed(2)}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{menu.type} Package</p>
+                              </div>
+                              <div className="flex justify-end pt-2">
+                                {menuCartItem ? (
+                                  <div className="flex items-center gap-3 bg-muted/50 rounded-md px-2 py-1">
+                                    <button onClick={() => removeFromCart(-menu.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-background transition-colors">
+                                      <Minus className="h-3 w-3" />
+                                    </button>
+                                    <span className="font-medium text-sm w-4 text-center">{menuCartItem.qty}</span>
+                                    <button onClick={() => addToCart(-menu.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                                      <Plus className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <Button size="sm" variant="outline" onClick={() => addToCart(-menu.id, 'food')} className="h-8 text-xs" data-testid={`button-add-menu-guest-${menu.id}`}>
+                                    Add to Order
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {menuItems.length > 0 && (
+                  <div className="space-y-3">
+                    {activeMenus.length > 0 && (
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Utensils className="h-5 w-5" /> Individual Items
+                      </h3>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {menuItems.map(item => {
+                        const cartItem = cart.find(c => c.itemId === item.id && c.type === 'food');
+                        const price = getItemPrice(item);
+                        return (
+                          <Card key={item.id} className="overflow-hidden flex flex-row h-32 md:h-auto">
+                            <div className="w-24 md:w-32 bg-muted shrink-0 flex items-center justify-center text-muted-foreground">
+                              <Utensils className="h-8 w-8 opacity-20" />
+                            </div>
+                            <div className="flex-1 flex flex-col justify-between p-3 md:p-4">
+                              <div>
+                                <div className="flex justify-between items-start">
+                                  <h3 className="font-bold line-clamp-1">{item.name}</h3>
+                                  <span className="font-medium text-primary">{currencySymbol}{price}</span>
+                                </div>
+                                <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 mt-1">{item.description}</p>
+                              </div>
+                              <div className="flex justify-end pt-2">
+                                {cartItem ? (
+                                  <div className="flex items-center gap-3 bg-muted/50 rounded-md px-2 py-1">
+                                    <button onClick={() => removeFromCart(item.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-background transition-colors">
+                                      <Minus className="h-3 w-3" />
+                                    </button>
+                                    <span className="font-medium text-sm w-4 text-center">{cartItem.qty}</span>
+                                    <button onClick={() => addToCart(item.id, 'food')} className="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                                      <Plus className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <Button size="sm" variant="outline" onClick={() => addToCart(item.id, 'food')} className="h-8 text-xs">
+                                    Add to Order
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 

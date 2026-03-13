@@ -74,6 +74,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   const { data: roomsData = [] } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
   const { data: roomTypesData = [] } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
   const { data: menuItemsData = [] } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
+  const { data: menusData = [] } = useQuery<any[]>({ queryKey: ['/api/menus'] });
   const { data: facilitiesData = [] } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
   const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: allChargesData = [] } = useQuery<any[]>({ queryKey: ['/api/booking-charges'] });
@@ -114,10 +115,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     whatsapp: false
   });
 
-  const restaurantItems = menuItemsData.map((item: any) => ({
-    ...item,
-    price: parseFloat(item.price) || 0
-  }));
+  const restaurantItems = [
+    ...menusData.filter((m: any) => m.active).map((menu: any) => ({
+      ...menu,
+      id: `menu-${menu.id}`,
+      name: `${menu.name} (${menu.type})`,
+      price: parseFloat(menu.price) || 0,
+      isMenu: true
+    })),
+    ...menuItemsData.map((item: any) => ({
+      ...item,
+      price: parseFloat(item.price) || 0
+    }))
+  ];
 
   const facilities = facilitiesData.map((item: any) => ({
     ...item,

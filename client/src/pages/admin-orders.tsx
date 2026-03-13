@@ -49,6 +49,18 @@ interface ApiMenuItem {
   available: boolean;
 }
 
+interface ApiMenu {
+  id: number;
+  name: string;
+  type: string;
+  startDate: string | null;
+  endDate: string | null;
+  price: string;
+  active: boolean;
+  itemIds: string;
+  createdAt: string;
+}
+
 interface ApiFacility {
   id: number;
   name: string;
@@ -74,8 +86,22 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
 
   const { data: orders = [] } = useQuery<ApiOrder[]>({ queryKey: ['/api/orders'] });
   const { data: menuItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
+  const { data: menus = [] } = useQuery<ApiMenu[]>({ queryKey: ['/api/menus'] });
   const { data: facilityItems = [] } = useQuery<ApiFacility[]>({ queryKey: ['/api/facilities'] });
   const { data: bookings = [] } = useQuery<ApiBooking[]>({ queryKey: ['/api/bookings'] });
+
+  const activeMenus = menus.filter((m: ApiMenu) => m.active);
+
+  const findFoodProduct = (itemId: string): { name: string; price: string } | undefined => {
+    if (itemId.startsWith("menu-")) {
+      const menuId = parseInt(itemId.replace("menu-", ""));
+      const menu = menus.find((m: ApiMenu) => m.id === menuId);
+      if (menu) return { name: menu.name, price: menu.price };
+    } else {
+      return menuItems.find((m: ApiMenuItem) => m.id.toString() === itemId);
+    }
+    return undefined;
+  };
 
   const activeBookings = bookings.filter((b: ApiBooking) => b.status === "confirmed" || b.status === "checked_in");
 
@@ -133,7 +159,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     const orderItems = newOrder.items.map(item => {
       let product: { name: string; price: string } | undefined;
       if (newOrder.type === "Food") {
-        product = menuItems.find((m: ApiMenuItem) => m.id.toString() === item.itemId);
+        product = findFoodProduct(item.itemId);
       } else {
         product = facilityItems.find((f: ApiFacility) => f.id.toString() === item.itemId);
       }
@@ -253,6 +279,28 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                   
                   <div className="mt-4 border rounded-md p-4 h-60 overflow-y-auto">
                     <TabsContent value="Food" className="mt-0 space-y-2">
+                      {activeMenus.length > 0 && (
+                        <>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-1 border-b flex items-center gap-1">
+                            <ChefHat className="h-3 w-3" /> Menus & Buffets
+                          </p>
+                          {activeMenus.map((menu: ApiMenu) => (
+                            <div key={`menu-${menu.id}`} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg bg-primary/5">
+                              <div>
+                                <p className="font-medium flex items-center gap-1">
+                                  <ChefHat className="h-3.5 w-3.5 text-primary" />
+                                  {menu.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">${menu.price} &middot; {menu.type}</p>
+                              </div>
+                              <Button size="sm" variant="outline" onClick={() => addItemToOrder(`menu-${menu.id}`)} data-testid={`button-add-menu-order-${menu.id}`}>Add</Button>
+                            </div>
+                          ))}
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-1 pt-2 border-b flex items-center gap-1">
+                            <Utensils className="h-3 w-3" /> Individual Items
+                          </p>
+                        </>
+                      )}
                       {menuItems.filter((item: ApiMenuItem) => item.available).map((item: ApiMenuItem) => (
                         <div key={item.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
                           <div>
@@ -287,7 +335,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                     <div className="border rounded-md divide-y">
                       {newOrder.items.map((item, idx) => {
                         const product = newOrder.type === "Food" 
-                          ? menuItems.find((m: ApiMenuItem) => m.id.toString() === item.itemId)
+                          ? findFoodProduct(item.itemId)
                           : facilityItems.find((f: ApiFacility) => f.id.toString() === item.itemId);
                         
                         return (
@@ -296,7 +344,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                               <Badge variant="outline" className="h-5 w-5 flex items-center justify-center p-0 rounded-full">
                                 {item.quantity}
                               </Badge>
-                              <span>{product?.name}</span>
+                              <span>{item.itemId.startsWith("menu-") && <ChefHat className="inline h-3 w-3 mr-1 text-primary" />}{product?.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">${(parseFloat(product?.price || "0") * item.quantity).toFixed(2)}</span>
@@ -313,7 +361,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                         <span>
                           ${newOrder.items.reduce((sum, item) => {
                             const product = newOrder.type === "Food" 
-                              ? menuItems.find((m: ApiMenuItem) => m.id.toString() === item.itemId)
+                              ? findFoodProduct(item.itemId)
                               : facilityItems.find((f: ApiFacility) => f.id.toString() === item.itemId);
                             return sum + (parseFloat(product?.price || "0") * item.quantity);
                           }, 0).toFixed(2)}
