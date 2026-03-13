@@ -75,7 +75,7 @@ function getCurrencySymbol(code: string): string {
   return map[code] || code;
 }
 
-export async function runTaxInvoiceJob(startDate: string, endDate: string, jobType: "manual" | "scheduled", hotelId?: number | null): Promise<{ logId: number; success: boolean; message: string }> {
+export async function runTaxInvoiceJob(startDate: string, endDate: string, jobType: "manual" | "scheduled", hotelId?: number | null, branchId?: number | null): Promise<{ logId: number; success: boolean; message: string }> {
   const logRecord = await storage.createInvoiceSchedulerLog({
     jobType,
     startDate,
@@ -85,6 +85,7 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
     status: "running",
     errorMessage: null,
     hotelId,
+    branchId: branchId || null,
   });
 
   try {
@@ -99,10 +100,10 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
       return { logId: logRecord.id, success: false, message: "No recipient emails configured." };
     }
 
-    const checkedOutBookings = await storage.getCheckedOutBookingsInRange(startDate, endDate, hotelId);
-    const allCharges = await storage.getAllBookingCharges(hotelId);
-    const allRoomTypes = await storage.getRoomTypes(hotelId);
-    const allRooms = await storage.getRooms(hotelId);
+    const checkedOutBookings = await storage.getCheckedOutBookingsInRange(startDate, endDate, hotelId, branchId);
+    const allCharges = await storage.getAllBookingCharges(hotelId, branchId);
+    const allRoomTypes = await storage.getRoomTypes(hotelId, branchId);
+    const allRooms = await storage.getRooms(hotelId, branchId);
     const cs = getCurrencySymbol(hotelSettings.currency);
 
     const chargesByBooking: Record<string, BookingCharge[]> = {};
@@ -111,7 +112,7 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
       chargesByBooking[charge.bookingId].push(charge);
     }
 
-    const taxableInvoices: { booking: Booking; html: string }[] = [];
+    const taxableInvoices: { booking: Booking; pdfBuffer: Buffer }[] = [];
 
     for (const booking of checkedOutBookings) {
       const charges = chargesByBooking[booking.bookingId] || [];

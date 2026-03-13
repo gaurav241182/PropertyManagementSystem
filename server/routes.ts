@@ -1034,7 +1034,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
       const hotelId = getHotelId(req);
-      const result = await runTaxInvoiceJob(startDate, endDate, "manual", hotelId);
+      const branchId = await getBranchIdValidated(req);
+      const result = await runTaxInvoiceJob(startDate, endDate, "manual", hotelId, branchId);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
