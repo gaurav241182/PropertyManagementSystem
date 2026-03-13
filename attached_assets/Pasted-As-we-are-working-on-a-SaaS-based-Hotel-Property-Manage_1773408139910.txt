@@ -1,0 +1,57 @@
+As we are working on a SaaS-based Hotel Property Management System (PMS) where a platform admin (SaaS owner) can onboard and manage multiple hotels.
+When a SaaS admin creates or manages a hotel, please implement the following enhancements.
+1. Monthly SaaS Charges Field
+Currently the onboarding form shows monthly charges as a dropdown.
+Change this to a simple text input field so the SaaS admin can enter any custom monthly fee for the hotel.
+________________________________________
+2. Fix Hotel Owner Login Issue
+After creating a hotel and generating the admin (hotel owner) login credentials, the hotel owner should be able to log in using those credentials.
+Currently login is failing.
+Please verify and fix:
+• User creation in platform_users table
+• Correct role assignment (owner)
+• Password storage and authentication flow
+• Hotel association with the user
+Ensure the newly created admin user can successfully log in to the hotel dashboard.
+________________________________________
+4. Reset Password for Hotel Owner
+Add a feature for the SaaS admin to reset the password of a hotel owner.
+This should be used if the hotel owner completely forgets their password.
+Requirements:
+• Button in SaaS admin panel → "Reset Password"
+• Generate a new password or allow manual entry
+• Update password in the database
+________________________________________
+5. Activate / Deactivate Hotel
+Add a toggle field to mark a hotel as Active or Deactivated.
+Behavior:
+• If a hotel is deactivated, the hotel owner should not be able to log in
+• Display a message like: "Your hotel account has been deactivated. Please contact support."
+________________________________________
+6. Archive or Delete Hotel
+Add two options for SaaS admin:
+Archive Hotel
+• Only allowed if the hotel is already deactivated
+• Archived hotels remain in the database but are hidden from active listings
+Delete Hotel
+• Permanently delete the hotel and all associated data from the database
+• This includes rooms, bookings, staff, invoices, etc.
+Deletion should require confirmation with warning and admin password because it is irreversible.
+________________________________________
+7. Custom Domain Field (White Labelling)
+Add a text input field for Custom Domain during hotel onboarding.
+Example:
+hotelname.com
+stay.hotelname.com
+This will be used later for white-label deployments so the PMS can run under the hotel's own domain.
+Store this domain value in the hotel record.
+________________________________________
+8. From Email Configuration (For Resend)
+Add a text input field where the hotel owner can provide a From Email Address.
+Example:
+reservations@hotelname.com
+billing@hotelname.com
+This email will later be used as the sender address when sending emails via Resend.
+Add a short comment in the UI explaining:
+"This email address will be used as the sender address when sending invoices and notifications through the email service (Resend). Domain verification may be required in the future."
+Store this value in the hotel configuration.
