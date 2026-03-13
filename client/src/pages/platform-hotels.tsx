@@ -1047,7 +1047,7 @@ export default function PlatformHotels() {
                         Branches ({vBranches.length})
                       </h4>
                       <div className="space-y-2">
-                        {vBranches.map((branch: any, idx: number) => (
+                        {vBranches.map((branch: { name: string; city?: string; address?: string; id: number }, idx: number) => (
                           <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
                             <p className="text-sm font-medium">{branch.name}</p>
                             <p className="text-xs text-muted-foreground">

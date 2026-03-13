@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, lt, gt, ne, or, inArray, notInArray, isNull } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, gt, ne, or, inArray, notInArray, isNull, type Column } from "drizzle-orm";
 import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
@@ -26,7 +26,7 @@ import {
   type InsertBranch, type Branch,
 } from "@shared/schema";
 
-function buildScopeConditions(hotelIdCol: any, branchIdCol: any, hotelId: number | null | undefined, branchId: number | null | undefined) {
+function buildScopeConditions(hotelIdCol: Column, branchIdCol: Column, hotelId: number | null | undefined, branchId: number | null | undefined) {
   const conditions = [];
   if (hotelId) conditions.push(eq(hotelIdCol, hotelId));
   if (branchId) conditions.push(eq(branchIdCol, branchId));
@@ -36,7 +36,7 @@ function buildScopeConditions(hotelIdCol: any, branchIdCol: any, hotelId: number
 export interface IStorage {
   getHotels(): Promise<Hotel[]>;
   createHotel(data: InsertHotel): Promise<Hotel>;
-  createHotelWithOwner(data: any): Promise<Hotel>;
+  createHotelWithOwner(data: InsertHotel & { adminPassword?: string; branchesData?: Array<{ name: string; city?: string; address?: string }> }): Promise<Hotel>;
   updateHotel(id: number, data: Partial<InsertHotel>): Promise<Hotel | undefined>;
   deleteHotel(id: number): Promise<void>;
   deleteHotelWithData(id: number): Promise<void>;
@@ -56,6 +56,7 @@ export interface IStorage {
   deletePlatformUser(id: number): Promise<void>;
 
   getRoomTypes(hotelId?: number | null, branchId?: number | null): Promise<RoomType[]>;
+  getRoomType(id: number): Promise<RoomType | undefined>;
   createRoomType(data: InsertRoomType): Promise<RoomType>;
   updateRoomType(id: number, data: Partial<InsertRoomType>): Promise<RoomType | undefined>;
   deleteRoomType(id: number): Promise<void>;
@@ -85,11 +86,13 @@ export interface IStorage {
   deleteStaff(id: number): Promise<void>;
 
   getExpenses(hotelId?: number | null, branchId?: number | null): Promise<Expense[]>;
+  getExpense(id: number): Promise<Expense | undefined>;
   createExpense(data: InsertExpense): Promise<Expense>;
   updateExpense(id: number, data: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number): Promise<void>;
 
   getCategories(hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
   createCategory(data: InsertCategory): Promise<Category>;
   createCategoriesBulk(items: InsertCategory[]): Promise<Category[]>;
   updateCategory(id: number, data: Partial<InsertCategory>): Promise<Category | undefined>;
@@ -98,21 +101,25 @@ export interface IStorage {
   syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
 
   getMenuItems(hotelId?: number | null, branchId?: number | null): Promise<MenuItem[]>;
+  getMenuItem(id: number): Promise<MenuItem | undefined>;
   createMenuItem(data: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, data: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
   deleteMenuItem(id: number): Promise<void>;
 
   getMenus(hotelId?: number | null, branchId?: number | null): Promise<Menu[]>;
+  getMenu(id: number): Promise<Menu | undefined>;
   createMenu(data: InsertMenu): Promise<Menu>;
   updateMenu(id: number, data: Partial<InsertMenu>): Promise<Menu | undefined>;
   deleteMenu(id: number): Promise<void>;
 
   getFacilities(hotelId?: number | null, branchId?: number | null): Promise<Facility[]>;
+  getFacility(id: number): Promise<Facility | undefined>;
   createFacility(data: InsertFacility): Promise<Facility>;
   updateFacility(id: number, data: Partial<InsertFacility>): Promise<Facility | undefined>;
   deleteFacility(id: number): Promise<void>;
 
   getOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]>;
+  getOrder(id: number): Promise<Order | undefined>;
   getOrdersByBookingId(bookingId: string): Promise<Order[]>;
   createOrder(data: InsertOrder): Promise<Order>;
   updateOrder(id: number, data: Partial<InsertOrder>): Promise<Order | undefined>;
@@ -125,12 +132,14 @@ export interface IStorage {
   upsertSetting(key: string, value: string, hotelId?: number | null, branchId?: number | null): Promise<Setting>;
 
   getSalaries(hotelId?: number | null, branchId?: number | null): Promise<Salary[]>;
+  getSalary(id: number): Promise<Salary | undefined>;
   getSalariesByMonth(month: string, hotelId?: number | null, branchId?: number | null): Promise<Salary[]>;
   createSalary(data: InsertSalary): Promise<Salary>;
   updateSalary(id: number, data: Partial<InsertSalary>): Promise<Salary | undefined>;
   deleteSalary(id: number): Promise<void>;
 
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
+  getBookingCharge(id: number): Promise<BookingCharge | undefined>;
   getAllBookingCharges(hotelId?: number | null, branchId?: number | null): Promise<BookingCharge[]>;
   createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge>;
   deleteBookingCharge(id: number): Promise<void>;
@@ -161,7 +170,7 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.insert(hotels).values(data).returning();
     return result;
   }
-  async createHotelWithOwner(data: any): Promise<Hotel> {
+  async createHotelWithOwner(data: InsertHotel & { adminPassword?: string; branchesData?: Array<{ name: string; city?: string; address?: string }> }): Promise<Hotel> {
     return await db.transaction(async (tx) => {
       const password = data.adminPassword || "password123";
       const { adminPassword, branchesData, ...hotelData } = data;
@@ -298,6 +307,10 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(roomTypes).orderBy(roomTypes.id);
   }
+  async getRoomType(id: number): Promise<RoomType | undefined> {
+    const [result] = await db.select().from(roomTypes).where(eq(roomTypes.id, id));
+    return result;
+  }
   async createRoomType(data: InsertRoomType): Promise<RoomType> {
     const [result] = await db.insert(roomTypes).values(data).returning();
     return result;
@@ -420,6 +433,10 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(expenses).orderBy(desc(expenses.date));
   }
+  async getExpense(id: number): Promise<Expense | undefined> {
+    const [result] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return result;
+  }
   async createExpense(data: InsertExpense): Promise<Expense> {
     const [result] = await db.insert(expenses).values(data).returning();
     return result;
@@ -438,6 +455,10 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(categories).where(and(...conditions)).orderBy(categories.type, categories.subtype);
     }
     return db.select().from(categories).orderBy(categories.type, categories.subtype);
+  }
+  async getCategory(id: number): Promise<Category | undefined> {
+    const [result] = await db.select().from(categories).where(eq(categories.id, id));
+    return result;
   }
   async createCategory(data: InsertCategory): Promise<Category> {
     const [result] = await db.insert(categories).values(data).returning();
@@ -492,6 +513,10 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
   }
+  async getMenuItem(id: number): Promise<MenuItem | undefined> {
+    const [result] = await db.select().from(menuItems).where(eq(menuItems.id, id));
+    return result;
+  }
   async createMenuItem(data: InsertMenuItem): Promise<MenuItem> {
     const [result] = await db.insert(menuItems).values(data).returning();
     return result;
@@ -511,6 +536,10 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(menus).orderBy(desc(menus.createdAt));
   }
+  async getMenu(id: number): Promise<Menu | undefined> {
+    const [result] = await db.select().from(menus).where(eq(menus.id, id));
+    return result;
+  }
   async createMenu(data: InsertMenu): Promise<Menu> {
     const [result] = await db.insert(menus).values(data).returning();
     return result;
@@ -529,6 +558,10 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(facilities).where(and(...conditions)).orderBy(facilities.name);
     }
     return db.select().from(facilities).orderBy(facilities.name);
+  }
+  async getFacility(id: number): Promise<Facility | undefined> {
+    const [result] = await db.select().from(facilities).where(eq(facilities.id, id));
+    return result;
   }
   async createFacility(data: InsertFacility): Promise<Facility> {
     const [result] = await db.insert(facilities).values(data).returning();
@@ -551,6 +584,10 @@ export class DatabaseStorage implements IStorage {
   }
   async getOrdersByBookingId(bookingId: string): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.bookingId, bookingId)).orderBy(desc(orders.createdAt));
+  }
+  async getOrder(id: number): Promise<Order | undefined> {
+    const [result] = await db.select().from(orders).where(eq(orders.id, id));
+    return result;
   }
   async createOrder(data: InsertOrder): Promise<Order> {
     const [result] = await db.insert(orders).values(data).returning();
@@ -606,6 +643,10 @@ export class DatabaseStorage implements IStorage {
     if (branchId) conditions.push(eq(salaries.branchId, branchId));
     return db.select().from(salaries).where(and(...conditions));
   }
+  async getSalary(id: number): Promise<Salary | undefined> {
+    const [result] = await db.select().from(salaries).where(eq(salaries.id, id));
+    return result;
+  }
   async createSalary(data: InsertSalary): Promise<Salary> {
     const [result] = await db.insert(salaries).values(data).returning();
     return result;
@@ -627,6 +668,10 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(bookingCharges).where(and(...conditions)).orderBy(bookingCharges.createdAt);
     }
     return db.select().from(bookingCharges).orderBy(bookingCharges.createdAt);
+  }
+  async getBookingCharge(id: number): Promise<BookingCharge | undefined> {
+    const [result] = await db.select().from(bookingCharges).where(eq(bookingCharges.id, id));
+    return result;
   }
   async createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge> {
     const [result] = await db.insert(bookingCharges).values(data).returning();
