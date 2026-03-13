@@ -100,25 +100,33 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
   });
 
   useEffect(() => {
-    if (hotelBranches.length === 0) return;
-    const isValid = selectedBranchId && hotelBranches.some(b => b.id === selectedBranchId);
-    if (!isValid) {
-      const first = hotelBranches[0];
-      setSelectedBranchId(first.id);
-      localStorage.setItem("selectedBranchId", String(first.id));
+    if (hotelBranches.length === 0) {
+      if (selectedBranchId !== null) {
+        setSelectedBranchId(null);
+        localStorage.removeItem("selectedBranchId");
+      }
+      return;
+    }
+    if (selectedBranchId !== null && !hotelBranches.some(b => b.id === selectedBranchId)) {
+      setSelectedBranchId(null);
+      localStorage.removeItem("selectedBranchId");
     }
   }, [hotelBranches, selectedBranchId]);
 
-  const handleBranchSelect = (branchId: number) => {
+  const handleBranchSelect = (branchId: number | null) => {
     setSelectedBranchId(branchId);
-    localStorage.setItem("selectedBranchId", String(branchId));
+    if (branchId) {
+      localStorage.setItem("selectedBranchId", String(branchId));
+    } else {
+      localStorage.removeItem("selectedBranchId");
+    }
     queryClient.invalidateQueries();
   };
 
-  const selectedBranch = hotelBranches.find(b => b.id === selectedBranchId);
+  const selectedBranch = selectedBranchId ? hotelBranches.find(b => b.id === selectedBranchId) : null;
   const branchLabel = selectedBranch
     ? `${selectedBranch.name}${selectedBranch.city ? ` - ${selectedBranch.city}` : ""}`
-    : "No Branch";
+    : "All Branches";
 
   const SidebarContent = () => (
     <>
@@ -150,6 +158,14 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56">
               <DropdownMenuLabel>Select Branch</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleBranchSelect(null)}
+                className={cn(!selectedBranchId && "bg-accent font-semibold")}
+                data-testid="menu-branch-all"
+              >
+                All Branches
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               {hotelBranches.map((branch) => (
                 <DropdownMenuItem
