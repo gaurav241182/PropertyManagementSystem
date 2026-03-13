@@ -192,20 +192,28 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
       `;
 
       try {
-        await resendClient.emails.send({
+        console.log(`[Tax Scheduler] Sending email batch ${i + 1}/${batches.length} from="${fromEmail}" to=${JSON.stringify(taxReportingEmails)} attachments=${batch.length}`);
+        const sendResult = await resendClient.emails.send({
           from: fromEmail,
           to: taxReportingEmails,
           subject,
           html: bodyHtml,
           attachments,
         });
-        emailsSent++;
+        console.log(`[Tax Scheduler] Resend API response:`, JSON.stringify(sendResult));
+        if (sendResult?.error) {
+          errors.push(`Email ${i + 1} failed: ${sendResult.error.message || JSON.stringify(sendResult.error)}`);
+        } else {
+          emailsSent++;
+        }
       } catch (err: any) {
+        console.error(`[Tax Scheduler] Email ${i + 1} exception:`, err);
         errors.push(`Email ${i + 1} failed: ${err.message}`);
       }
     }
 
-    const finalStatus = errors.length === 0 ? "success" : (emailsSent > 0 ? "partial" : "failed");
+    const finalStatus = errors.length === 0 && emailsSent > 0 ? "success" : (emailsSent > 0 ? "partial" : "failed");
+    console.log(`[Tax Scheduler] Final: status=${finalStatus}, emailsSent=${emailsSent}, errors=${JSON.stringify(errors)}`);
     await storage.updateInvoiceSchedulerLog(logRecord.id, {
       totalInvoices: taxableInvoices.length,
       emailsSent,
