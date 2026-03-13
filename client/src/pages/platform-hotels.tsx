@@ -31,7 +31,14 @@ import {
   ImageIcon,
   KeyRound,
   Archive,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  Pencil,
+  Mail,
+  Phone,
+  Globe,
+  Calendar,
+  User
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,6 +84,13 @@ export default function PlatformHotels() {
   const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<Hotel | null>(null);
   const [deleteAdminPassword, setDeleteAdminPassword] = useState("");
+  const [viewHotel, setViewHotel] = useState<Hotel | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editHotel, setEditHotel] = useState<Hotel | null>(null);
+  const [editForm, setEditForm] = useState(INITIAL_FORM);
+  const [editBranches, setEditBranches] = useState(INITIAL_BRANCHES);
+  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
+  const editLogoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
 
@@ -256,6 +270,77 @@ export default function PlatformHotels() {
 
   const parseBranches = (b: string) => {
     try { return JSON.parse(b); } catch { return []; }
+  };
+
+  const openEditDialog = (hotel: Hotel) => {
+    setEditHotel(hotel);
+    setEditForm({
+      name: hotel.name,
+      plan: hotel.plan,
+      monthlyCharges: hotel.monthlyCharges || "",
+      country: hotel.country,
+      city: hotel.city,
+      taxId: hotel.taxId || "",
+      ownerName: hotel.ownerName,
+      ownerEmail: hotel.ownerEmail,
+      ownerPhone: hotel.ownerPhone || "",
+      ownerDob: hotel.ownerDob || "",
+      ownerIdNumber: hotel.ownerIdNumber || "",
+      adminLogin: hotel.adminLogin,
+      adminPassword: "",
+      customDomain: hotel.customDomain || "",
+      fromEmail: hotel.fromEmail || "",
+    });
+    setEditBranches(parseBranches(hotel.branches).length > 0 ? parseBranches(hotel.branches) : [{ name: "", city: "", address: "" }]);
+    setEditLogoPreview(hotel.logoUrl || null);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid File", description: "Please upload an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File Too Large", description: "Logo must be under 2MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setEditLogoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditSubmit = () => {
+    if (!editHotel) return;
+    if (!editForm.name.trim()) {
+      toast({ title: "Missing Required Field", description: "Hotel name is required.", variant: "destructive" });
+      return;
+    }
+    const validBranches = editBranches.filter(b => b.name.trim());
+    updateMutation.mutate({
+      id: editHotel.id,
+      data: {
+        name: editForm.name,
+        monthlyCharges: editForm.monthlyCharges || "0",
+        country: editForm.country,
+        city: editForm.city,
+        taxId: editForm.taxId,
+        ownerName: editForm.ownerName,
+        ownerEmail: editForm.ownerEmail,
+        ownerPhone: editForm.ownerPhone,
+        ownerDob: editForm.ownerDob || null,
+        ownerIdNumber: editForm.ownerIdNumber,
+        customDomain: editForm.customDomain,
+        fromEmail: editForm.fromEmail,
+        logoUrl: editLogoPreview || "",
+        branches: JSON.stringify(validBranches),
+      }
+    });
+    toast({ title: "Hotel Updated", description: `${editForm.name} has been updated.` });
+    setEditDialogOpen(false);
+    setEditHotel(null);
   };
 
   return (
@@ -634,7 +719,15 @@ export default function PlatformHotels() {
                             {hotel.city}{hotel.country ? `, ${countryLabels[hotel.country] || hotel.country}` : ""}
                           </div>
                         </TableCell>
-                        <TableCell>{hotel.ownerName}</TableCell>
+                        <TableCell>
+                          <button
+                            className="text-left text-primary hover:underline cursor-pointer font-medium"
+                            onClick={() => setViewHotel(hotel)}
+                            data-testid={`button-view-owner-${hotel.id}`}
+                          >
+                            {hotel.ownerName}
+                          </button>
+                        </TableCell>
                         <TableCell>
                           {hotel.monthlyCharges && hotel.monthlyCharges !== "0" 
                             ? hotel.monthlyCharges 
@@ -659,6 +752,14 @@ export default function PlatformHotels() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => setViewHotel(hotel)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEditDialog(hotel)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit Hotel
+                              </DropdownMenuItem>
                               {hotel.status !== "Archived" && (
                                 <DropdownMenuItem onClick={() => {
                                   localStorage.setItem("selectedHotelId", String(hotel.id));
@@ -668,12 +769,6 @@ export default function PlatformHotels() {
                                   Login as Owner
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => {
-                                toast({ title: "Branches", description: `${hotel.name} has ${branchList.length} branch(es): ${branchList.map((b: any) => b.name).join(", ") || "None"}` });
-                              }}>
-                                <GitBranch className="mr-2 h-4 w-4" />
-                                View Branches
-                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
                                 setResetPasswordDialog(hotel);
                                 setResetPasswordValue("");
@@ -807,6 +902,309 @@ export default function PlatformHotels() {
               >
                 {permanentDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Delete Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!viewHotel} onOpenChange={(open) => { if (!open) setViewHotel(null); }}>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                {viewHotel?.logoUrl ? (
+                  <img src={viewHotel.logoUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                ) : (
+                  <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                    {viewHotel?.name?.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
+                {viewHotel?.name}
+              </DialogTitle>
+            </DialogHeader>
+            {viewHotel && (() => {
+              const countryLabels: Record<string, string> = { us: "United States", uk: "United Kingdom", "in": "India", ae: "UAE" };
+              const vBranches = parseBranches(viewHotel.branches);
+              return (
+                <div className="space-y-6 py-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Owner Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Full Name</p>
+                          <p className="text-sm font-medium">{viewHotel.ownerName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Email</p>
+                          <p className="text-sm font-medium">{viewHotel.ownerEmail}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Phone</p>
+                          <p className="text-sm font-medium">{viewHotel.ownerPhone || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Date of Birth</p>
+                          <p className="text-sm font-medium">{viewHotel.ownerDob || "—"}</p>
+                        </div>
+                      </div>
+                      {viewHotel.ownerIdNumber && (
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">ID Number</p>
+                            <p className="text-sm font-medium">{viewHotel.ownerIdNumber}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Hotel Details</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Location</p>
+                          <p className="text-sm font-medium">{viewHotel.city}{viewHotel.country ? `, ${countryLabels[viewHotel.country] || viewHotel.country}` : ""}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Monthly Charges</p>
+                        <p className="text-sm font-medium">{viewHotel.monthlyCharges && viewHotel.monthlyCharges !== "0" ? viewHotel.monthlyCharges : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tax ID</p>
+                        <p className="text-sm font-medium">{viewHotel.taxId || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Admin Login</p>
+                        <p className="text-sm font-medium">{viewHotel.adminLogin}</p>
+                      </div>
+                      {viewHotel.customDomain && (
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Custom Domain</p>
+                            <p className="text-sm font-medium">{viewHotel.customDomain}</p>
+                          </div>
+                        </div>
+                      )}
+                      {viewHotel.fromEmail && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">From Email</p>
+                            <p className="text-sm font-medium">{viewHotel.fromEmail}</p>
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <Badge variant="default" className={
+                          viewHotel.status === "Active" ? "bg-green-600" :
+                          viewHotel.status === "Deactivated" ? "bg-red-600" : "bg-gray-500"
+                        }>
+                          {viewHotel.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  {vBranches.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <GitBranch className="h-4 w-4" />
+                        Branches ({vBranches.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {vBranches.map((branch: any, idx: number) => (
+                          <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
+                            <p className="text-sm font-medium">{branch.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {branch.city && <span>{branch.city}</span>}
+                              {branch.address && <span> — {branch.address}</span>}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setViewHotel(null)}>Close</Button>
+              <Button onClick={() => { if (viewHotel) { openEditDialog(viewHotel); setViewHotel(null); } }}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditHotel(null); } }}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col p-0">
+            <DialogHeader className="px-6 py-4 border-b">
+              <DialogTitle>Edit Hotel — {editHotel?.name}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="flex-1 px-6 py-4">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={editLogoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleEditLogoUpload}
+                  />
+                  <div
+                    className="h-20 w-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden shrink-0"
+                    onClick={() => editLogoInputRef.current?.click()}
+                  >
+                    {editLogoPreview ? (
+                      <img src={editLogoPreview} alt="Logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 mb-1" />
+                        <span className="text-[9px]">Logo</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label>Hotel Name</Label>
+                    <Input value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Monthly Charges</Label>
+                    <Input value={editForm.monthlyCharges} onChange={(e) => setEditForm(p => ({ ...p, monthlyCharges: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tax ID</Label>
+                    <Input value={editForm.taxId} onChange={(e) => setEditForm(p => ({ ...p, taxId: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Country</Label>
+                    <Select value={editForm.country} onValueChange={(v) => setEditForm(p => ({ ...p, country: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select Country" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="us">United States</SelectItem>
+                        <SelectItem value="uk">United Kingdom</SelectItem>
+                        <SelectItem value="in">India</SelectItem>
+                        <SelectItem value="ae">UAE</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>City</Label>
+                    <Input value={editForm.city} onChange={(e) => setEditForm(p => ({ ...p, city: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-3">Owner Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Owner Name</Label>
+                      <Input value={editForm.ownerName} onChange={(e) => setEditForm(p => ({ ...p, ownerName: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Owner Email</Label>
+                      <Input value={editForm.ownerEmail} onChange={(e) => setEditForm(p => ({ ...p, ownerEmail: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Owner Phone</Label>
+                      <Input value={editForm.ownerPhone} onChange={(e) => setEditForm(p => ({ ...p, ownerPhone: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date of Birth</Label>
+                      <Input type="date" value={editForm.ownerDob} onChange={(e) => setEditForm(p => ({ ...p, ownerDob: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>ID Number</Label>
+                      <Input value={editForm.ownerIdNumber} onChange={(e) => setEditForm(p => ({ ...p, ownerIdNumber: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-medium mb-3">Domain & Email</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Custom Domain</Label>
+                      <Input value={editForm.customDomain} onChange={(e) => setEditForm(p => ({ ...p, customDomain: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>From Email</Label>
+                      <Input value={editForm.fromEmail} onChange={(e) => setEditForm(p => ({ ...p, fromEmail: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <GitBranch className="h-4 w-4" />
+                      Branches
+                    </h3>
+                    <Button size="sm" variant="outline" onClick={() => setEditBranches([...editBranches, { name: "", city: "", address: "" }])}>
+                      <Plus className="h-3 w-3 mr-1" /> Add Branch
+                    </Button>
+                  </div>
+                  {editBranches.map((branch, index) => (
+                    <div key={index} className="p-3 border rounded-lg bg-muted/10 space-y-2 mb-2 relative group">
+                      {editBranches.length > 1 && (
+                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => setEditBranches(editBranches.filter((_, i) => i !== index))}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Branch Name</Label>
+                          <Input className="h-8" value={branch.name} onChange={(e) => {
+                            const u = [...editBranches]; u[index] = { ...u[index], name: e.target.value }; setEditBranches(u);
+                          }} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">City</Label>
+                          <Input className="h-8" value={branch.city} onChange={(e) => {
+                            const u = [...editBranches]; u[index] = { ...u[index], city: e.target.value }; setEditBranches(u);
+                          }} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Address</Label>
+                        <Input className="h-8" value={branch.address} onChange={(e) => {
+                          const u = [...editBranches]; u[index] = { ...u[index], address: e.target.value }; setEditBranches(u);
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter className="px-6 py-4 border-t">
+              <Button variant="outline" onClick={() => { setEditDialogOpen(false); setEditHotel(null); }}>Cancel</Button>
+              <Button onClick={handleEditSubmit} disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>

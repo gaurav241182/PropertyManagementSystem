@@ -91,7 +91,11 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
     <>
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2 font-serif font-bold text-xl text-sidebar-primary truncate">
-          <Hotel className="h-6 w-6 shrink-0" />
+          {currentHotel?.logoUrl ? (
+            <img src={currentHotel.logoUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+          ) : (
+            <Hotel className="h-6 w-6 shrink-0" />
+          )}
           <span className="truncate">{currentHotel ? currentHotel.name : (role === "owner" ? "Owner Portal" : "Manager Portal")}</span>
         </div>
       </div>
@@ -170,8 +174,12 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
       {/* Mobile Header & Sidebar */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar border-b border-sidebar-border z-50 flex items-center px-4 justify-between">
         <div className="flex items-center gap-2 font-serif font-bold text-xl text-sidebar-primary">
-          <Hotel className="h-6 w-6 shrink-0" />
-          <span>YellowBerry</span>
+          {currentHotel?.logoUrl ? (
+            <img src={currentHotel.logoUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+          ) : (
+            <Hotel className="h-6 w-6 shrink-0" />
+          )}
+          <span className="truncate">{currentHotel ? currentHotel.name : "YellowBerry"}</span>
         </div>
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
