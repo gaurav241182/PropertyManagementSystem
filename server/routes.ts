@@ -995,7 +995,7 @@ export async function registerRoutes(
         }
       }
 
-      const updated = await storage.updateSalary(salary.id, {});
+      const updated = await storage.getSalary(salary.id);
       return res.json({ ...updated, overflowToNextMonth: overflow > 0 ? overflow : 0 });
     }
 
