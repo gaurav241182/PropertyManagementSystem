@@ -20,7 +20,15 @@ import {
   ShoppingBag,
   ChefHat,
   Menu,
-  CalendarRange
+  CalendarRange,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  User,
+  Lock,
+  GitBranch,
+  Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +39,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import type { Hotel as HotelType } from "@shared/schema";
 
@@ -65,6 +75,7 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
   const { user, logout } = useAuth();
   const navItems = ROLE_NAV_ITEMS[role];
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showHotelDetails, setShowHotelDetails] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -151,9 +162,14 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
 
       <div className="p-4 border-t border-sidebar-border">
         {user && (
-          <div className="px-3 py-2 mb-2 text-xs text-muted-foreground">
+          <div
+            className="px-3 py-2 mb-2 text-xs text-muted-foreground cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors"
+            onClick={() => currentHotel && setShowHotelDetails(true)}
+            data-testid="button-owner-name"
+          >
             <p>Logged in as</p>
-            <p className="font-semibold text-foreground">{user.name}</p>
+            <p className="font-semibold text-foreground hover:text-primary transition-colors">{user.name}</p>
+            {currentHotel && <p className="text-[10px] text-primary/70 mt-0.5">View hotel details</p>}
           </div>
         )}
         <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
@@ -201,6 +217,140 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
           {children}
         </div>
       </main>
+
+      <Dialog open={showHotelDetails} onOpenChange={setShowHotelDetails}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {currentHotel?.logoUrl ? (
+                <img src={currentHotel.logoUrl} alt="" className="h-10 w-10 rounded object-cover" />
+              ) : (
+                <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                  {currentHotel?.name?.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              {currentHotel?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {currentHotel && (() => {
+            const countryLabels: Record<string, string> = { us: "United States", uk: "United Kingdom", "in": "India", ae: "UAE" };
+            const hotelBranches = parseBranches(currentHotel.branches);
+            return (
+              <div className="space-y-6 py-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Owner Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Full Name</p>
+                        <p className="text-sm font-medium">{currentHotel.ownerName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="text-sm font-medium">{currentHotel.ownerEmail}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="text-sm font-medium">{currentHotel.ownerPhone || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Date of Birth</p>
+                        <p className="text-sm font-medium">{currentHotel.ownerDob || "—"}</p>
+                      </div>
+                    </div>
+                    {currentHotel.ownerIdNumber && (
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">ID Number</p>
+                          <p className="text-sm font-medium">{currentHotel.ownerIdNumber}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Hotel Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Location</p>
+                        <p className="text-sm font-medium">{currentHotel.city}{currentHotel.country ? `, ${countryLabels[currentHotel.country] || currentHotel.country}` : ""}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tax ID</p>
+                      <p className="text-sm font-medium">{currentHotel.taxId || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Status</p>
+                      <Badge variant="default" className={
+                        currentHotel.status === "Active" ? "bg-green-600" :
+                        currentHotel.status === "Deactivated" ? "bg-red-600" : "bg-gray-500"
+                      }>
+                        {currentHotel.status}
+                      </Badge>
+                    </div>
+                    {currentHotel.customDomain && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Custom Domain</p>
+                          <p className="text-sm font-medium">{currentHotel.customDomain}</p>
+                        </div>
+                      </div>
+                    )}
+                    {currentHotel.fromEmail && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">From Email</p>
+                          <p className="text-sm font-medium">{currentHotel.fromEmail}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {hotelBranches.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                      <GitBranch className="h-4 w-4" />
+                      Branches ({hotelBranches.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {hotelBranches.map((branch: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
+                          <p className="text-sm font-medium">{branch.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {branch.city && <span>{branch.city}</span>}
+                            {branch.address && <span> — {branch.address}</span>}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHotelDetails(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
