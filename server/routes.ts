@@ -924,6 +924,51 @@ export async function registerRoutes(
     res.status(201).json(data);
   });
 
+  app.post("/api/salaries/generate", async (req, res) => {
+    try {
+      const hotelId = getHotelId(req);
+      const branchId = await getBranchIdValidated(req);
+      const { month, staffSalaries } = req.body;
+      if (!month || !staffSalaries || !Array.isArray(staffSalaries)) {
+        return res.status(400).json({ message: "Month and staffSalaries array are required" });
+      }
+      const existingSalaries = await storage.getSalariesByMonth(month, hotelId, branchId);
+      const created: any[] = [];
+      const skipped: number[] = [];
+      for (const entry of staffSalaries) {
+        const { staffId, netPay, bonus, welfareContribution } = entry;
+        if (existingSalaries.find(s => s.staffId === staffId)) {
+          skipped.push(staffId);
+          continue;
+        }
+        const staff = await storage.getStaffMember(staffId);
+        if (!staff || staff.status !== "active") continue;
+        const [year, mon] = month.split("-").map(Number);
+        const lastDay = new Date(year, mon, 0);
+        const dueDateStr = lastDay.toISOString().split("T")[0];
+        const salary = await storage.createSalary({
+          staffId,
+          month,
+          basicSalary: String(netPay),
+          bonus: String(bonus || 0),
+          deductions: "0",
+          welfareContribution: String(welfareContribution || 0),
+          netPay: String(Number(netPay) + Number(bonus || 0)),
+          advanceAmount: "0",
+          dueDate: dueDateStr,
+          status: "Pending",
+          paidDate: null,
+          hotelId,
+          branchId,
+        });
+        created.push(salary);
+      }
+      res.json({ created: created.length, skipped: skipped.length, salaries: created });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to generate salaries" });
+    }
+  });
+
   app.patch("/api/salaries/:id", async (req, res) => {
     const record = await storage.getSalary(Number(req.params.id));
     const branchId = await getBranchIdValidated(req);

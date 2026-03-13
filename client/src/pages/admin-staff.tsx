@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator } from "lucide-react";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -139,6 +139,52 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       toast({ title: "Login creation failed", description: error.message, variant: "destructive" });
     },
   });
+
+  const [isGenerateSalaryOpen, setIsGenerateSalaryOpen] = useState(false);
+  const [generateMonth, setGenerateMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [staffSalaryOverrides, setStaffSalaryOverrides] = useState<Record<number, { netPay: number; bonus: number; welfare: number }>>({});
+
+  const initSalaryOverrides = () => {
+    const overrides: Record<number, { netPay: number; bonus: number; welfare: number }> = {};
+    const active = (staffData || []).filter((s: any) => s.status === "active");
+    for (const s of active) {
+      const totalSalary = Number(s.salary) || 0;
+      const basicPay = Number(s.basicPay) || totalSalary;
+      const bonusAmt = Number(s.bonusAmount) || 0;
+      const welfareAmt = s.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+      overrides[s.id] = { netPay: totalSalary, bonus: bonusAmt, welfare: welfareAmt };
+    }
+    setStaffSalaryOverrides(overrides);
+  };
+
+  const generateSalaryMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/salaries/generate", data),
+    onSuccess: async (res: any) => {
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({
+        title: "Salaries Generated",
+        description: `${result.created} salary record(s) created.${result.skipped > 0 ? ` ${result.skipped} already existed and were skipped.` : ''}`,
+      });
+      setIsGenerateSalaryOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleGenerateSalaries = () => {
+    const staffSalaries = Object.entries(staffSalaryOverrides).map(([staffId, vals]) => ({
+      staffId: Number(staffId),
+      netPay: vals.netPay,
+      bonus: vals.bonus,
+      welfareContribution: vals.welfare,
+    }));
+    generateSalaryMutation.mutate({ month: generateMonth, staffSalaries });
+  };
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"view" | "edit" | "add">("add");
@@ -398,6 +444,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             <p className="text-muted-foreground">Manage employees and their records.</p>
           </div>
           
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { initSalaryOverrides(); setIsGenerateSalaryOpen(true); }} data-testid="button-generate-salary">
+              <Calculator className="mr-2 h-4 w-4" />
+              Generate Salary
+            </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleAdd} data-testid="button-onboard-staff">
@@ -801,7 +852,109 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               )}
             </DialogContent>
           </Dialog>
+          </div>
         </div>
+
+        <Dialog open={isGenerateSalaryOpen} onOpenChange={setIsGenerateSalaryOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Generate Monthly Salaries</DialogTitle>
+              <DialogDescription>
+                Generate salary records for all active staff. You can edit each employee's salary before generating.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-4">
+                <Label className="whitespace-nowrap font-medium">Month</Label>
+                <Input type="month" value={generateMonth} onChange={e => setGenerateMonth(e.target.value)} className="w-48" data-testid="input-generate-month" />
+              </div>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="text-right">Monthly Salary</TableHead>
+                      <TableHead className="text-right">Bonus</TableHead>
+                      <TableHead className="text-right">Welfare</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeStaff.map((emp) => {
+                      const override = staffSalaryOverrides[emp.id] || { netPay: emp.salary, bonus: emp.bonusAmount || 0, welfare: 0 };
+                      return (
+                        <TableRow key={emp.id} data-testid={`row-generate-salary-${emp.id}`}>
+                          <TableCell className="font-medium">{emp.name}</TableCell>
+                          <TableCell>{emp.role}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min="0"
+                              className="h-8 w-28 text-right ml-auto"
+                              value={override.netPay || ""}
+                              onChange={e => {
+                                setStaffSalaryOverrides(prev => ({
+                                  ...prev,
+                                  [emp.id]: { ...prev[emp.id], netPay: Number(e.target.value) || 0 }
+                                }));
+                              }}
+                              data-testid={`input-salary-override-${emp.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min="0"
+                              className="h-8 w-24 text-right ml-auto"
+                              value={override.bonus || ""}
+                              onChange={e => {
+                                setStaffSalaryOverrides(prev => ({
+                                  ...prev,
+                                  [emp.id]: { ...prev[emp.id], bonus: Number(e.target.value) || 0 }
+                                }));
+                              }}
+                              data-testid={`input-bonus-override-${emp.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-sm text-muted-foreground">{cs}{override.welfare}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {cs}{(override.netPay + override.bonus).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {activeStaff.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No active staff members.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {activeStaff.length > 0 && (
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    {activeStaff.length} employee(s) &bull; Total: <span className="font-semibold text-foreground">{cs}{Object.values(staffSalaryOverrides).reduce((sum, v) => sum + v.netPay + v.bonus, 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsGenerateSalaryOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleGenerateSalaries}
+                disabled={generateSalaryMutation.isPending || activeStaff.length === 0}
+                data-testid="button-confirm-generate-salary"
+              >
+                {generateSalaryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Generate {activeStaff.length} Salary Record(s)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card>
