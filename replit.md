@@ -157,3 +157,22 @@ hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories
   - Fixed pages: admin-dashboard, admin-reports, admin-sales, admin-bookings, admin-salaries, admin-staff, manager-dashboard, guest-menu
   - Invoice HTML generation updated to use currency symbol instead of currency code
   - All monetary displays now use the configured currency symbol (e.g., ₹ for INR) instead of hardcoded $
+- 2026-03-13: Restaurant Menu & Kitchen Tab reorganization
+  - Removed Restaurant Items tab from Settings completely (consolidated into Restaurant Menu page)
+  - Redesigned admin-restaurant-menu.tsx with two main tabs:
+    - **Menu Items Tab**: Full CRUD management of individual food/beverage items
+      - Create new items with name, description, category (Food/Beverage/Dessert/Other), price
+      - Edit existing items (dialog mode with all fields pre-populated)
+      - Delete items permanently
+      - Toggle item Active/Inactive status (for availability control)
+      - Table view shows name, category, price, status, and action buttons
+    - **Menus & Buffets Tab**: Create themed collections of items
+      - Support for different menu types: Daily Menu, Buffet, Special Occasion, Seasonal
+      - Schedule/date field for temporal organization
+      - Add multiple items to each menu via checkbox selection
+      - Toggle menu Active/Draft status
+      - Delete entire menus
+      - Card view displays menu type, schedule, item count, and featured items
+  - Typical workflow: Owner creates buffets like "Breakfast Buffet" or special meals like "Valentine's Package"
+  - Items can be toggled inactive without deletion (useful for seasonal/unavailable items)
+  - Menus can be managed independently of individual item availability
