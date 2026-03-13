@@ -98,22 +98,6 @@ export async function registerRoutes(
         hotelId: null,
         status: "Active",
       });
-      await storage.createPlatformUser({
-        name: "Hotel Owner",
-        email: "owner@demo.com",
-        password: "owner123",
-        role: "owner",
-        hotelId: null,
-        status: "Active",
-      });
-      await storage.createPlatformUser({
-        name: "Hotel Manager",
-        email: "manager@demo.com",
-        password: "manager123",
-        role: "manager",
-        hotelId: null,
-        status: "Active",
-      });
       res.json({ message: "Sample users created successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });

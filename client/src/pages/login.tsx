@@ -123,16 +123,16 @@ export default function Login() {
                 <span>admin@yellowberry.com</span>
               </div>
               <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("owner@demo.com"); setPassword("owner123"); }}
+                onClick={() => { setEmail("happy@gmail.com"); setPassword("123456"); }}
                 data-testid="button-fill-owner">
-                <span className="font-medium">Hotel Owner</span>
-                <span>owner@demo.com</span>
+                <span className="font-medium">Hotel Owner (Legend)</span>
+                <span>happy@gmail.com</span>
               </div>
               <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("manager@demo.com"); setPassword("manager123"); }}
+                onClick={() => { setEmail("john@gmail.com"); setPassword("password123"); }}
                 data-testid="button-fill-manager">
-                <span className="font-medium">Hotel Manager</span>
-                <span>manager@demo.com</span>
+                <span className="font-medium">Hotel Owner (Biometric)</span>
+                <span>john@gmail.com</span>
               </div>
             </div>
             <Button
