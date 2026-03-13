@@ -2096,7 +2096,7 @@ export default function AdminSettings() {
                        <Input type="month" value={salaryManualMonth} onChange={e => setSalaryManualMonth(e.target.value)} className="w-48" data-testid="input-salary-manual-month" />
                      </div>
                      <Button
-                       onClick={handleManualSalaryGeneration}
+                       onClick={() => handleManualSalaryGeneration()}
                        disabled={isGeneratingSalaries || !salaryManualMonth}
                        data-testid="button-generate-salaries-now"
                      >
