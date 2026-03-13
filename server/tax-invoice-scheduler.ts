@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { getResendClient } from "./resend";
-import { generateInvoiceHTML, hasAnyTaxableItems } from "./invoice-generator";
+import { generateInvoicePDF, hasAnyTaxableItems } from "./invoice-generator";
 import type { Booking, BookingCharge, RoomType, Room } from "@shared/schema";
 
 const MAX_EMAIL_SIZE_BYTES = 3.5 * 1024 * 1024;
@@ -119,7 +119,7 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
 
       if (!hasAnyTaxableItems(charges, invoiceSettings)) continue;
 
-      const html = generateInvoiceHTML({
+      const pdfBuffer = await generateInvoicePDF({
         booking,
         charges,
         roomType,
@@ -134,7 +134,7 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
         invoiceSettings,
       });
 
-      taxableInvoices.push({ booking, html });
+      taxableInvoices.push({ booking, pdfBuffer });
     }
 
     if (taxableInvoices.length === 0) {
@@ -175,9 +175,9 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
         : "";
 
       const attachments = batch.map(inv => ({
-        filename: `${(inv.booking.bookingId || "").replace("BK", "INV")}.html`,
-        content: Buffer.from(inv.html).toString('base64'),
-        contentType: 'text/html',
+        filename: `${(inv.booking.bookingId || "").replace("BK", "INV")}.pdf`,
+        content: inv.pdfBuffer.toString('base64'),
+        contentType: 'application/pdf',
       }));
 
       const subject = `Tax Invoices: ${startDate} to ${endDate}${dateLabel} — ${hotelSettings.hotelName}`;
@@ -235,14 +235,13 @@ export async function runTaxInvoiceJob(startDate: string, endDate: string, jobTy
   }
 }
 
-function splitIntoBatches(invoices: { booking: Booking; html: string }[]): { booking: Booking; html: string }[][] {
-  const batches: { booking: Booking; html: string }[][] = [];
-  let currentBatch: { booking: Booking; html: string }[] = [];
+function splitIntoBatches(invoices: { booking: Booking; pdfBuffer: Buffer }[]): { booking: Booking; pdfBuffer: Buffer }[][] {
+  const batches: { booking: Booking; pdfBuffer: Buffer }[][] = [];
+  let currentBatch: { booking: Booking; pdfBuffer: Buffer }[] = [];
   let currentSize = 0;
 
   for (const inv of invoices) {
-    const htmlSize = Buffer.byteLength(inv.html, 'utf-8');
-    const base64Size = Math.ceil(htmlSize * 4 / 3);
+    const base64Size = Math.ceil(inv.pdfBuffer.length * 4 / 3);
 
     if (currentBatch.length > 0 && currentSize + base64Size > MAX_EMAIL_SIZE_BYTES) {
       batches.push(currentBatch);

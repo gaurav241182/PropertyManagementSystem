@@ -1,4 +1,5 @@
 import type { Booking, BookingCharge, RoomType, Room } from "@shared/schema";
+import PDFDocument from "pdfkit";
 
 interface InvoiceSettings {
   taxableItems: { room: boolean; food: boolean; facility: boolean; other: boolean };
@@ -51,6 +52,191 @@ export function hasAnyTaxableItems(charges: BookingCharge[], invoiceSettings: In
   const roomChargeTaxable = invoiceSettings.taxableItems.room && invoiceSettings.taxRates.room > 0;
   const hasChargesTaxable = charges.some(c => isCategoryTaxable(c.category, invoiceSettings) && getTaxRate(c.category, invoiceSettings) > 0);
   return roomChargeTaxable || hasChargesTaxable;
+}
+
+function computeInvoiceData(data: InvoiceData) {
+  const { booking, charges, roomType, room, hotelName, hotelAddress, hotelPhone, hotelEmail, hotelGst, currency, invoiceSettings } = data;
+  const cs = getCurrencySymbol(currency);
+  const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
+  const nights = booking.nights || Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 3600 * 24));
+  const invoiceDate = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleDateString(undefined, { dateStyle: "long" }) : new Date().toLocaleDateString(undefined, { dateStyle: "long" });
+  const roomTypeName = roomType?.name || "";
+  const roomNumber = room?.roomNumber || "";
+
+  const roomAmount = parseFloat(booking.totalAmount || "0");
+  const chargeRows = [
+    { desc: `Room Charges - ${roomTypeName} (${nights} Night${nights !== 1 ? "s" : ""})`, amount: roomAmount, category: "Room" },
+    ...charges.map(c => ({ desc: `${c.category}: ${c.description}`, amount: parseFloat(c.amount || "0"), category: c.category }))
+  ];
+  const subtotal = chargeRows.reduce((s, r) => s + r.amount, 0);
+
+  const taxBreakdown: { label: string; rate: number; amount: number; taxable: boolean }[] = [];
+  const roomTaxRate = getTaxRate("Room", invoiceSettings);
+  const isRoomTaxable = invoiceSettings.taxableItems.room && roomTaxRate > 0;
+  if (isRoomTaxable) {
+    taxBreakdown.push({ label: "Room Tax", rate: roomTaxRate, amount: roomAmount * roomTaxRate / 100, taxable: true });
+  }
+  const categoryTotals: Record<string, number> = {};
+  for (const c of charges) {
+    categoryTotals[c.category] = (categoryTotals[c.category] || 0) + parseFloat(c.amount || "0");
+  }
+  for (const [cat, total] of Object.entries(categoryTotals)) {
+    const rate = getTaxRate(cat, invoiceSettings);
+    const taxable = isCategoryTaxable(cat, invoiceSettings) && rate > 0;
+    if (taxable) {
+      taxBreakdown.push({ label: `${cat} Tax`, rate, amount: total * rate / 100, taxable: true });
+    }
+  }
+
+  const taxRows = taxBreakdown.filter(t => t.taxable);
+  const totalTax = taxRows.reduce((s, t) => s + t.amount, 0);
+  const advanceAmount = parseFloat(booking.advanceAmount || "0");
+  const grandTotal = subtotal + totalTax;
+  const due = grandTotal - advanceAmount;
+
+  return { cs, invoiceNo, nights, invoiceDate, roomTypeName, roomNumber, roomAmount, chargeRows, subtotal, taxRows, totalTax, advanceAmount, grandTotal, due, hotelName, hotelAddress, hotelPhone, hotelEmail, hotelGst, booking };
+}
+
+export function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
+  const d = computeInvoiceData(data);
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: "A4", margins: { top: 40, bottom: 40, left: 50, right: 50 } });
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+
+      const pageW = doc.page.width - 100;
+      const green = "#1a5632";
+      const grey = "#555555";
+      const lightGrey = "#888888";
+
+      doc.fontSize(20).fillColor(green).font("Helvetica-Bold").text(d.hotelName, 50, 40, { width: pageW * 0.6 });
+      let headerY = doc.y;
+      if (d.hotelAddress) { doc.fontSize(9).fillColor(grey).font("Helvetica").text(d.hotelAddress); headerY = doc.y; }
+      if (d.hotelPhone) { doc.fontSize(9).text(`Tel: ${d.hotelPhone}`); headerY = doc.y; }
+      if (d.hotelEmail) { doc.fontSize(9).text(d.hotelEmail); headerY = doc.y; }
+      if (d.hotelGst) { doc.fontSize(9).text(`GSTIN: ${d.hotelGst}`); headerY = doc.y; }
+
+      const rightX = 50 + pageW * 0.6 + 10;
+      doc.fontSize(22).fillColor(green).font("Helvetica-Bold").text("INVOICE", rightX, 40, { width: pageW * 0.4 - 10, align: "right" });
+      doc.fontSize(10).fillColor(grey).font("Helvetica").text(d.invoiceNo, rightX, doc.y + 2, { width: pageW * 0.4 - 10, align: "right" });
+      doc.fontSize(9).text(`Date: ${d.invoiceDate}`, rightX, doc.y + 2, { width: pageW * 0.4 - 10, align: "right" });
+
+      const lineY = Math.max(headerY, doc.y) + 10;
+      doc.moveTo(50, lineY).lineTo(50 + pageW, lineY).strokeColor(green).lineWidth(2).stroke();
+
+      let y = lineY + 16;
+      const boxW = (pageW - 20) / 2;
+
+      doc.save();
+      doc.roundedRect(50, y, boxW, 80, 4).fillAndStroke("#f8faf9", "#e5e7eb");
+      doc.restore();
+      doc.fontSize(8).fillColor(lightGrey).font("Helvetica-Bold").text("BILL TO", 64, y + 10);
+      doc.fontSize(10).fillColor("#1a1a1a").font("Helvetica-Bold").text(`${d.booking.guestName} ${d.booking.guestLastName || ""}`, 64, y + 24);
+      doc.font("Helvetica").fontSize(9).fillColor(grey);
+      if (d.booking.guestEmail) doc.text(d.booking.guestEmail, 64, y + 38);
+      if (d.booking.guestPhone) doc.text(d.booking.guestPhone, 64, y + 50);
+
+      const box2X = 50 + boxW + 20;
+      doc.save();
+      doc.roundedRect(box2X, y, boxW, 80, 4).fillAndStroke("#f8faf9", "#e5e7eb");
+      doc.restore();
+      doc.fontSize(8).fillColor(lightGrey).font("Helvetica-Bold").text("STAY DETAILS", box2X + 14, y + 10);
+      doc.fontSize(9).fillColor("#1a1a1a").font("Helvetica");
+      doc.text(`Room: ${d.roomNumber} - ${d.roomTypeName}`, box2X + 14, y + 24);
+      doc.text(`Check-in: ${d.booking.checkIn}`, box2X + 14, y + 36);
+      doc.text(`Check-out: ${d.booking.checkOut}`, box2X + 14, y + 48);
+      doc.text(`Duration: ${d.nights} Night${d.nights !== 1 ? "s" : ""}`, box2X + 14, y + 60);
+
+      y += 100;
+
+      const colWidths = [35, pageW - 135, 100];
+      const colX = [50, 85, 50 + pageW - 100];
+
+      doc.save();
+      doc.rect(50, y, pageW, 22).fill(green);
+      doc.restore();
+      doc.fontSize(8).fillColor("#ffffff").font("Helvetica-Bold");
+      doc.text("#", colX[0] + 8, y + 7);
+      doc.text("DESCRIPTION", colX[1] + 8, y + 7);
+      doc.text(`AMOUNT (${d.cs})`, colX[2], y + 7, { width: colWidths[2], align: "right" });
+      y += 22;
+
+      doc.font("Helvetica").fontSize(9).fillColor("#1a1a1a");
+      d.chargeRows.forEach((row, i) => {
+        if (i % 2 === 1) {
+          doc.save();
+          doc.rect(50, y, pageW, 20).fill("#f9f9f9");
+          doc.restore();
+          doc.fillColor("#1a1a1a");
+        }
+        doc.text(`${i + 1}`, colX[0] + 8, y + 5);
+        doc.text(row.desc, colX[1] + 8, y + 5, { width: colWidths[1] - 16 });
+        doc.text(row.amount.toFixed(2), colX[2], y + 5, { width: colWidths[2], align: "right" });
+        y += 20;
+      });
+
+      doc.moveTo(50, y).lineTo(50 + pageW, y).strokeColor("#eeeeee").lineWidth(0.5).stroke();
+      y += 8;
+
+      const totalsX = 50 + pageW - 240;
+      const totalsW = 240;
+
+      doc.moveTo(totalsX, y).lineTo(totalsX + totalsW, y).strokeColor("#dddddd").lineWidth(0.5).stroke();
+      y += 6;
+      doc.fontSize(9).fillColor(grey).font("Helvetica");
+      doc.text("Subtotal", totalsX, y);
+      doc.text(`${d.cs} ${d.subtotal.toFixed(2)}`, totalsX, y, { width: totalsW, align: "right" });
+      y += 16;
+
+      d.taxRows.forEach(t => {
+        doc.fontSize(8).fillColor(lightGrey);
+        doc.text(`${t.label} @ ${t.rate}%`, totalsX + 10, y);
+        doc.text(`${d.cs} ${t.amount.toFixed(2)}`, totalsX, y, { width: totalsW, align: "right" });
+        y += 14;
+      });
+
+      doc.fontSize(9).fillColor(grey);
+      doc.text("Total Tax", totalsX, y);
+      doc.text(`${d.cs} ${d.totalTax.toFixed(2)}`, totalsX, y, { width: totalsW, align: "right" });
+      y += 16;
+
+      if (d.advanceAmount > 0) {
+        doc.text("Advance Paid", totalsX, y);
+        doc.text(`- ${d.cs} ${d.advanceAmount.toFixed(2)}`, totalsX, y, { width: totalsW, align: "right" });
+        y += 16;
+      }
+
+      doc.moveTo(totalsX, y).lineTo(totalsX + totalsW, y).strokeColor(green).lineWidth(1.5).stroke();
+      y += 8;
+      doc.fontSize(14).fillColor(green).font("Helvetica-Bold");
+      doc.text("Total Due", totalsX, y);
+      doc.text(`${d.cs} ${d.due.toFixed(2)}`, totalsX, y, { width: totalsW, align: "right" });
+      y += 20;
+
+      if (d.booking.paymentMethod) {
+        doc.fontSize(8).fillColor(lightGrey).font("Helvetica");
+        doc.text(`Payment Method: ${d.booking.paymentMethod}`, totalsX, y);
+        y += 16;
+      }
+
+      y += 30;
+      doc.moveTo(50 + pageW - 180, y).lineTo(50 + pageW, y).strokeColor("#cccccc").lineWidth(0.5).stroke();
+      doc.fontSize(9).fillColor(lightGrey).font("Helvetica").text("Authorized Signature", 50 + pageW - 180, y + 4);
+
+      y += 30;
+      doc.moveTo(50, y).lineTo(50 + pageW, y).strokeColor("#dddddd").lineWidth(0.5).stroke();
+      y += 10;
+      doc.fontSize(9).fillColor(lightGrey).text("Thank you for staying with us.");
+      doc.fontSize(8).text("This is a computer-generated invoice. No signature is required.", 50, doc.y + 3);
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 export function generateInvoiceHTML(data: InvoiceData): string {
