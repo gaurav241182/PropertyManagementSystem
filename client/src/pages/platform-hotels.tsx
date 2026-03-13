@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import type { Hotel } from "@shared/schema";
+import type { Hotel, Branch } from "@shared/schema";
 import { 
   Building2, 
   MapPin, 
@@ -67,7 +67,7 @@ const INITIAL_FORM = {
   fromEmail: "",
 };
 
-const INITIAL_BRANCHES = [{ name: "", city: "", address: "" }];
+const INITIAL_BRANCHES: { id?: number; name: string; city: string; address: string }[] = [{ name: "", city: "", address: "" }];
 
 export default function PlatformHotels() {
   const { toast } = useToast();
@@ -93,6 +93,11 @@ export default function PlatformHotels() {
   const editLogoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
+  const { data: allBranchesData = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
+
+  const getBranchesForHotel = (hotelId: number): Branch[] => {
+    return allBranchesData.filter(b => b.hotelId === hotelId);
+  };
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Record<string, unknown> }) => {
@@ -159,6 +164,7 @@ export default function PlatformHotels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
       queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
       toast({ title: "Hotel Created", description: `"${form.name}" has been successfully onboarded. Owner login created in User Management.` });
       resetAndClose();
     },
@@ -252,6 +258,7 @@ export default function PlatformHotels() {
       adminPassword: form.adminPassword,
       logoUrl: logoPreview || "",
       branches: JSON.stringify(validBranches),
+      branchesData: validBranches,
       customDomain: form.customDomain,
       fromEmail: form.fromEmail,
     });
@@ -291,7 +298,13 @@ export default function PlatformHotels() {
       customDomain: hotel.customDomain || "",
       fromEmail: hotel.fromEmail || "",
     });
-    setEditBranches(parseBranches(hotel.branches).length > 0 ? parseBranches(hotel.branches) : [{ name: "", city: "", address: "" }]);
+    const hotelBranches = getBranchesForHotel(hotel.id);
+    if (hotelBranches.length > 0) {
+      setEditBranches(hotelBranches.map(b => ({ id: b.id, name: b.name, city: b.city, address: b.address })));
+    } else {
+      const jsonBranches = parseBranches(hotel.branches);
+      setEditBranches(jsonBranches.length > 0 ? jsonBranches : [{ name: "", city: "", address: "" }]);
+    }
     setEditLogoPreview(hotel.logoUrl || null);
     setEditDialogOpen(true);
   };
@@ -312,7 +325,7 @@ export default function PlatformHotels() {
     reader.readAsDataURL(file);
   };
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     if (!editHotel) return;
     if (!editForm.name.trim()) {
       toast({ title: "Missing Required Field", description: "Hotel name is required.", variant: "destructive" });
@@ -338,6 +351,12 @@ export default function PlatformHotels() {
         branches: JSON.stringify(validBranches),
       }
     });
+    try {
+      await apiRequest("PUT", `/api/branches/sync/${editHotel.id}`, { branches: validBranches });
+      queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
+    } catch (e) {
+      console.error("Failed to sync branches:", e);
+    }
     toast({ title: "Hotel Updated", description: `${editForm.name} has been updated.` });
     setEditDialogOpen(false);
     setEditHotel(null);
@@ -691,7 +710,7 @@ export default function PlatformHotels() {
                 </TableHeader>
                 <TableBody>
                   {filteredHotels.map((hotel) => {
-                    const branchList = parseBranches(hotel.branches);
+                    const branchList = getBranchesForHotel(hotel.id);
                     const countryLabels: Record<string, string> = { us: "US", uk: "UK", "in": "India", ae: "UAE" };
                     return (
                       <TableRow key={hotel.id} data-testid={`row-hotel-${hotel.id}`}>
@@ -923,7 +942,7 @@ export default function PlatformHotels() {
             </DialogHeader>
             {viewHotel && (() => {
               const countryLabels: Record<string, string> = { us: "United States", uk: "United Kingdom", "in": "India", ae: "UAE" };
-              const vBranches = parseBranches(viewHotel.branches);
+              const vBranches = getBranchesForHotel(viewHotel.id);
               return (
                 <div className="space-y-6 py-2">
                   <div>

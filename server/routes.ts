@@ -8,6 +8,20 @@ function getHotelId(req: Request): number | null {
   return req.session?.user?.hotelId || null;
 }
 
+function getBranchId(req: Request): number | null {
+  const header = req.headers["x-branch-id"];
+  if (header) {
+    const parsed = Number(header);
+    if (!isNaN(parsed) && parsed > 0) {
+      const userHotelId = req.session?.user?.hotelId;
+      if (userHotelId || req.session?.user?.role === "super_admin") {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -178,6 +192,66 @@ export async function registerRoutes(
     res.json({ message: "Hotel and all associated data permanently deleted" });
   });
 
+  // ============= BRANCHES =============
+  app.get("/api/branches", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const data = await storage.getBranches(hotelId);
+    res.json(data);
+  });
+
+  app.get("/api/branches/hotel/:hotelId", async (req, res) => {
+    if (!req.session?.user || req.session.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const data = await storage.getBranches(Number(req.params.hotelId));
+    res.json(data);
+  });
+
+  app.post("/api/branches", async (req, res) => {
+    const sessionHotelId = getHotelId(req);
+    const hotelId = sessionHotelId || (req.session?.user?.role === "super_admin" ? req.body.hotelId : null);
+    if (!hotelId) return res.status(400).json({ message: "hotelId is required" });
+    const data = await storage.createBranch({ ...req.body, hotelId });
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/branches/:id", async (req, res) => {
+    const branch = await storage.getBranch(Number(req.params.id));
+    if (!branch) return res.status(404).json({ message: "Not found" });
+    const sessionHotelId = getHotelId(req);
+    if (sessionHotelId && branch.hotelId !== sessionHotelId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const data = await storage.updateBranch(Number(req.params.id), req.body);
+    res.json(data);
+  });
+
+  app.delete("/api/branches/:id", async (req, res) => {
+    const branch = await storage.getBranch(Number(req.params.id));
+    if (!branch) return res.status(404).json({ message: "Not found" });
+    const sessionHotelId = getHotelId(req);
+    if (sessionHotelId && branch.hotelId !== sessionHotelId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    await storage.deleteBranch(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.put("/api/branches/sync/:hotelId", async (req, res) => {
+    const targetHotelId = Number(req.params.hotelId);
+    const sessionHotelId = getHotelId(req);
+    if (sessionHotelId && sessionHotelId !== targetHotelId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    if (!sessionHotelId && req.session?.user?.role !== "super_admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const { branches: branchData } = req.body;
+    if (!Array.isArray(branchData)) return res.status(400).json({ message: "branches array required" });
+    const result = await storage.syncBranches(targetHotelId, branchData);
+    res.json(result);
+  });
+
   // ============= PLATFORM USERS =============
   app.get("/api/platform-users", async (_req, res) => {
     const data = await storage.getPlatformUsers();
@@ -207,13 +281,15 @@ export async function registerRoutes(
   // ============= ROOM TYPES =============
   app.get("/api/room-types", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getRoomTypes(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getRoomTypes(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/room-types", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createRoomType({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createRoomType({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -231,13 +307,15 @@ export async function registerRoutes(
   // ============= ROOMS =============
   app.get("/api/rooms", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getRooms(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getRooms(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/rooms", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createRoom({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createRoom({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -255,7 +333,8 @@ export async function registerRoutes(
   // ============= BOOKINGS =============
   app.get("/api/bookings", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getBookings(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getBookings(hotelId, branchId);
     res.json(data);
   });
 
@@ -271,8 +350,9 @@ export async function registerRoutes(
       return res.status(400).json({ message: "checkIn and checkOut query parameters are required" });
     }
     const hotelId = getHotelId(req);
-    const allRooms = await storage.getRooms(hotelId);
-    const allBookings = await storage.getBookings(hotelId);
+    const branchId = getBranchId(req);
+    const allRooms = await storage.getRooms(hotelId, branchId);
+    const allBookings = await storage.getBookings(hotelId, branchId);
     const bookedRoomIds = new Set<number>();
     for (const b of allBookings) {
       if (b.status === "cancelled" || b.status === "checked_out") continue;
@@ -289,6 +369,7 @@ export async function registerRoutes(
 
   app.post("/api/bookings", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const { facilityCharges, overrideCapacity, ...bookingData } = req.body;
     const errors: string[] = [];
     if (!bookingData.guestName) errors.push("Guest name is required");
@@ -305,7 +386,7 @@ export async function registerRoutes(
     const sessionUser = req.session.user;
     const canOverride = overrideCapacity && sessionUser && (sessionUser.role === "owner" || sessionUser.role === "manager");
     if (!canOverride && bookingData.roomTypeId) {
-      const allRoomTypes = await storage.getRoomTypes(hotelId);
+      const allRoomTypes = await storage.getRoomTypes(hotelId, branchId);
       const roomType = allRoomTypes.find(rt => rt.id === Number(bookingData.roomTypeId));
       if (roomType) {
         const adults = Number(bookingData.adults) || 0;
@@ -325,7 +406,7 @@ export async function registerRoutes(
     if (overlaps.length > 0) {
       return res.status(409).json({ message: `Room is already booked for the selected dates (conflicts with booking ${overlaps[0].bookingId})` });
     }
-    const data = await storage.createBooking({ ...bookingData, hotelId });
+    const data = await storage.createBooking({ ...bookingData, hotelId, branchId });
     if (facilityCharges && Array.isArray(facilityCharges) && facilityCharges.length > 0) {
       for (const charge of facilityCharges) {
         await storage.createBookingCharge({
@@ -334,6 +415,7 @@ export async function registerRoutes(
           category: charge.category || "Facility",
           amount: charge.amount,
           hotelId,
+          branchId,
         });
       }
     }
@@ -364,7 +446,8 @@ export async function registerRoutes(
 
   app.get("/api/bookings-archived", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getArchivedBookings(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getArchivedBookings(hotelId, branchId);
     res.json(data);
   });
 
@@ -420,14 +503,16 @@ export async function registerRoutes(
   // ============= STAFF =============
   app.get("/api/staff", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getStaff(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getStaff(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/staff", async (req, res) => {
     try {
       const hotelId = getHotelId(req);
-      const parsed = insertStaffSchema.parse({ ...req.body, hotelId });
+      const branchId = getBranchId(req);
+      const parsed = insertStaffSchema.parse({ ...req.body, hotelId, branchId });
       const data = await storage.createStaff(parsed);
       
       const totalSalary = Number(data.salary) || 0;
@@ -460,6 +545,7 @@ export async function registerRoutes(
           status: "Pending",
           paidDate: null,
           hotelId,
+          branchId,
         });
       }
       
@@ -489,13 +575,15 @@ export async function registerRoutes(
   // ============= EXPENSES =============
   app.get("/api/expenses", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getExpenses(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getExpenses(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/expenses", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createExpense({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createExpense({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -513,18 +601,21 @@ export async function registerRoutes(
   // ============= CATEGORIES =============
   app.get("/api/categories", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getCategories(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getCategories(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/categories", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createCategory({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createCategory({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
   app.post("/api/categories/bulk", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const { type, taxable, subtypes } = req.body;
     if (!type || !Array.isArray(subtypes)) {
       return res.status(400).json({ message: "type and subtypes array required" });
@@ -535,6 +626,7 @@ export async function registerRoutes(
       item: s.item || "",
       taxable: taxable || false,
       hotelId,
+      branchId,
     }));
     const data = await storage.createCategoriesBulk(items);
     res.status(201).json(data);
@@ -542,11 +634,12 @@ export async function registerRoutes(
 
   app.put("/api/categories/sync", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const { type, taxable, subtypes } = req.body;
     if (!type || !Array.isArray(subtypes)) {
       return res.status(400).json({ message: "type and subtypes array required" });
     }
-    const data = await storage.syncCategoryType(type, taxable || false, subtypes, hotelId);
+    const data = await storage.syncCategoryType(type, taxable || false, subtypes, hotelId, branchId);
     res.json(data);
   });
 
@@ -570,13 +663,15 @@ export async function registerRoutes(
   // ============= MENU ITEMS =============
   app.get("/api/menu-items", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getMenuItems(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getMenuItems(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/menu-items", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createMenuItem({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createMenuItem({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -594,7 +689,8 @@ export async function registerRoutes(
   // ============= MENUS & BUFFETS =============
   app.get("/api/menus", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getMenus(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getMenus(hotelId, branchId);
     const today = new Date().toISOString().split('T')[0];
     const updated = [];
     for (const menu of data) {
@@ -611,7 +707,8 @@ export async function registerRoutes(
 
   app.post("/api/menus", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createMenu({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createMenu({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -629,13 +726,15 @@ export async function registerRoutes(
   // ============= FACILITIES =============
   app.get("/api/facilities", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getFacilities(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getFacilities(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/facilities", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createFacility({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createFacility({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -653,7 +752,8 @@ export async function registerRoutes(
   // ============= ORDERS =============
   app.get("/api/orders", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getOrders(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getOrders(hotelId, branchId);
     const ordersWithItems = await Promise.all(
       data.map(async (order) => {
         const items = await storage.getOrderItems(order.orderId);
@@ -665,8 +765,9 @@ export async function registerRoutes(
 
   app.post("/api/orders", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const { items, ...orderData } = req.body;
-    const data = await storage.createOrder({ ...orderData, hotelId });
+    const data = await storage.createOrder({ ...orderData, hotelId, branchId });
     if (items && Array.isArray(items)) {
       for (const item of items) {
         await storage.createOrderItem({ ...item, orderId: data.orderId });
@@ -694,6 +795,7 @@ export async function registerRoutes(
               category: data.type === "Food" ? "Food" : "Facility",
               amount: String(Number(item.price) * item.quantity),
               hotelId: data.hotelId,
+              branchId: data.branchId,
             });
           }
         }
@@ -706,7 +808,8 @@ export async function registerRoutes(
   // ============= SETTINGS =============
   app.get("/api/settings", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getSettings(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getSettings(hotelId, branchId);
     const result: Record<string, string> = {};
     for (const s of data) {
       result[s.key] = s.value;
@@ -716,9 +819,10 @@ export async function registerRoutes(
 
   app.post("/api/settings", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const entries = Object.entries(req.body);
     for (const [key, value] of entries) {
-      await storage.upsertSetting(key, String(value), hotelId);
+      await storage.upsertSetting(key, String(value), hotelId, branchId);
     }
     res.json({ message: "Settings saved" });
   });
@@ -726,13 +830,15 @@ export async function registerRoutes(
   // ============= SALARIES =============
   app.get("/api/salaries", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getSalaries(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getSalaries(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/salaries", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createSalary({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createSalary({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -765,12 +871,13 @@ export async function registerRoutes(
 
       if (overflow > 0) {
         const hotelId = getHotelId(req);
+        const branchId = getBranchId(req);
         const staffMember = await storage.getStaffMember(salary.staffId);
         if (staffMember) {
           const now = new Date();
           const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
           const nextMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
-          const existingSalaries = await storage.getSalariesByMonth(nextMonthStr, hotelId);
+          const existingSalaries = await storage.getSalariesByMonth(nextMonthStr, hotelId, branchId);
           const existingNext = existingSalaries.find(s => s.staffId === salary.staffId);
           if (existingNext) {
             const existingNextAdvance = Number(existingNext.advanceAmount) || 0;
@@ -796,6 +903,7 @@ export async function registerRoutes(
               status: "Pending",
               paidDate: null,
               hotelId,
+              branchId,
             });
           }
         }
@@ -824,13 +932,15 @@ export async function registerRoutes(
 
   app.get("/api/booking-charges", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getAllBookingCharges(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getAllBookingCharges(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/booking-charges", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createBookingCharge({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createBookingCharge({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
@@ -842,20 +952,23 @@ export async function registerRoutes(
   // ============= ROOM PRICING =============
   app.get("/api/room-pricing", async (req, res) => {
     const hotelId = getHotelId(req);
+    const branchId = getBranchId(req);
     const roomTypeId = req.query.roomTypeId ? Number(req.query.roomTypeId) : undefined;
-    const data = await storage.getRoomPricing(roomTypeId, hotelId);
+    const data = await storage.getRoomPricing(roomTypeId, hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/room-pricing", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.upsertRoomPricing({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.upsertRoomPricing({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
   app.post("/api/room-pricing/bulk", async (req, res) => {
     const hotelId = getHotelId(req);
-    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId }));
+    const branchId = getBranchId(req);
+    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId, branchId }));
     const data = await storage.bulkUpsertRoomPricing(items);
     res.status(201).json(data);
   });
@@ -870,19 +983,22 @@ export async function registerRoutes(
   // ============= ROOM BLOCKS =============
   app.get("/api/room-blocks", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getRoomBlocks(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getRoomBlocks(hotelId, branchId);
     res.json(data);
   });
 
   app.post("/api/room-blocks", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.createRoomBlock({ ...req.body, hotelId });
+    const branchId = getBranchId(req);
+    const data = await storage.createRoomBlock({ ...req.body, hotelId, branchId });
     res.status(201).json(data);
   });
 
   app.post("/api/room-blocks/bulk", async (req, res) => {
     const hotelId = getHotelId(req);
-    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId }));
+    const branchId = getBranchId(req);
+    const items = (req.body.items || []).map((item: any) => ({ ...item, hotelId, branchId }));
     const data = await storage.bulkCreateRoomBlocks(items);
     res.status(201).json(data);
   });
@@ -904,7 +1020,8 @@ export async function registerRoutes(
   // ============= INVOICE SCHEDULER =============
   app.get("/api/invoice-scheduler/logs", async (req, res) => {
     const hotelId = getHotelId(req);
-    const data = await storage.getInvoiceSchedulerLogs(hotelId);
+    const branchId = getBranchId(req);
+    const data = await storage.getInvoiceSchedulerLogs(hotelId, branchId);
     res.json(data);
   });
 
@@ -953,9 +1070,10 @@ export async function registerRoutes(
       }
 
       const hotelId = getHotelId(req);
-      const allRooms = await storage.getRooms(hotelId);
-      const allBookings = await storage.getBookings(hotelId);
-      const allBlocks = await storage.getRoomBlocks(hotelId);
+      const branchId = getBranchId(req);
+      const allRooms = await storage.getRooms(hotelId, branchId);
+      const allBookings = await storage.getBookings(hotelId, branchId);
+      const allBlocks = await storage.getRoomBlocks(hotelId, branchId);
 
       let filteredRooms = allRooms;
       if (roomTypeId && roomTypeId !== "all") {

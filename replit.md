@@ -30,7 +30,17 @@ client/src/components/ - Reusable UI components
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table
 
 ## Database Tables
-hotels, platform_users, rooms, room_types, bookings, staff, expenses, categories, menu_items, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing
+hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, categories, menu_items, menus, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing, room_blocks, invoice_scheduler_logs
+
+## Branch-Level Data Isolation
+- `branches` table: id, hotelId, name, city, address
+- All 16 data tables have nullable `branchId` column for branch-level filtering
+- Frontend sends `x-branch-id` header via localStorage; backend reads via `getBranchId(req)` helper
+- Branch selection persisted in localStorage as `selectedBranchId`
+- `queryClient.ts` auto-attaches `x-branch-id` to all fetch requests
+- Platform admin uses `/api/branches/sync/:hotelId` to create/update/delete branches
+- Hotel JSON `branches` column kept for backward compat; `branches` table is source of truth
+- `createHotelWithOwner()` creates branches table rows alongside hotel creation
 
 ## Authentication
 - Session-based auth using express-session (in-memory store)

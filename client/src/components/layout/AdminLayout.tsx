@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { 
@@ -42,9 +42,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import type { Hotel as HotelType } from "@shared/schema";
+import type { Hotel as HotelType, Branch } from "@shared/schema";
 
-// Define navigation items per role
 const ROLE_NAV_ITEMS = {
   owner: [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -73,6 +72,7 @@ const ROLE_NAV_ITEMS = {
 export default function AdminLayout({ children, role = "owner" }: { children: React.ReactNode, role?: "owner" | "manager" }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
   const navItems = ROLE_NAV_ITEMS[role];
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showHotelDetails, setShowHotelDetails] = useState(false);
@@ -83,10 +83,7 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
   };
 
   const { data: hotelsData = [] } = useQuery<HotelType[]>({ queryKey: ["/api/hotels"] });
-
-  const parseBranches = (b: string): { name: string; city: string; address: string }[] => {
-    try { return JSON.parse(b); } catch { return []; }
-  };
+  const { data: branchesData = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
 
   const selectedHotelId = localStorage.getItem("selectedHotelId");
   const currentHotel = user?.hotelId
@@ -94,9 +91,34 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
     : selectedHotelId
       ? hotelsData.find(h => h.id === Number(selectedHotelId)) || hotelsData[0]
       : hotelsData[0];
-  const branches = currentHotel ? parseBranches(currentHotel.branches) : [];
-  const branchNames = branches.map(b => b.name + (b.city ? ` - ${b.city}` : "")).filter(Boolean);
-  const [currentBranch, setCurrentBranch] = useState("");
+
+  const hotelBranches = branchesData.filter(b => currentHotel && b.hotelId === currentHotel.id);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(() => {
+    const stored = localStorage.getItem("selectedBranchId");
+    return stored ? Number(stored) : null;
+  });
+
+  useEffect(() => {
+    if (hotelBranches.length === 0) return;
+    const isValid = selectedBranchId && hotelBranches.some(b => b.id === selectedBranchId);
+    if (!isValid) {
+      const first = hotelBranches[0];
+      setSelectedBranchId(first.id);
+      localStorage.setItem("selectedBranchId", String(first.id));
+    }
+  }, [hotelBranches, selectedBranchId]);
+
+  const handleBranchSelect = (branchId: number) => {
+    setSelectedBranchId(branchId);
+    localStorage.setItem("selectedBranchId", String(branchId));
+    queryClient.invalidateQueries();
+  };
+
+  const selectedBranch = hotelBranches.find(b => b.id === selectedBranchId);
+  const branchLabel = selectedBranch
+    ? `${selectedBranch.name}${selectedBranch.city ? ` - ${selectedBranch.city}` : ""}`
+    : "No Branch";
 
   const SidebarContent = () => (
     <>
@@ -111,16 +133,16 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
         </div>
       </div>
 
-      {role === "owner" && (
+      {(role === "owner" || role === "manager") && hotelBranches.length > 0 && (
         <div className="px-3 py-4">
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground h-auto py-2">
+              <Button variant="outline" className="w-full justify-between bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground h-auto py-2" data-testid="dropdown-branch-selector">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <Building className="h-4 w-4 shrink-0 opacity-70" />
                   <div className="flex flex-col items-start truncate">
                     <span className="text-[10px] uppercase text-muted-foreground font-bold">Current Branch</span>
-                    <span className="text-xs font-medium truncate w-32 text-left">{currentBranch || branchNames[0] || "No Branch"}</span>
+                    <span className="text-xs font-medium truncate w-32 text-left">{branchLabel}</span>
                   </div>
                 </div>
                 <ChevronDown className="h-4 w-4 opacity-50" />
@@ -129,13 +151,16 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
             <DropdownMenuContent className="w-56">
               <DropdownMenuLabel>Select Branch</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {branchNames.length > 0 ? branchNames.map((branch) => (
-                <DropdownMenuItem key={branch} onClick={() => setCurrentBranch(branch)}>
-                  {branch}
+              {hotelBranches.map((branch) => (
+                <DropdownMenuItem
+                  key={branch.id}
+                  onClick={() => handleBranchSelect(branch.id)}
+                  className={cn(selectedBranchId === branch.id && "bg-accent font-semibold")}
+                  data-testid={`menu-branch-${branch.id}`}
+                >
+                  {branch.name}{branch.city ? ` - ${branch.city}` : ""}
                 </DropdownMenuItem>
-              )) : (
-                <DropdownMenuItem disabled>No branches configured</DropdownMenuItem>
-              )}
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -182,12 +207,10 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
 
   return (
     <div className="flex h-screen bg-muted/30">
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 bg-sidebar border-r border-sidebar-border flex-col fixed h-full inset-y-0 z-50">
         <SidebarContent />
       </aside>
 
-      {/* Mobile Header & Sidebar */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar border-b border-sidebar-border z-50 flex items-center px-4 justify-between">
         <div className="flex items-center gap-2 font-serif font-bold text-xl text-sidebar-primary">
           {currentHotel?.logoUrl ? (
@@ -211,7 +234,6 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
         </Sheet>
       </div>
 
-      {/* Main Content */}
       <main className="flex-1 md:ml-64 overflow-y-auto pt-16 md:pt-0">
         <div className="container mx-auto p-4 md:p-8 max-w-7xl">
           {children}
@@ -234,7 +256,6 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
           </DialogHeader>
           {currentHotel && (() => {
             const countryLabels: Record<string, string> = { us: "United States", uk: "United Kingdom", "in": "India", ae: "UAE" };
-            const hotelBranches = parseBranches(currentHotel.branches);
             return (
               <div className="space-y-6 py-2">
                 <div>
@@ -331,8 +352,8 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
                       Branches ({hotelBranches.length})
                     </h4>
                     <div className="space-y-2">
-                      {hotelBranches.map((branch: any, idx: number) => (
-                        <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
+                      {hotelBranches.map((branch) => (
+                        <div key={branch.id} className="p-3 bg-muted/30 rounded-lg border">
                           <p className="text-sm font-medium">{branch.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {branch.city && <span>{branch.city}</span>}

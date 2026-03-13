@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
-  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs,
+  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, branches,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -23,11 +23,14 @@ import {
   type InsertRoomPricing, type RoomPricing,
   type InsertRoomBlock, type RoomBlock,
   type InsertInvoiceSchedulerLog, type InvoiceSchedulerLog,
+  type InsertBranch, type Branch,
 } from "@shared/schema";
 
-function hotelFilter(column: any, hotelId: number | null | undefined) {
-  if (hotelId) return eq(column, hotelId);
-  return undefined;
+function buildScopeConditions(hotelIdCol: any, branchIdCol: any, hotelId: number | null | undefined, branchId: number | null | undefined) {
+  const conditions = [];
+  if (hotelId) conditions.push(eq(hotelIdCol, hotelId));
+  if (branchId) conditions.push(eq(branchIdCol, branchId));
+  return conditions;
 }
 
 export interface IStorage {
@@ -39,26 +42,33 @@ export interface IStorage {
   deleteHotelWithData(id: number): Promise<void>;
   getHotelById(id: number): Promise<Hotel | undefined>;
 
+  getBranches(hotelId?: number | null): Promise<Branch[]>;
+  getBranch(id: number): Promise<Branch | undefined>;
+  createBranch(data: InsertBranch): Promise<Branch>;
+  updateBranch(id: number, data: Partial<InsertBranch>): Promise<Branch | undefined>;
+  deleteBranch(id: number): Promise<void>;
+  syncBranches(hotelId: number, branchData: { id?: number; name: string; city: string; address: string }[]): Promise<Branch[]>;
+
   getPlatformUsers(): Promise<PlatformUser[]>;
   getPlatformUserByEmail(email: string): Promise<PlatformUser | undefined>;
   createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser>;
   updatePlatformUser(id: number, data: Partial<InsertPlatformUser>): Promise<PlatformUser | undefined>;
   deletePlatformUser(id: number): Promise<void>;
 
-  getRoomTypes(hotelId?: number | null): Promise<RoomType[]>;
+  getRoomTypes(hotelId?: number | null, branchId?: number | null): Promise<RoomType[]>;
   createRoomType(data: InsertRoomType): Promise<RoomType>;
   updateRoomType(id: number, data: Partial<InsertRoomType>): Promise<RoomType | undefined>;
   deleteRoomType(id: number): Promise<void>;
 
-  getRooms(hotelId?: number | null): Promise<Room[]>;
+  getRooms(hotelId?: number | null, branchId?: number | null): Promise<Room[]>;
   getRoom(id: number): Promise<Room | undefined>;
   getRoomByNumber(roomNumber: string, hotelId?: number | null): Promise<Room | undefined>;
   createRoom(data: InsertRoom): Promise<Room>;
   updateRoom(id: number, data: Partial<InsertRoom>): Promise<Room | undefined>;
   deleteRoom(id: number): Promise<void>;
 
-  getBookings(hotelId?: number | null): Promise<Booking[]>;
-  getArchivedBookings(hotelId?: number | null): Promise<Booking[]>;
+  getBookings(hotelId?: number | null, branchId?: number | null): Promise<Booking[]>;
+  getArchivedBookings(hotelId?: number | null, branchId?: number | null): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | undefined>;
   getBookingByBookingId(bookingId: string): Promise<Booking | undefined>;
   createBooking(data: InsertBooking): Promise<Booking>;
@@ -68,41 +78,41 @@ export interface IStorage {
   deleteBooking(id: number): Promise<void>;
   getOverlappingBookings(roomId: number, checkIn: string, checkOut: string): Promise<Booking[]>;
 
-  getStaff(hotelId?: number | null): Promise<Staff[]>;
+  getStaff(hotelId?: number | null, branchId?: number | null): Promise<Staff[]>;
   getStaffMember(id: number): Promise<Staff | undefined>;
   createStaff(data: InsertStaff): Promise<Staff>;
   updateStaff(id: number, data: Partial<InsertStaff>): Promise<Staff | undefined>;
   deleteStaff(id: number): Promise<void>;
 
-  getExpenses(hotelId?: number | null): Promise<Expense[]>;
+  getExpenses(hotelId?: number | null, branchId?: number | null): Promise<Expense[]>;
   createExpense(data: InsertExpense): Promise<Expense>;
   updateExpense(id: number, data: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number): Promise<void>;
 
-  getCategories(hotelId?: number | null): Promise<Category[]>;
+  getCategories(hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
   createCategory(data: InsertCategory): Promise<Category>;
   createCategoriesBulk(items: InsertCategory[]): Promise<Category[]>;
   updateCategory(id: number, data: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<void>;
   deleteCategoryByType(type: string, hotelId?: number | null): Promise<void>;
-  syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null): Promise<Category[]>;
+  syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
 
-  getMenuItems(hotelId?: number | null): Promise<MenuItem[]>;
+  getMenuItems(hotelId?: number | null, branchId?: number | null): Promise<MenuItem[]>;
   createMenuItem(data: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, data: Partial<InsertMenuItem>): Promise<MenuItem | undefined>;
   deleteMenuItem(id: number): Promise<void>;
 
-  getMenus(hotelId?: number | null): Promise<Menu[]>;
+  getMenus(hotelId?: number | null, branchId?: number | null): Promise<Menu[]>;
   createMenu(data: InsertMenu): Promise<Menu>;
   updateMenu(id: number, data: Partial<InsertMenu>): Promise<Menu | undefined>;
   deleteMenu(id: number): Promise<void>;
 
-  getFacilities(hotelId?: number | null): Promise<Facility[]>;
+  getFacilities(hotelId?: number | null, branchId?: number | null): Promise<Facility[]>;
   createFacility(data: InsertFacility): Promise<Facility>;
   updateFacility(id: number, data: Partial<InsertFacility>): Promise<Facility | undefined>;
   deleteFacility(id: number): Promise<void>;
 
-  getOrders(hotelId?: number | null): Promise<Order[]>;
+  getOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]>;
   getOrdersByBookingId(bookingId: string): Promise<Order[]>;
   createOrder(data: InsertOrder): Promise<Order>;
   updateOrder(id: number, data: Partial<InsertOrder>): Promise<Order | undefined>;
@@ -110,36 +120,37 @@ export interface IStorage {
   getOrderItems(orderId: string): Promise<OrderItem[]>;
   createOrderItem(data: InsertOrderItem): Promise<OrderItem>;
 
-  getSettings(hotelId?: number | null): Promise<Setting[]>;
-  getSetting(key: string, hotelId?: number | null): Promise<Setting | undefined>;
-  upsertSetting(key: string, value: string, hotelId?: number | null): Promise<Setting>;
+  getSettings(hotelId?: number | null, branchId?: number | null): Promise<Setting[]>;
+  getSetting(key: string, hotelId?: number | null, branchId?: number | null): Promise<Setting | undefined>;
+  upsertSetting(key: string, value: string, hotelId?: number | null, branchId?: number | null): Promise<Setting>;
 
-  getSalaries(hotelId?: number | null): Promise<Salary[]>;
-  getSalariesByMonth(month: string, hotelId?: number | null): Promise<Salary[]>;
+  getSalaries(hotelId?: number | null, branchId?: number | null): Promise<Salary[]>;
+  getSalariesByMonth(month: string, hotelId?: number | null, branchId?: number | null): Promise<Salary[]>;
   createSalary(data: InsertSalary): Promise<Salary>;
   updateSalary(id: number, data: Partial<InsertSalary>): Promise<Salary | undefined>;
   deleteSalary(id: number): Promise<void>;
 
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
-  getAllBookingCharges(hotelId?: number | null): Promise<BookingCharge[]>;
+  getAllBookingCharges(hotelId?: number | null, branchId?: number | null): Promise<BookingCharge[]>;
   createBookingCharge(data: InsertBookingCharge): Promise<BookingCharge>;
+  deleteBookingCharge(id: number): Promise<void>;
 
-  getRoomPricing(roomTypeId?: number, hotelId?: number | null): Promise<RoomPricing[]>;
+  getRoomPricing(roomTypeId?: number, hotelId?: number | null, branchId?: number | null): Promise<RoomPricing[]>;
   upsertRoomPricing(data: InsertRoomPricing): Promise<RoomPricing>;
   bulkUpsertRoomPricing(data: InsertRoomPricing[]): Promise<RoomPricing[]>;
   updateRoomPricingLock(id: number, isLocked: boolean): Promise<RoomPricing | undefined>;
 
-  getRoomBlocks(hotelId?: number | null): Promise<RoomBlock[]>;
+  getRoomBlocks(hotelId?: number | null, branchId?: number | null): Promise<RoomBlock[]>;
   createRoomBlock(data: InsertRoomBlock): Promise<RoomBlock>;
   bulkCreateRoomBlocks(data: InsertRoomBlock[]): Promise<RoomBlock[]>;
   deleteRoomBlock(id: number): Promise<void>;
   deleteRoomBlocksByRoomAndDateRange(roomIds: number[], startDate: string, endDate: string): Promise<number>;
 
-  getInvoiceSchedulerLogs(hotelId?: number | null): Promise<InvoiceSchedulerLog[]>;
+  getInvoiceSchedulerLogs(hotelId?: number | null, branchId?: number | null): Promise<InvoiceSchedulerLog[]>;
   createInvoiceSchedulerLog(data: InsertInvoiceSchedulerLog): Promise<InvoiceSchedulerLog>;
   updateInvoiceSchedulerLog(id: number, data: Partial<InsertInvoiceSchedulerLog>): Promise<InvoiceSchedulerLog | undefined>;
 
-  getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null): Promise<Booking[]>;
+  getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null, branchId?: number | null): Promise<Booking[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -153,7 +164,7 @@ export class DatabaseStorage implements IStorage {
   async createHotelWithOwner(data: any): Promise<Hotel> {
     return await db.transaction(async (tx) => {
       const password = data.adminPassword || "password123";
-      const { adminPassword, ...hotelData } = data;
+      const { adminPassword, branchesData, ...hotelData } = data;
       const [hotel] = await tx.insert(hotels).values(hotelData).returning();
       await tx.insert(platformUsers).values({
         name: data.ownerName,
@@ -163,6 +174,18 @@ export class DatabaseStorage implements IStorage {
         hotelId: hotel.id,
         status: "Active",
       });
+      if (branchesData && Array.isArray(branchesData) && branchesData.length > 0) {
+        for (const b of branchesData) {
+          if (b.name && b.name.trim()) {
+            await tx.insert(branches).values({
+              hotelId: hotel.id,
+              name: b.name.trim(),
+              city: b.city || "",
+              address: b.address || "",
+            });
+          }
+        }
+      }
       return hotel;
     });
   }
@@ -199,6 +222,7 @@ export class DatabaseStorage implements IStorage {
       await tx.delete(facilities).where(eq(facilities.hotelId, hid));
       await tx.delete(settings).where(eq(settings.hotelId, hid));
       await tx.delete(invoiceSchedulerLogs).where(eq(invoiceSchedulerLogs.hotelId, hid));
+      await tx.delete(branches).where(eq(branches.hotelId, hid));
       await tx.delete(platformUsers).where(eq(platformUsers.hotelId, hid));
       await tx.delete(hotels).where(eq(hotels.id, hid));
     });
@@ -206,6 +230,46 @@ export class DatabaseStorage implements IStorage {
   async getHotelById(id: number): Promise<Hotel | undefined> {
     const [result] = await db.select().from(hotels).where(eq(hotels.id, id));
     return result;
+  }
+
+  async getBranches(hotelId?: number | null): Promise<Branch[]> {
+    if (hotelId) {
+      return db.select().from(branches).where(eq(branches.hotelId, hotelId)).orderBy(branches.id);
+    }
+    return db.select().from(branches).orderBy(branches.id);
+  }
+  async getBranch(id: number): Promise<Branch | undefined> {
+    const [result] = await db.select().from(branches).where(eq(branches.id, id));
+    return result;
+  }
+  async createBranch(data: InsertBranch): Promise<Branch> {
+    const [result] = await db.insert(branches).values(data).returning();
+    return result;
+  }
+  async updateBranch(id: number, data: Partial<InsertBranch>): Promise<Branch | undefined> {
+    const [result] = await db.update(branches).set(data).where(eq(branches.id, id)).returning();
+    return result;
+  }
+  async deleteBranch(id: number): Promise<void> {
+    await db.delete(branches).where(eq(branches.id, id));
+  }
+  async syncBranches(hotelId: number, branchData: { id?: number; name: string; city: string; address: string }[]): Promise<Branch[]> {
+    const existing = await db.select().from(branches).where(eq(branches.hotelId, hotelId));
+    const existingIds = existing.map(e => e.id);
+    const incomingIds = branchData.filter(b => b.id).map(b => b.id!);
+    const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+    for (const id of toDelete) {
+      await db.delete(branches).where(eq(branches.id, id));
+    }
+    for (const b of branchData) {
+      if (!b.name.trim()) continue;
+      if (b.id) {
+        await db.update(branches).set({ name: b.name, city: b.city || "", address: b.address || "" }).where(eq(branches.id, b.id));
+      } else {
+        await db.insert(branches).values({ hotelId, name: b.name.trim(), city: b.city || "", address: b.address || "" });
+      }
+    }
+    return db.select().from(branches).where(eq(branches.hotelId, hotelId)).orderBy(branches.id);
   }
 
   async getPlatformUsers(): Promise<PlatformUser[]> {
@@ -227,9 +291,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(platformUsers).where(eq(platformUsers.id, id));
   }
 
-  async getRoomTypes(hotelId?: number | null): Promise<RoomType[]> {
-    const conditions = [];
-    if (hotelId) conditions.push(eq(roomTypes.hotelId, hotelId));
+  async getRoomTypes(hotelId?: number | null, branchId?: number | null): Promise<RoomType[]> {
+    const conditions = buildScopeConditions(roomTypes.hotelId, roomTypes.branchId, hotelId, branchId);
     if (conditions.length > 0) {
       return db.select().from(roomTypes).where(and(...conditions)).orderBy(roomTypes.id);
     }
@@ -247,9 +310,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(roomTypes).where(eq(roomTypes.id, id));
   }
 
-  async getRooms(hotelId?: number | null): Promise<Room[]> {
-    if (hotelId) {
-      return db.select().from(rooms).where(eq(rooms.hotelId, hotelId)).orderBy(rooms.roomNumber);
+  async getRooms(hotelId?: number | null, branchId?: number | null): Promise<Room[]> {
+    const conditions = buildScopeConditions(rooms.hotelId, rooms.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(rooms).where(and(...conditions)).orderBy(rooms.roomNumber);
     }
     return db.select().from(rooms).orderBy(rooms.roomNumber);
   }
@@ -277,17 +341,15 @@ export class DatabaseStorage implements IStorage {
     await db.delete(rooms).where(eq(rooms.id, id));
   }
 
-  async getBookings(hotelId?: number | null): Promise<Booking[]> {
-    if (hotelId) {
-      return db.select().from(bookings).where(and(eq(bookings.archived, false), eq(bookings.hotelId, hotelId))).orderBy(desc(bookings.createdAt));
-    }
-    return db.select().from(bookings).where(eq(bookings.archived, false)).orderBy(desc(bookings.createdAt));
+  async getBookings(hotelId?: number | null, branchId?: number | null): Promise<Booking[]> {
+    const conditions = buildScopeConditions(bookings.hotelId, bookings.branchId, hotelId, branchId);
+    conditions.push(eq(bookings.archived, false));
+    return db.select().from(bookings).where(and(...conditions)).orderBy(desc(bookings.createdAt));
   }
-  async getArchivedBookings(hotelId?: number | null): Promise<Booking[]> {
-    if (hotelId) {
-      return db.select().from(bookings).where(and(eq(bookings.archived, true), eq(bookings.hotelId, hotelId))).orderBy(desc(bookings.archivedAt));
-    }
-    return db.select().from(bookings).where(eq(bookings.archived, true)).orderBy(desc(bookings.archivedAt));
+  async getArchivedBookings(hotelId?: number | null, branchId?: number | null): Promise<Booking[]> {
+    const conditions = buildScopeConditions(bookings.hotelId, bookings.branchId, hotelId, branchId);
+    conditions.push(eq(bookings.archived, true));
+    return db.select().from(bookings).where(and(...conditions)).orderBy(desc(bookings.archivedAt));
   }
   async getBooking(id: number): Promise<Booking | undefined> {
     const [result] = await db.select().from(bookings).where(eq(bookings.id, id));
@@ -328,9 +390,10 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getStaff(hotelId?: number | null): Promise<Staff[]> {
-    if (hotelId) {
-      return db.select().from(staff).where(eq(staff.hotelId, hotelId)).orderBy(staff.name);
+  async getStaff(hotelId?: number | null, branchId?: number | null): Promise<Staff[]> {
+    const conditions = buildScopeConditions(staff.hotelId, staff.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(staff).where(and(...conditions)).orderBy(staff.name);
     }
     return db.select().from(staff).orderBy(staff.name);
   }
@@ -350,9 +413,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(staff).where(eq(staff.id, id));
   }
 
-  async getExpenses(hotelId?: number | null): Promise<Expense[]> {
-    if (hotelId) {
-      return db.select().from(expenses).where(eq(expenses.hotelId, hotelId)).orderBy(desc(expenses.date));
+  async getExpenses(hotelId?: number | null, branchId?: number | null): Promise<Expense[]> {
+    const conditions = buildScopeConditions(expenses.hotelId, expenses.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(expenses).where(and(...conditions)).orderBy(desc(expenses.date));
     }
     return db.select().from(expenses).orderBy(desc(expenses.date));
   }
@@ -368,9 +432,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(expenses).where(eq(expenses.id, id));
   }
 
-  async getCategories(hotelId?: number | null): Promise<Category[]> {
-    if (hotelId) {
-      return db.select().from(categories).where(eq(categories.hotelId, hotelId)).orderBy(categories.type, categories.subtype);
+  async getCategories(hotelId?: number | null, branchId?: number | null): Promise<Category[]> {
+    const conditions = buildScopeConditions(categories.hotelId, categories.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(categories).where(and(...conditions)).orderBy(categories.type, categories.subtype);
     }
     return db.select().from(categories).orderBy(categories.type, categories.subtype);
   }
@@ -396,10 +461,11 @@ export class DatabaseStorage implements IStorage {
       await db.delete(categories).where(eq(categories.type, type));
     }
   }
-  async syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null): Promise<Category[]> {
-    const condition = hotelId
-      ? and(eq(categories.type, type), eq(categories.hotelId, hotelId))
-      : eq(categories.type, type);
+  async syncCategoryType(type: string, taxable: boolean, subtypes: Array<{ id?: number; subtype: string; item: string }>, hotelId?: number | null, branchId?: number | null): Promise<Category[]> {
+    const conditions = [eq(categories.type, type)];
+    if (hotelId) conditions.push(eq(categories.hotelId, hotelId));
+    if (branchId) conditions.push(eq(categories.branchId, branchId));
+    const condition = and(...conditions);
     const existing = await db.select().from(categories).where(condition!);
     const existingIds = existing.map(e => e.id);
     const incomingIds = subtypes.filter(s => s.id).map(s => s.id!);
@@ -413,15 +479,16 @@ export class DatabaseStorage implements IStorage {
       if (s.id) {
         await db.update(categories).set({ subtype: s.subtype, item: s.item, taxable }).where(eq(categories.id, s.id));
       } else {
-        await db.insert(categories).values({ type, subtype: s.subtype, item: s.item, taxable, hotelId });
+        await db.insert(categories).values({ type, subtype: s.subtype, item: s.item, taxable, hotelId, branchId });
       }
     }
     return db.select().from(categories).where(condition!);
   }
 
-  async getMenuItems(hotelId?: number | null): Promise<MenuItem[]> {
-    if (hotelId) {
-      return db.select().from(menuItems).where(eq(menuItems.hotelId, hotelId)).orderBy(menuItems.category, menuItems.name);
+  async getMenuItems(hotelId?: number | null, branchId?: number | null): Promise<MenuItem[]> {
+    const conditions = buildScopeConditions(menuItems.hotelId, menuItems.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(menuItems).where(and(...conditions)).orderBy(menuItems.category, menuItems.name);
     }
     return db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
   }
@@ -437,9 +504,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(menuItems).where(eq(menuItems.id, id));
   }
 
-  async getMenus(hotelId?: number | null): Promise<Menu[]> {
-    if (hotelId) {
-      return db.select().from(menus).where(eq(menus.hotelId, hotelId)).orderBy(desc(menus.createdAt));
+  async getMenus(hotelId?: number | null, branchId?: number | null): Promise<Menu[]> {
+    const conditions = buildScopeConditions(menus.hotelId, menus.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(menus).where(and(...conditions)).orderBy(desc(menus.createdAt));
     }
     return db.select().from(menus).orderBy(desc(menus.createdAt));
   }
@@ -455,9 +523,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(menus).where(eq(menus.id, id));
   }
 
-  async getFacilities(hotelId?: number | null): Promise<Facility[]> {
-    if (hotelId) {
-      return db.select().from(facilities).where(eq(facilities.hotelId, hotelId)).orderBy(facilities.name);
+  async getFacilities(hotelId?: number | null, branchId?: number | null): Promise<Facility[]> {
+    const conditions = buildScopeConditions(facilities.hotelId, facilities.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(facilities).where(and(...conditions)).orderBy(facilities.name);
     }
     return db.select().from(facilities).orderBy(facilities.name);
   }
@@ -473,9 +542,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(facilities).where(eq(facilities.id, id));
   }
 
-  async getOrders(hotelId?: number | null): Promise<Order[]> {
-    if (hotelId) {
-      return db.select().from(orders).where(eq(orders.hotelId, hotelId)).orderBy(desc(orders.createdAt));
+  async getOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]> {
+    const conditions = buildScopeConditions(orders.hotelId, orders.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
     }
     return db.select().from(orders).orderBy(desc(orders.createdAt));
   }
@@ -499,41 +569,42 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getSettings(hotelId?: number | null): Promise<Setting[]> {
-    if (hotelId) {
-      return db.select().from(settings).where(eq(settings.hotelId, hotelId));
+  async getSettings(hotelId?: number | null, branchId?: number | null): Promise<Setting[]> {
+    const conditions = buildScopeConditions(settings.hotelId, settings.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(settings).where(and(...conditions));
     }
     return db.select().from(settings);
   }
-  async getSetting(key: string, hotelId?: number | null): Promise<Setting | undefined> {
-    if (hotelId) {
-      const [result] = await db.select().from(settings).where(and(eq(settings.key, key), eq(settings.hotelId, hotelId)));
-      return result;
-    }
-    const [result] = await db.select().from(settings).where(eq(settings.key, key));
+  async getSetting(key: string, hotelId?: number | null, branchId?: number | null): Promise<Setting | undefined> {
+    const conditions = [eq(settings.key, key)];
+    if (hotelId) conditions.push(eq(settings.hotelId, hotelId));
+    if (branchId) conditions.push(eq(settings.branchId, branchId));
+    const [result] = await db.select().from(settings).where(and(...conditions));
     return result;
   }
-  async upsertSetting(key: string, value: string, hotelId?: number | null): Promise<Setting> {
-    const existing = await this.getSetting(key, hotelId);
+  async upsertSetting(key: string, value: string, hotelId?: number | null, branchId?: number | null): Promise<Setting> {
+    const existing = await this.getSetting(key, hotelId, branchId);
     if (existing) {
       const [result] = await db.update(settings).set({ value }).where(eq(settings.id, existing.id)).returning();
       return result;
     }
-    const [result] = await db.insert(settings).values({ key, value, hotelId }).returning();
+    const [result] = await db.insert(settings).values({ key, value, hotelId, branchId }).returning();
     return result;
   }
 
-  async getSalaries(hotelId?: number | null): Promise<Salary[]> {
-    if (hotelId) {
-      return db.select().from(salaries).where(eq(salaries.hotelId, hotelId)).orderBy(desc(salaries.month));
+  async getSalaries(hotelId?: number | null, branchId?: number | null): Promise<Salary[]> {
+    const conditions = buildScopeConditions(salaries.hotelId, salaries.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(salaries).where(and(...conditions)).orderBy(desc(salaries.month));
     }
     return db.select().from(salaries).orderBy(desc(salaries.month));
   }
-  async getSalariesByMonth(month: string, hotelId?: number | null): Promise<Salary[]> {
-    if (hotelId) {
-      return db.select().from(salaries).where(and(eq(salaries.month, month), eq(salaries.hotelId, hotelId)));
-    }
-    return db.select().from(salaries).where(eq(salaries.month, month));
+  async getSalariesByMonth(month: string, hotelId?: number | null, branchId?: number | null): Promise<Salary[]> {
+    const conditions = [eq(salaries.month, month)];
+    if (hotelId) conditions.push(eq(salaries.hotelId, hotelId));
+    if (branchId) conditions.push(eq(salaries.branchId, branchId));
+    return db.select().from(salaries).where(and(...conditions));
   }
   async createSalary(data: InsertSalary): Promise<Salary> {
     const [result] = await db.insert(salaries).values(data).returning();
@@ -550,9 +621,10 @@ export class DatabaseStorage implements IStorage {
   async getBookingCharges(bookingId: string): Promise<BookingCharge[]> {
     return db.select().from(bookingCharges).where(eq(bookingCharges.bookingId, bookingId)).orderBy(bookingCharges.createdAt);
   }
-  async getAllBookingCharges(hotelId?: number | null): Promise<BookingCharge[]> {
-    if (hotelId) {
-      return db.select().from(bookingCharges).where(eq(bookingCharges.hotelId, hotelId)).orderBy(bookingCharges.createdAt);
+  async getAllBookingCharges(hotelId?: number | null, branchId?: number | null): Promise<BookingCharge[]> {
+    const conditions = buildScopeConditions(bookingCharges.hotelId, bookingCharges.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(bookingCharges).where(and(...conditions)).orderBy(bookingCharges.createdAt);
     }
     return db.select().from(bookingCharges).orderBy(bookingCharges.createdAt);
   }
@@ -564,10 +636,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(bookingCharges).where(eq(bookingCharges.id, id));
   }
 
-  async getRoomPricing(roomTypeId?: number, hotelId?: number | null): Promise<RoomPricing[]> {
-    const conditions = [];
+  async getRoomPricing(roomTypeId?: number, hotelId?: number | null, branchId?: number | null): Promise<RoomPricing[]> {
+    const conditions = buildScopeConditions(roomPricing.hotelId, roomPricing.branchId, hotelId, branchId);
     if (roomTypeId) conditions.push(eq(roomPricing.roomTypeId, roomTypeId));
-    if (hotelId) conditions.push(eq(roomPricing.hotelId, hotelId));
     if (conditions.length > 0) {
       return db.select().from(roomPricing).where(and(...conditions)).orderBy(roomPricing.roomTypeId, roomPricing.date);
     }
@@ -602,9 +673,10 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getRoomBlocks(hotelId?: number | null): Promise<RoomBlock[]> {
-    if (hotelId) {
-      return db.select().from(roomBlocks).where(eq(roomBlocks.hotelId, hotelId)).orderBy(desc(roomBlocks.createdAt));
+  async getRoomBlocks(hotelId?: number | null, branchId?: number | null): Promise<RoomBlock[]> {
+    const conditions = buildScopeConditions(roomBlocks.hotelId, roomBlocks.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(roomBlocks).where(and(...conditions)).orderBy(desc(roomBlocks.createdAt));
     }
     return db.select().from(roomBlocks).orderBy(desc(roomBlocks.createdAt));
   }
@@ -639,9 +711,10 @@ export class DatabaseStorage implements IStorage {
     return ids.length;
   }
 
-  async getInvoiceSchedulerLogs(hotelId?: number | null): Promise<InvoiceSchedulerLog[]> {
-    if (hotelId) {
-      return db.select().from(invoiceSchedulerLogs).where(eq(invoiceSchedulerLogs.hotelId, hotelId)).orderBy(desc(invoiceSchedulerLogs.createdAt));
+  async getInvoiceSchedulerLogs(hotelId?: number | null, branchId?: number | null): Promise<InvoiceSchedulerLog[]> {
+    const conditions = buildScopeConditions(invoiceSchedulerLogs.hotelId, invoiceSchedulerLogs.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(invoiceSchedulerLogs).where(and(...conditions)).orderBy(desc(invoiceSchedulerLogs.createdAt));
     }
     return db.select().from(invoiceSchedulerLogs).orderBy(desc(invoiceSchedulerLogs.createdAt));
   }
@@ -656,13 +729,14 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null): Promise<Booking[]> {
+  async getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null, branchId?: number | null): Promise<Booking[]> {
     const conditions = [
       eq(bookings.status, "checked_out"),
       gte(bookings.checkOut, startDate),
       lte(bookings.checkOut, endDate)
     ];
     if (hotelId) conditions.push(eq(bookings.hotelId, hotelId));
+    if (branchId) conditions.push(eq(bookings.branchId, branchId));
     return db.select().from(bookings).where(and(...conditions)).orderBy(bookings.checkOut);
   }
 }

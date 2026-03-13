@@ -30,6 +30,20 @@ export const insertHotelSchema = createInsertSchema(hotels).omit({ id: true, cre
 export type InsertHotel = z.infer<typeof insertHotelSchema>;
 export type Hotel = typeof hotels.$inferSelect;
 
+// ============= BRANCHES =============
+export const branches = pgTable("branches", {
+  id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id").notNull(),
+  name: text("name").notNull(),
+  city: text("city").notNull().default(""),
+  address: text("address").notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBranchSchema = createInsertSchema(branches).omit({ id: true, createdAt: true });
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
+export type Branch = typeof branches.$inferSelect;
+
 // ============= PLATFORM USERS =============
 export const platformUsers = pgTable("platform_users", {
   id: serial("id").primaryKey(),
@@ -51,6 +65,7 @@ export type PlatformUser = typeof platformUsers.$inferSelect;
 export const roomTypes = pgTable("room_types", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   name: text("name").notNull(),
   beds: text("beds").notNull().default("1 Queen Bed"),
   maxAdults: integer("max_adults").notNull().default(2),
@@ -69,6 +84,7 @@ export type RoomType = typeof roomTypes.$inferSelect;
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   roomNumber: text("room_number").notNull(),
   roomName: text("room_name").notNull().default(""),
   roomTypeId: integer("room_type_id").notNull(),
@@ -87,6 +103,7 @@ export type Room = typeof rooms.$inferSelect;
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   bookingId: text("booking_id").notNull().unique(),
   guestName: text("guest_name").notNull(),
   guestEmail: text("guest_email"),
@@ -120,6 +137,7 @@ export type Booking = typeof bookings.$inferSelect;
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   employeeId: text("employee_id").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(),
@@ -159,6 +177,7 @@ export type Staff = typeof staff.$inferSelect;
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   date: date("date").notNull(),
   recordDate: date("record_date").notNull(),
   category: text("category").notNull(),
@@ -180,6 +199,7 @@ export type Expense = typeof expenses.$inferSelect;
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   type: text("type").notNull(),
   subtype: text("subtype").notNull().default(""),
   item: text("item").notNull(),
@@ -194,6 +214,7 @@ export type Category = typeof categories.$inferSelect;
 export const menuItems = pgTable("menu_items", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   category: text("category").notNull().default("Food"),
@@ -210,6 +231,7 @@ export type MenuItem = typeof menuItems.$inferSelect;
 export const menus = pgTable("menus", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   name: text("name").notNull(),
   type: text("type").notNull().default("Daily"),
   startDate: date("start_date"),
@@ -228,6 +250,7 @@ export type Menu = typeof menus.$inferSelect;
 export const facilities = pgTable("facilities", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -247,6 +270,7 @@ export type Facility = typeof facilities.$inferSelect;
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   orderId: text("order_id").notNull().unique(),
   bookingId: text("booking_id").notNull(),
   guestName: text("guest_name").notNull(),
@@ -279,6 +303,7 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   key: text("key").notNull(),
   value: text("value").notNull(),
 });
@@ -291,6 +316,7 @@ export type Setting = typeof settings.$inferSelect;
 export const salaries = pgTable("salaries", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   staffId: integer("staff_id").notNull(),
   month: text("month").notNull(),
   basicSalary: decimal("basic_salary", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -313,6 +339,7 @@ export type Salary = typeof salaries.$inferSelect;
 export const roomPricing = pgTable("room_pricing", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   roomTypeId: integer("room_type_id").notNull(),
   date: date("date").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -328,6 +355,7 @@ export type RoomPricing = typeof roomPricing.$inferSelect;
 export const roomBlocks = pgTable("room_blocks", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   roomId: integer("room_id").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
@@ -343,6 +371,7 @@ export type RoomBlock = typeof roomBlocks.$inferSelect;
 export const bookingCharges = pgTable("booking_charges", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   bookingId: text("booking_id").notNull(),
   orderId: text("order_id"),
   description: text("description").notNull(),
@@ -359,6 +388,7 @@ export type BookingCharge = typeof bookingCharges.$inferSelect;
 export const invoiceSchedulerLogs = pgTable("invoice_scheduler_logs", {
   id: serial("id").primaryKey(),
   hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
   jobType: text("job_type").notNull().default("manual"),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
