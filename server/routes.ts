@@ -526,7 +526,18 @@ export async function registerRoutes(
   // ============= MENUS & BUFFETS =============
   app.get("/api/menus", async (_req, res) => {
     const data = await storage.getMenus();
-    res.json(data);
+    const today = new Date().toISOString().split('T')[0];
+    const updated = [];
+    for (const menu of data) {
+      if (menu.active && menu.endDate && menu.endDate < today) {
+        const deactivated = await storage.updateMenu(menu.id, { active: false });
+        if (deactivated) updated.push(deactivated);
+        else updated.push(menu);
+      } else {
+        updated.push(menu);
+      }
+    }
+    res.json(updated);
   });
 
   app.post("/api/menus", async (req, res) => {

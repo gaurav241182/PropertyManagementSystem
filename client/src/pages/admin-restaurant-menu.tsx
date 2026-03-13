@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, ChefHat, UtensilsCrossed, Utensils } from "lucide-react";
+import { Plus, Trash2, Edit, ChefHat, UtensilsCrossed, Utensils, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,7 +31,8 @@ interface ApiMenu {
   id: number;
   name: string;
   type: string;
-  schedule: string;
+  startDate: string | null;
+  endDate: string | null;
   price: string;
   active: boolean;
   itemIds: string;
@@ -104,7 +105,6 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     },
   });
 
-  // Menu Items Management
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ApiMenuItem | null>(null);
   const [newItem, setNewItem] = useState({
@@ -115,24 +115,22 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     available: true
   });
 
-  // Menus & Buffets Management
   const [isMenuDialogOpen, setIsMenuDialogOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState<ApiMenu | null>(null);
   const [newMenu, setNewMenu] = useState({
     name: "",
     type: "Daily",
-    schedule: "",
+    startDate: "",
+    endDate: "",
     price: 0,
     items: [] as number[]
   });
 
-  // Item Handlers
   const handleAddItem = () => {
     if (!newItem.name.trim()) {
       toast({ title: "Error", description: "Item name is required", variant: "destructive" });
       return;
     }
-
     if (editingItem) {
       updateItemMutation.mutate({ id: editingItem.id, ...newItem }, {
         onSuccess: () => {
@@ -187,44 +185,37 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     });
   };
 
-  // Menu Handlers
   const handleAddMenu = () => {
     if (!newMenu.name.trim()) {
       toast({ title: "Error", description: "Menu name is required", variant: "destructive" });
       return;
     }
 
-    const itemIds = JSON.stringify(newMenu.items);
-    
+    const payload: any = {
+      name: newMenu.name,
+      type: newMenu.type,
+      startDate: newMenu.startDate || null,
+      endDate: newMenu.endDate || null,
+      price: newMenu.price,
+      itemIds: JSON.stringify(newMenu.items),
+      active: true
+    };
+
     if (editingMenu) {
-      updateMenuMutation.mutate({ 
-        id: editingMenu.id, 
-        name: newMenu.name,
-        type: newMenu.type,
-        schedule: newMenu.schedule,
-        price: newMenu.price,
-        itemIds
-      }, {
+      updateMenuMutation.mutate({ id: editingMenu.id, ...payload }, {
         onSuccess: () => {
           toast({ title: "Success", description: `${newMenu.name} has been updated.` });
           setIsMenuDialogOpen(false);
           setEditingMenu(null);
-          setNewMenu({ name: "", type: "Daily", schedule: "", price: 0, items: [] });
+          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
         },
       });
     } else {
-      createMenuMutation.mutate({ 
-        name: newMenu.name,
-        type: newMenu.type,
-        schedule: newMenu.schedule,
-        price: newMenu.price,
-        itemIds,
-        active: true
-      }, {
+      createMenuMutation.mutate(payload, {
         onSuccess: () => {
           toast({ title: "Success", description: `${newMenu.name} has been created.` });
           setIsMenuDialogOpen(false);
-          setNewMenu({ name: "", type: "Daily", schedule: "", price: 0, items: [] });
+          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
         },
       });
     }
@@ -232,13 +223,13 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
 
   const handleEditMenu = (menu: ApiMenu) => {
     setEditingMenu(menu);
-    const parsedItems = JSON.parse(menu.itemIds || "[]");
     setNewMenu({
       name: menu.name,
       type: menu.type,
-      schedule: menu.schedule,
+      startDate: menu.startDate || "",
+      endDate: menu.endDate || "",
       price: parseFloat(menu.price),
-      items: parsedItems
+      items: JSON.parse(menu.itemIds || "[]")
     });
     setIsMenuDialogOpen(true);
   };
@@ -259,7 +250,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       onSuccess: () => {
         toast({ 
           title: "Updated", 
-          description: `${menu.name} is now ${!menu.active ? 'Active' : 'Draft'}.` 
+          description: `${menu.name} is now ${!menu.active ? 'Active' : 'Inactive'}.` 
         });
       },
     });
@@ -277,6 +268,23 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     setEditingItem(null);
     setNewItem({ name: "", description: "", category: "Food", price: 0, available: true });
     setIsItemDialogOpen(true);
+  };
+
+  const openAddMenuDialog = () => {
+    setEditingMenu(null);
+    setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
+    setIsMenuDialogOpen(true);
+  };
+
+  const isMenuExpired = (menu: ApiMenu) => {
+    if (!menu.endDate) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return menu.endDate < today;
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
@@ -302,7 +310,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
               </div>
               <Dialog open={isItemDialogOpen} onOpenChange={setIsItemDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={openAddItemDialog}>
+                  <Button onClick={openAddItemDialog} data-testid="button-add-item">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Item
                   </Button>
@@ -324,11 +332,11 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                     <div className="space-y-2">
                       <Label>Description</Label>
                       <Textarea 
-                        placeholder="Optional description, e.g. Grilled bread with fresh vegetables" 
+                        placeholder="Optional description" 
                         value={newItem.description}
                         onChange={(e) => setNewItem({...newItem, description: e.target.value})}
                         data-testid="textarea-item-description"
-                        rows={3}
+                        rows={2}
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -411,15 +419,18 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                             <TableCell>{item.category}</TableCell>
                             <TableCell>{currency} {Number(item.price).toFixed(2)}</TableCell>
                             <TableCell>
-                              <Badge 
-                                variant={item.available ? "default" : "secondary"}
-                                className={item.available ? "bg-green-600" : ""}
-                                data-testid={`badge-status-${item.id}`}
-                              >
-                                {item.available ? "Active" : "Inactive"}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Switch 
+                                  checked={item.available}
+                                  onCheckedChange={() => handleToggleItemAvailable(item)}
+                                  data-testid={`switch-status-${item.id}`}
+                                />
+                                <span className={`text-xs ${item.available ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                  {item.available ? "Active" : "Inactive"}
+                                </span>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-right space-x-2">
+                            <TableCell className="text-right space-x-1">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -427,14 +438,6 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                                 data-testid={`button-edit-${item.id}`}
                               >
                                 <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleToggleItemAvailable(item)}
-                                data-testid={`button-toggle-${item.id}`}
-                              >
-                                {item.available ? "Deactivate" : "Activate"}
                               </Button>
                               <Button 
                                 variant="ghost" 
@@ -461,11 +464,11 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-semibold">Create Menus & Buffets</h3>
-                <p className="text-sm text-muted-foreground">Organize items into themed collections with pricing. Like "Breakfast Buffet - $25" or "Valentine's Special - $50".</p>
+                <p className="text-sm text-muted-foreground">Organize items into themed collections with pricing. Menus with end dates auto-deactivate after expiry.</p>
               </div>
               <Dialog open={isMenuDialogOpen} onOpenChange={setIsMenuDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={openAddMenuDialog} data-testid="button-add-menu">
                     <Plus className="mr-2 h-4 w-4" />
                     Create New Menu
                   </Button>
@@ -514,20 +517,32 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Schedule / Date</Label>
-                      <Input 
-                        placeholder="e.g. Mon-Fri 6am-11am or Feb 14" 
-                        value={newMenu.schedule}
-                        onChange={(e) => setNewMenu({...newMenu, schedule: e.target.value})}
-                        data-testid="input-menu-schedule"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Start Date <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                        <Input 
+                          type="date"
+                          value={newMenu.startDate}
+                          onChange={(e) => setNewMenu({...newMenu, startDate: e.target.value})}
+                          data-testid="input-menu-start-date"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+                        <Input 
+                          type="date"
+                          value={newMenu.endDate}
+                          onChange={(e) => setNewMenu({...newMenu, endDate: e.target.value})}
+                          data-testid="input-menu-end-date"
+                        />
+                        <p className="text-xs text-muted-foreground">Menu auto-deactivates after this date.</p>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label>Add Items to This Menu</Label>
                       <p className="text-xs text-muted-foreground">Select items from your inventory to include in this menu.</p>
-                      <div className="border rounded-md p-4 max-h-[250px] overflow-y-auto space-y-2">
+                      <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto space-y-2">
                         {availableItems.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
                             No items available. Create menu items first.
@@ -541,7 +556,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                                 onCheckedChange={() => toggleMenuItem(item.id)}
                                 data-testid={`checkbox-item-${item.id}`}
                               />
-                              <label htmlFor={`menu-item-${item.id}`} className="flex-1 flex justify-between text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                              <label htmlFor={`menu-item-${item.id}`} className="flex-1 flex justify-between text-sm font-medium leading-none cursor-pointer">
                                 <span>{item.name}</span>
                                 <span className="text-muted-foreground">{currency} {Number(item.price).toFixed(2)}</span>
                               </label>
@@ -573,8 +588,9 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                 {menusData.map((menu) => {
                   const itemIds = JSON.parse(menu.itemIds || "[]");
                   const menuItemsList = itemIds.map((itemId: number) => availableItems.find((i: ApiMenuItem) => i.id === itemId)).filter(Boolean);
+                  const expired = isMenuExpired(menu);
                   return (
-                    <Card key={menu.id} className="relative" data-testid={`card-menu-${menu.id}`}>
+                    <Card key={menu.id} className={`relative ${expired ? 'opacity-60' : ''}`} data-testid={`card-menu-${menu.id}`}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <div>
@@ -582,15 +598,32 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                               <ChefHat className="h-5 w-5 text-primary" />
                               {menu.name}
                             </CardTitle>
-                            <CardDescription className="mt-1">{menu.schedule}</CardDescription>
+                            {(menu.startDate || menu.endDate) && (
+                              <CardDescription className="mt-1 flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" />
+                                {menu.startDate && menu.endDate
+                                  ? `${formatDate(menu.startDate)} - ${formatDate(menu.endDate)}`
+                                  : menu.startDate
+                                    ? `From ${formatDate(menu.startDate)}`
+                                    : `Until ${formatDate(menu.endDate)}`
+                                }
+                              </CardDescription>
+                            )}
                           </div>
-                          <Badge 
-                            variant={menu.active ? "default" : "secondary"} 
-                            className={menu.active ? "bg-green-600" : ""}
-                            data-testid={`badge-menu-status-${menu.id}`}
-                          >
-                            {menu.active ? "Active" : "Draft"}
-                          </Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            {expired && (
+                              <Badge variant="destructive" className="text-xs">
+                                Expired
+                              </Badge>
+                            )}
+                            <Badge 
+                              variant={menu.active ? "default" : "secondary"} 
+                              className={menu.active ? "bg-green-600" : ""}
+                              data-testid={`badge-menu-status-${menu.id}`}
+                            >
+                              {menu.active ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -625,32 +658,36 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                             </div>
                           )}
                           
-                          <div className="flex justify-end gap-2 mt-4 pt-2 border-t flex-wrap">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleEditMenu(menu)}
-                              data-testid={`button-edit-menu-${menu.id}`}
-                            >
-                              <Edit className="h-4 w-4 mr-1" /> Edit
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleToggleMenu(menu)}
-                              data-testid={`button-toggle-menu-${menu.id}`}
-                            >
-                              {menu.active ? "Deactivate" : "Activate"}
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-red-500 hover:text-red-600"
-                              onClick={() => handleDeleteMenu(menu.id)}
-                              data-testid={`button-delete-menu-${menu.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="flex items-center justify-between pt-3 border-t">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={menu.active}
+                                onCheckedChange={() => handleToggleMenu(menu)}
+                                data-testid={`switch-menu-${menu.id}`}
+                              />
+                              <span className={`text-xs ${menu.active ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                {menu.active ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleEditMenu(menu)}
+                                data-testid={`button-edit-menu-${menu.id}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-500 hover:text-red-600"
+                                onClick={() => handleDeleteMenu(menu.id)}
+                                data-testid={`button-delete-menu-${menu.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>

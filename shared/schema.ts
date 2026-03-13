@@ -201,7 +201,8 @@ export const menus = pgTable("menus", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull().default("Daily"), // Daily, Buffet, Event, Seasonal
-  schedule: text("schedule").notNull().default(""),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0"),
   active: boolean("active").notNull().default(true),
   itemIds: text("item_ids").notNull().default("[]"), // JSON array of menu item IDs

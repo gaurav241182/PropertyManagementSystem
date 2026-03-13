@@ -25,7 +25,6 @@ export default function AdminSettings() {
   const { data: roomTypesData, isLoading: roomTypesLoading } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
   const { data: categoriesData, isLoading: categoriesLoading } = useQuery<any[]>({ queryKey: ['/api/categories'] });
   const { data: facilitiesData, isLoading: facilitiesLoading } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
-  const { data: menuItemsData, isLoading: menuItemsLoading } = useQuery<any[]>({ queryKey: ['/api/menu-items'] });
   const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: archivedBookingsData } = useQuery<any[]>({ queryKey: ['/api/bookings-archived'] });
   const { data: roomsData } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
@@ -35,7 +34,6 @@ export default function AdminSettings() {
   const roomTypes = roomTypesData || [];
   const categories = categoriesData || [];
   const facilities = facilitiesData || [];
-  const restaurantItems = menuItemsData || [];
 
   const currency = settingsData?.currency || "USD";
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
@@ -169,12 +167,6 @@ export default function AdminSettings() {
   const [isEditFacilityDialogOpen, setIsEditFacilityDialogOpen] = useState(false);
   const [editFacility, setEditFacility] = useState<any>(null);
 
-  const [isRestaurantItemDialogOpen, setIsRestaurantItemDialogOpen] = useState(false);
-  const [newRestaurantItem, setNewRestaurantItem] = useState({
-    name: "",
-    category: "Food",
-    price: 0
-  });
 
   const saveSettingMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -266,23 +258,6 @@ export default function AdminSettings() {
     },
   });
 
-  const addMenuItemMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await apiRequest("POST", "/api/menu-items", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
-    },
-  });
-
-  const deleteMenuItemMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/menu-items/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
-    },
-  });
 
   const unarchiveBookingMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -607,32 +582,6 @@ export default function AdminSettings() {
     }
   };
 
-  const handleAddRestaurantItem = () => {
-    addMenuItemMutation.mutate(
-      {
-        name: newRestaurantItem.name,
-        description: "",
-        category: newRestaurantItem.category,
-        price: String(newRestaurantItem.price),
-        available: true,
-      },
-      {
-        onSuccess: () => {
-          setIsRestaurantItemDialogOpen(false);
-          setNewRestaurantItem({ name: "", category: "Food", price: 0 });
-          toast({ title: "Item Added", description: `${newRestaurantItem.name} has been added to the restaurant menu items.` });
-        },
-      }
-    );
-  };
-
-  const handleDeleteRestaurantItem = (id: number) => {
-    deleteMenuItemMutation.mutate(id, {
-      onSuccess: () => {
-        toast({ title: "Item Removed", description: "The item has been removed from the list." });
-      },
-    });
-  };
 
 
   const handleSaveCurrency = (newCurrency: string) => {
@@ -719,7 +668,7 @@ export default function AdminSettings() {
     }
   };
 
-  const isLoading = roomTypesLoading || categoriesLoading || facilitiesLoading || menuItemsLoading || settingsLoading;
+  const isLoading = roomTypesLoading || categoriesLoading || facilitiesLoading || settingsLoading;
 
   if (isLoading) {
     return (
@@ -748,7 +697,7 @@ export default function AdminSettings() {
               <TabsTrigger value="categories" className="text-xs sm:text-sm whitespace-nowrap">Categories</TabsTrigger>
               <TabsTrigger value="facilities" className="text-xs sm:text-sm whitespace-nowrap">Facilities</TabsTrigger>
               <TabsTrigger value="hr" className="text-xs sm:text-sm whitespace-nowrap">HR & Payroll</TabsTrigger>
-              <TabsTrigger value="restaurant" className="text-xs sm:text-sm whitespace-nowrap">Restaurant</TabsTrigger>
+
               <TabsTrigger value="communication" className="text-xs sm:text-sm whitespace-nowrap">Communication</TabsTrigger>
               <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice & Taxes</TabsTrigger>
               <TabsTrigger value="archival" className="text-xs sm:text-sm whitespace-nowrap">Archival</TabsTrigger>
