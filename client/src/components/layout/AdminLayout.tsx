@@ -111,6 +111,10 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
       setSelectedBranchId(null);
       localStorage.removeItem("selectedBranchId");
     }
+    // Auto-select the only branch if exactly one exists and none is selected
+    if (hotelBranches.length === 1 && selectedBranchId === null) {
+      handleBranchSelect(hotelBranches[0].id);
+    }
   }, [hotelBranches, selectedBranchId]);
 
   const handleBranchSelect = (branchId: number | null) => {
