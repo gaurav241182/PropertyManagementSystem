@@ -134,6 +134,12 @@ export default function Login() {
                 <span className="font-medium">Hotel Owner (Biometric)</span>
                 <span>john@gmail.com</span>
               </div>
+              <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
+                onClick={() => { setEmail("dunes@gmail.com"); setPassword("123456"); }}
+                data-testid="button-fill-dunes">
+                <span className="font-medium">Hotel Owner (Dune)</span>
+                <span>dunes@gmail.com</span>
+              </div>
             </div>
             <Button
               variant="outline"
