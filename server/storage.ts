@@ -147,6 +147,7 @@ export interface IStorage {
   getAllStaffAdvances(hotelId?: number | null, branchId?: number | null): Promise<StaffAdvance[]>;
   createStaffAdvance(data: InsertStaffAdvance): Promise<StaffAdvance>;
   updateStaffAdvance(id: number, data: Partial<InsertStaffAdvance>): Promise<StaffAdvance | undefined>;
+  deleteStaffAdvancesByStaffId(staffId: number): Promise<void>;
 
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
   getBookingCharge(id: number): Promise<BookingCharge | undefined>;
@@ -710,6 +711,9 @@ export class DatabaseStorage implements IStorage {
   async updateStaffAdvance(id: number, data: Partial<InsertStaffAdvance>): Promise<StaffAdvance | undefined> {
     const [result] = await db.update(staffAdvances).set(data).where(eq(staffAdvances.id, id)).returning();
     return result;
+  }
+  async deleteStaffAdvancesByStaffId(staffId: number): Promise<void> {
+    await db.delete(staffAdvances).where(eq(staffAdvances.staffId, staffId));
   }
 
   async getBookingCharges(bookingId: string): Promise<BookingCharge[]> {
