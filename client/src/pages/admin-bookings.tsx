@@ -1437,17 +1437,11 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Direct">Direct</SelectItem>
-                              <SelectItem value="Booking.com">Booking.com</SelectItem>
-                              <SelectItem value="Airbnb">Airbnb</SelectItem>
-                              <SelectItem value="Hotels.com">Hotels.com</SelectItem>
-                              <SelectItem value="Expedia">Expedia</SelectItem>
-                              <SelectItem value="MakeMyTrip">MakeMyTrip</SelectItem>
-                              <SelectItem value="Goibibo">Goibibo</SelectItem>
-                              <SelectItem value="Agoda">Agoda</SelectItem>
-                              <SelectItem value="TripAdvisor">TripAdvisor</SelectItem>
                               <SelectItem value="Walk-in">Walk-in</SelectItem>
                               <SelectItem value="Phone">Phone</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
+                              {(() => { try { return JSON.parse((settingsData as Record<string, string>)?.otaPlatforms || '[]'); } catch { return []; } })().map((platform: string) => (
+                                <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

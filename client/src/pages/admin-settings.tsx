@@ -71,6 +71,9 @@ export default function AdminSettings() {
   const [isCouponDialogOpen, setIsCouponDialogOpen] = useState(false);
   const [newCoupon, setNewCoupon] = useState({ code: "", value: 0, type: "percentage" as "percentage" | "fixed", expiry: "" });
 
+  const [localOtaPlatforms, setLocalOtaPlatforms] = useState<string[]>(() => { try { return JSON.parse(settingsData?.otaPlatforms || '[]'); } catch { return []; } });
+  const [newOtaPlatform, setNewOtaPlatform] = useState("");
+
   const settingsDataStr = JSON.stringify(settingsData || {});
   useEffect(() => {
     setLocalCheckInTime(settingsData?.checkInTime || "14:00");
@@ -81,6 +84,7 @@ export default function AdminSettings() {
     try { setLocalWeekendDays(JSON.parse(settingsData?.weekendDays || '[0,6]')); } catch { setLocalWeekendDays([0, 6]); }
     setLocalManagerLimit(parseInt(settingsData?.discountLimitManager || "15"));
     setLocalReceptionistLimit(parseInt(settingsData?.discountLimitReceptionist || "5"));
+    try { setLocalOtaPlatforms(JSON.parse(settingsData?.otaPlatforms || '[]')); } catch { setLocalOtaPlatforms([]); }
   }, [settingsDataStr]);
 
   useEffect(() => {
@@ -994,6 +998,93 @@ export default function AdminSettings() {
                   Currently selected: {localWeekendDays.length === 0 ? "None" : localWeekendDays.map(d => DAY_NAMES.find(n => n.value === d)?.label).join(", ")}.
                   Weekend rates from the pricing calendar will apply on these days.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Booking Sources / OTA Platforms */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Booking Sources / OTA Platforms</CardTitle>
+                <CardDescription>Define the OTA platforms and booking channels you work with. These will appear as options when creating reservations.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. Booking.com, Airbnb, MakeMyTrip..."
+                    value={newOtaPlatform}
+                    onChange={(e) => setNewOtaPlatform(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newOtaPlatform.trim()) {
+                        const name = newOtaPlatform.trim();
+                        if (localOtaPlatforms.some(p => p.toLowerCase() === name.toLowerCase())) {
+                          toast({ title: "Duplicate", description: "This platform is already added.", variant: "destructive" });
+                          return;
+                        }
+                        const updated = [...localOtaPlatforms, name];
+                        setLocalOtaPlatforms(updated);
+                        setNewOtaPlatform("");
+                        saveSettingMutation.mutate(
+                          { otaPlatforms: JSON.stringify(updated) },
+                          { onSuccess: () => toast({ title: "Saved", description: `"${name}" added to booking sources.` }) }
+                        );
+                      }
+                    }}
+                    data-testid="input-ota-platform"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const name = newOtaPlatform.trim();
+                      if (!name) return;
+                      if (localOtaPlatforms.some(p => p.toLowerCase() === name.toLowerCase())) {
+                        toast({ title: "Duplicate", description: "This platform is already added.", variant: "destructive" });
+                        return;
+                      }
+                      const updated = [...localOtaPlatforms, name];
+                      setLocalOtaPlatforms(updated);
+                      setNewOtaPlatform("");
+                      saveSettingMutation.mutate(
+                        { otaPlatforms: JSON.stringify(updated) },
+                        { onSuccess: () => toast({ title: "Saved", description: `"${name}" added to booking sources.` }) }
+                      );
+                    }}
+                    data-testid="button-add-ota"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {["Direct", "Walk-in", "Phone"].map(src => (
+                    <Badge key={src} variant="secondary" className="px-3 py-1.5 text-sm">
+                      {src}
+                      <span className="ml-1.5 text-[10px] text-muted-foreground">(default)</span>
+                    </Badge>
+                  ))}
+                  {localOtaPlatforms.map((platform, idx) => (
+                    <Badge key={idx} variant="outline" className="px-3 py-1.5 text-sm gap-1.5" data-testid={`badge-ota-${idx}`}>
+                      {platform}
+                      <button
+                        className="ml-1 text-muted-foreground hover:text-red-500 transition-colors"
+                        onClick={() => {
+                          const updated = localOtaPlatforms.filter((_, i) => i !== idx);
+                          setLocalOtaPlatforms(updated);
+                          saveSettingMutation.mutate(
+                            { otaPlatforms: JSON.stringify(updated) },
+                            { onSuccess: () => toast({ title: "Removed", description: `"${platform}" removed from booking sources.` }) }
+                          );
+                        }}
+                        data-testid={`button-remove-ota-${idx}`}
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+
+                {localOtaPlatforms.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No custom platforms added yet. The default sources (Direct, Walk-in, Phone) are always available.</p>
+                )}
               </CardContent>
             </Card>
 
