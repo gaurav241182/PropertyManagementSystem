@@ -60,6 +60,12 @@ export async function runSalaryGenerationJob(
       const lastDay = new Date(year, mon, 0);
       const dueDateStr = lastDay.toISOString().split("T")[0];
 
+      const activeAdvances = await storage.getActiveStaffAdvances(emp.id);
+      let totalInstalmentDeduction = 0;
+      for (const adv of activeAdvances) {
+        totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
+      }
+
       await storage.createSalary({
         staffId: emp.id,
         month,
@@ -69,12 +75,24 @@ export async function runSalaryGenerationJob(
         welfareContribution: String(welfareAmount),
         netPay: String(totalSalary + bonusAmt),
         advanceAmount: "0",
+        instalmentDeduction: String(totalInstalmentDeduction),
         dueDate: dueDateStr,
         status: "Pending",
         paidDate: null,
         hotelId: hotelId ?? null,
         branchId: branchId ?? null,
       });
+
+      for (const adv of activeAdvances) {
+        const instalmentAmt = Number(adv.instalmentAmount) || 0;
+        const newBalance = Math.max(0, Number(adv.remainingBalance) - instalmentAmt);
+        const newRemaining = Math.max(0, Number(adv.remainingInstalments) - 1);
+        await storage.updateStaffAdvance(adv.id, {
+          remainingBalance: String(newBalance),
+          remainingInstalments: newRemaining,
+          status: newBalance <= 0 || newRemaining <= 0 ? "Completed" : "Active",
+        });
+      }
 
       generatedList.push({
         staffId: emp.id,

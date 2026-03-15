@@ -1004,11 +1004,18 @@ export async function registerRoutes(
           skipped.push(staffId);
           continue;
         }
-        const staff = await storage.getStaffMember(staffId);
-        if (!staff || staff.status !== "active") continue;
+        const staffMember = await storage.getStaffMember(staffId);
+        if (!staffMember || staffMember.status !== "active") continue;
         const [year, mon] = month.split("-").map(Number);
         const lastDay = new Date(year, mon, 0);
         const dueDateStr = lastDay.toISOString().split("T")[0];
+
+        const activeAdvances = await storage.getActiveStaffAdvances(staffId);
+        let totalInstalmentDeduction = 0;
+        for (const adv of activeAdvances) {
+          totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
+        }
+
         const salary = await storage.createSalary({
           staffId,
           month,
@@ -1018,12 +1025,24 @@ export async function registerRoutes(
           welfareContribution: String(welfareContribution || 0),
           netPay: String(Number(netPay) + Number(bonus || 0)),
           advanceAmount: "0",
+          instalmentDeduction: String(totalInstalmentDeduction),
           dueDate: dueDateStr,
           status: "Pending",
           paidDate: null,
           hotelId,
           branchId,
         });
+
+        for (const adv of activeAdvances) {
+          const instalmentAmt = Number(adv.instalmentAmount) || 0;
+          const newBalance = Math.max(0, Number(adv.remainingBalance) - instalmentAmt);
+          const newRemaining = Math.max(0, Number(adv.remainingInstalments) - 1);
+          await storage.updateStaffAdvance(adv.id, {
+            remainingBalance: String(newBalance),
+            remainingInstalments: newRemaining,
+            status: newBalance <= 0 || newRemaining <= 0 ? "Completed" : "Active",
+          });
+        }
         created.push(salary);
       }
       res.json({ created: created.length, skipped: skipped.length, salaries: created });
@@ -1144,7 +1163,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/salaries/:id/advance", async (req, res) => {
-    const { amount } = req.body;
+    const { amount, useInstalments, numberOfInstalments } = req.body;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       return res.status(400).json({ message: "Valid advance amount is required" });
     }
@@ -1153,7 +1172,42 @@ export async function registerRoutes(
     if (!checkRecordScope(salary, req, res, branchId)) return;
     if (!salary) return res.status(404).json({ message: "Salary record not found" });
 
+    const hotelId = getHotelId(req);
     const advanceNum = Number(amount);
+
+    if (useInstalments && numberOfInstalments && Number(numberOfInstalments) > 1) {
+      const numInstalments = Number(numberOfInstalments);
+      const instalmentAmount = Math.round((advanceNum / numInstalments) * 100) / 100;
+
+      const [salYear, salMon] = salary.month.split("-").map(Number);
+      const nextMonth = new Date(salYear, salMon, 1);
+      const startMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      await storage.createStaffAdvance({
+        staffId: salary.staffId,
+        totalAmount: String(advanceNum),
+        instalmentAmount: String(instalmentAmount),
+        totalInstalments: numInstalments,
+        remainingInstalments: numInstalments,
+        remainingBalance: String(advanceNum),
+        status: "Active",
+        startMonth: startMonthStr,
+        hotelId,
+        branchId,
+      });
+
+      const existingAdvance = Number(salary.advanceAmount) || 0;
+      const newAdvance = existingAdvance + advanceNum;
+      const netPay = Number(salary.netPay) || 0;
+
+      await storage.updateSalary(salary.id, {
+        advanceAmount: String(newAdvance),
+      } as any);
+
+      const updated = await storage.getSalary(salary.id);
+      return res.json({ ...updated, instalmentCreated: true, instalmentAmount, totalInstalments: numInstalments });
+    }
+
     const existingAdvance = Number(salary.advanceAmount) || 0;
     const newAdvance = existingAdvance + advanceNum;
     const netPay = Number(salary.netPay) || 0;
@@ -1178,6 +1232,18 @@ export async function registerRoutes(
       advanceAmount: String(newAdvance),
     } as any);
     res.json(updated);
+  });
+
+  app.get("/api/staff-advances", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const data = await storage.getAllStaffAdvances(hotelId, branchId);
+    res.json(data);
+  });
+
+  app.get("/api/staff-advances/:staffId", async (req, res) => {
+    const data = await storage.getStaffAdvances(Number(req.params.staffId));
+    res.json(data);
   });
 
   app.delete("/api/salaries/:id", async (req, res) => {

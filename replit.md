@@ -30,7 +30,7 @@ client/src/components/ - Reusable UI components
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table
 
 ## Database Tables
-hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, categories, menu_items, menus, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing, room_blocks, invoice_scheduler_logs
+hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, categories, menu_items, menus, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing, room_blocks, invoice_scheduler_logs, staff_advances
 
 ## Branch-Level Data Isolation
 - `branches` table: id, hotelId, name, city, address
@@ -207,6 +207,17 @@ hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, 
   - Hotel owners/managers have hotelId set → only see their own hotel's data
   - Tax invoice scheduler updated to filter by hotelId
   - deleteHotelWithData() now uses hotelId filter for cascading deletes
+
+- 2026-03-15: Salary Advance Instalment System
+  - New `staff_advances` table: staffId, totalAmount, instalmentAmount, totalInstalments, remainingInstalments, remainingBalance, status (Active/Completed), startMonth
+  - New `instalment_deduction` column on salaries table — tracks monthly EMI deduction per salary record
+  - Advance dialog enhanced: checkbox to "Repay via monthly instalments", number of instalments input, calculated monthly deduction display
+  - Active advance tracking panel in advance dialog shows total advance, monthly instalment, remaining balance, instalments remaining
+  - Salary generation (both scheduled and manual) auto-deducts instalment amounts from salary and updates advance balance/remaining count
+  - When all instalments are paid, advance status auto-changes to "Completed"
+  - Salary table updated with EMI Deduction and Net Payable columns
+  - API: GET /api/staff-advances, GET /api/staff-advances/:staffId
+  - POST /api/salaries/:id/advance accepts optional `useInstalments` and `numberOfInstalments` params
 
 ## Multi-Tenancy Architecture
 - Each hotel's data is isolated by `hotel_id` column on every data table

@@ -33,11 +33,14 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
 
   const staffMap = new Map(staffData.map((s: any) => [s.id, s]));
 
+  const { data: staffAdvancesData = [] } = useQuery<any[]>({ queryKey: ['/api/staff-advances'] });
+
   const salaries = salariesData.map((s: any) => {
     const staffMember = staffMap.get(s.staffId);
     const netPay = Number(s.netPay) || 0;
     const advanceAmount = Number(s.advanceAmount) || 0;
-    const pending = s.status === "Paid" ? 0 : Math.max(0, netPay - advanceAmount);
+    const instalmentDeduction = Number(s.instalmentDeduction) || 0;
+    const pending = s.status === "Paid" ? 0 : Math.max(0, netPay - advanceAmount - instalmentDeduction);
     const dueDate = s.dueDate || getEndOfMonth(s.month);
     return {
       ...s,
@@ -46,6 +49,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       photo: staffMember?.photo || null,
       netPayNum: netPay,
       advanceNum: advanceAmount,
+      instalmentDeduction,
       pending,
       dueDate,
       paymentDate: s.paidDate || "-",
@@ -59,6 +63,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const [advanceDialogOpen, setAdvanceDialogOpen] = useState(false);
   const [advanceSalary, setAdvanceSalary] = useState<any>(null);
   const [advanceInput, setAdvanceInput] = useState("");
+  const [useInstalments, setUseInstalments] = useState(false);
+  const [numberOfInstalments, setNumberOfInstalments] = useState("");
 
   const updateSalaryMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/salaries/${id}`, data),
@@ -71,13 +77,20 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   });
 
   const advanceMutation = useMutation({
-    mutationFn: ({ id, amount }: { id: number; amount: number }) =>
-      apiRequest("POST", `/api/salaries/${id}/advance`, { amount }),
+    mutationFn: ({ id, amount, useInstalments, numberOfInstalments }: { id: number; amount: number; useInstalments?: boolean; numberOfInstalments?: number }) =>
+      apiRequest("POST", `/api/salaries/${id}/advance`, { amount, useInstalments, numberOfInstalments }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
-      toast({ title: "Advance Recorded", description: "Advance payment has been applied to the salary." });
+      queryClient.invalidateQueries({ queryKey: ['/api/staff-advances'] });
+      if (useInstalments) {
+        toast({ title: "Advance with Instalments Created", description: `Advance recorded with ${numberOfInstalments} monthly instalments.` });
+      } else {
+        toast({ title: "Advance Recorded", description: "Advance payment has been applied to the salary." });
+      }
       setAdvanceDialogOpen(false);
       setAdvanceInput("");
+      setUseInstalments(false);
+      setNumberOfInstalments("");
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -171,6 +184,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const openAdvanceDialog = (salary: any) => {
     setAdvanceSalary(salary);
     setAdvanceInput("");
+    setUseInstalments(false);
+    setNumberOfInstalments("");
     setAdvanceDialogOpen(true);
   };
 
@@ -180,8 +195,20 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       toast({ title: "Invalid Amount", description: "Please enter a valid advance amount.", variant: "destructive" });
       return;
     }
+    if (useInstalments) {
+      const numInst = Number(numberOfInstalments);
+      if (!numInst || numInst < 2) {
+        toast({ title: "Invalid Instalments", description: "Number of instalments must be at least 2.", variant: "destructive" });
+        return;
+      }
+    }
     if (advanceSalary) {
-      advanceMutation.mutate({ id: advanceSalary.id, amount });
+      advanceMutation.mutate({
+        id: advanceSalary.id,
+        amount,
+        useInstalments: useInstalments || undefined,
+        numberOfInstalments: useInstalments ? Number(numberOfInstalments) : undefined,
+      });
     }
   };
 
@@ -296,7 +323,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                   <TableHead>Month</TableHead>
                   <TableHead>Total Salary</TableHead>
                   <TableHead>Advance</TableHead>
-                  <TableHead>Pending</TableHead>
+                  <TableHead>EMI Deduction</TableHead>
+                  <TableHead>Net Payable</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Paid Date</TableHead>
@@ -331,6 +359,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     <TableCell className="font-medium">{cs}{salary.netPayNum.toLocaleString()}</TableCell>
                     <TableCell className={salary.advanceNum > 0 ? "text-blue-600 font-medium" : "text-muted-foreground"}>
                       {cs}{salary.advanceNum.toLocaleString()}
+                    </TableCell>
+                    <TableCell className={salary.instalmentDeduction > 0 ? "text-purple-600 font-medium" : "text-muted-foreground"}>
+                      {cs}{salary.instalmentDeduction.toLocaleString()}
                     </TableCell>
                     <TableCell className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>
                       {cs}{salary.pending.toLocaleString()}
@@ -388,7 +419,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                 ))}
                 {filteredSalaries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No salary records found for this period.
                     </TableCell>
                   </TableRow>
@@ -401,14 +432,19 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       )}
 
       <Dialog open={advanceDialogOpen} onOpenChange={setAdvanceDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Record Advance Payment</DialogTitle>
             <DialogDescription>
               Record an advance taken by {advanceSalary?.name} against their {advanceSalary?.month} salary.
             </DialogDescription>
           </DialogHeader>
-          {advanceSalary && (
+          {advanceSalary && (() => {
+            const activeAdvances = staffAdvancesData.filter((a: any) => a.staffId === advanceSalary.staffId && a.status === "Active");
+            const advanceAmt = Number(advanceInput) || 0;
+            const numInst = Number(numberOfInstalments) || 0;
+            const calculatedInstalment = useInstalments && numInst > 1 ? Math.round((advanceAmt / numInst) * 100) / 100 : 0;
+            return (
           <div className="space-y-4 py-2">
             <div className="bg-muted/30 p-4 rounded-lg border space-y-2">
               <div className="flex justify-between text-sm">
@@ -419,11 +455,43 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                 <span className="text-muted-foreground">Previous Advance</span>
                 <span className="font-medium text-blue-600">{cs}{advanceSalary.advanceNum.toLocaleString()}</span>
               </div>
+              {advanceSalary.instalmentDeduction > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">EMI Deduction</span>
+                  <span className="font-medium text-purple-600">{cs}{advanceSalary.instalmentDeduction.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm border-t pt-2">
                 <span className="text-muted-foreground">Currently Pending</span>
                 <span className="font-bold text-amber-600">{cs}{advanceSalary.pending.toLocaleString()}</span>
               </div>
             </div>
+
+            {activeAdvances.length > 0 && (
+              <div className="bg-purple-50 p-3 rounded-md border border-purple-200 space-y-2">
+                <p className="text-sm font-medium text-purple-800">Active Advance Instalments</p>
+                {activeAdvances.map((adv: any) => (
+                  <div key={adv.id} className="text-xs text-purple-700 space-y-1 bg-white/60 p-2 rounded border border-purple-100">
+                    <div className="flex justify-between">
+                      <span>Total Advance</span>
+                      <span className="font-medium">{cs}{Number(adv.totalAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Monthly Instalment</span>
+                      <span className="font-medium">{cs}{Number(adv.instalmentAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Remaining Balance</span>
+                      <span className="font-medium">{cs}{Number(adv.remainingBalance).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Instalments Remaining</span>
+                      <span className="font-medium">{adv.remainingInstalments} of {adv.totalInstalments}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Advance Amount <span className="text-red-500">*</span></Label>
@@ -441,36 +509,84 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               </div>
             </div>
 
-            {Number(advanceInput) > 0 && (
+            <div className="flex items-center space-x-2 bg-muted/30 p-3 rounded-lg border">
+              <Checkbox
+                id="use-instalments"
+                checked={useInstalments}
+                onCheckedChange={(checked) => {
+                  setUseInstalments(checked as boolean);
+                  if (!checked) setNumberOfInstalments("");
+                }}
+                data-testid="checkbox-use-instalments"
+              />
+              <Label htmlFor="use-instalments" className="text-sm cursor-pointer">
+                Repay via monthly instalments
+              </Label>
+            </div>
+
+            {useInstalments && (
+              <div className="space-y-3 pl-2 border-l-2 border-purple-300 ml-2">
+                <div className="space-y-2">
+                  <Label>Number of Instalments <span className="text-red-500">*</span></Label>
+                  <Input 
+                    type="number" 
+                    min="2" 
+                    max="60"
+                    placeholder="e.g. 4" 
+                    value={numberOfInstalments} 
+                    onChange={e => setNumberOfInstalments(e.target.value)} 
+                    data-testid="input-number-of-instalments"
+                  />
+                </div>
+                {advanceAmt > 0 && numInst > 1 && (
+                  <div className="bg-purple-50 p-3 rounded-md border border-purple-200 text-sm space-y-1">
+                    <div className="flex justify-between text-purple-800">
+                      <span>Monthly Instalment</span>
+                      <span className="font-bold">{cs}{calculatedInstalment.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-purple-700 text-xs">
+                      <span>Deduction Period</span>
+                      <span>{numInst} months starting next month</span>
+                    </div>
+                    <p className="text-purple-600 text-xs mt-1">
+                      {cs}{calculatedInstalment.toLocaleString()} will be automatically deducted from salary each month until the full advance of {cs}{advanceAmt.toLocaleString()} is recovered.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {advanceAmt > 0 && !useInstalments && (
               <div className="bg-blue-50 p-3 rounded-md border border-blue-100 text-sm space-y-1">
-                {Number(advanceInput) + advanceSalary.advanceNum >= advanceSalary.netPayNum ? (
+                {advanceAmt + advanceSalary.advanceNum >= advanceSalary.netPayNum ? (
                   <>
                     <p className="text-blue-800 font-medium">This will mark the salary as PAID.</p>
-                    {Number(advanceInput) + advanceSalary.advanceNum > advanceSalary.netPayNum && (
+                    {advanceAmt + advanceSalary.advanceNum > advanceSalary.netPayNum && (
                       <p className="text-blue-700">
-                        Excess of {cs}{(Number(advanceInput) + advanceSalary.advanceNum - advanceSalary.netPayNum).toLocaleString()} will be carried forward as advance to next month's salary.
+                        Excess of {cs}{(advanceAmt + advanceSalary.advanceNum - advanceSalary.netPayNum).toLocaleString()} will be carried forward as advance to next month's salary.
                       </p>
                     )}
                   </>
                 ) : (
                   <p className="text-blue-700">
-                    After this advance, remaining pending salary will be {cs}{(advanceSalary.pending - Number(advanceInput)).toLocaleString()}.
+                    After this advance, remaining pending salary will be {cs}{(advanceSalary.pending - advanceAmt).toLocaleString()}.
                   </p>
                 )}
               </div>
             )}
           </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdvanceDialogOpen(false)}>Cancel</Button>
             <Button 
               onClick={handleAdvanceSubmit} 
               disabled={advanceMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
+              className={useInstalments ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}
               data-testid="button-submit-advance"
             >
               {advanceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Record Advance
+              {useInstalments ? "Create Advance with Instalments" : "Record Advance"}
             </Button>
           </DialogFooter>
         </DialogContent>

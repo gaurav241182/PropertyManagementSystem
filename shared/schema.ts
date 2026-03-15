@@ -328,11 +328,31 @@ export const salaries = pgTable("salaries", {
   welfareContribution: decimal("welfare_contribution", { precision: 10, scale: 2 }).notNull().default("0"),
   netPay: decimal("net_pay", { precision: 10, scale: 2 }).notNull().default("0"),
   advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  instalmentDeduction: decimal("instalment_deduction", { precision: 10, scale: 2 }).notNull().default("0"),
   dueDate: date("due_date"),
   status: text("status").notNull().default("Pending"),
   paidDate: date("paid_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const staffAdvances = pgTable("staff_advances", {
+  id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
+  staffId: integer("staff_id").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  instalmentAmount: decimal("instalment_amount", { precision: 10, scale: 2 }).notNull(),
+  totalInstalments: integer("total_instalments").notNull(),
+  remainingInstalments: integer("remaining_instalments").notNull(),
+  remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("Active"),
+  startMonth: text("start_month").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStaffAdvanceSchema = createInsertSchema(staffAdvances).omit({ id: true, createdAt: true });
+export type InsertStaffAdvance = z.infer<typeof insertStaffAdvanceSchema>;
+export type StaffAdvance = typeof staffAdvances.$inferSelect;
 
 export const insertSalarySchema = createInsertSchema(salaries).omit({ id: true, createdAt: true });
 export type InsertSalary = z.infer<typeof insertSalarySchema>;

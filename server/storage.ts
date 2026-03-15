@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
-  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches,
+  bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches, staffAdvances,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -25,6 +25,7 @@ import {
   type InsertInvoiceSchedulerLog, type InvoiceSchedulerLog,
   type InsertSalarySchedulerLog, type SalarySchedulerLog,
   type InsertBranch, type Branch,
+  type InsertStaffAdvance, type StaffAdvance,
 } from "@shared/schema";
 
 function buildScopeConditions(hotelIdCol: Column, branchIdCol: Column, hotelId: number | null | undefined, branchId: number | null | undefined) {
@@ -140,6 +141,12 @@ export interface IStorage {
   createSalary(data: InsertSalary): Promise<Salary>;
   updateSalary(id: number, data: Partial<InsertSalary>): Promise<Salary | undefined>;
   deleteSalary(id: number): Promise<void>;
+
+  getStaffAdvances(staffId: number): Promise<StaffAdvance[]>;
+  getActiveStaffAdvances(staffId: number): Promise<StaffAdvance[]>;
+  getAllStaffAdvances(hotelId?: number | null, branchId?: number | null): Promise<StaffAdvance[]>;
+  createStaffAdvance(data: InsertStaffAdvance): Promise<StaffAdvance>;
+  updateStaffAdvance(id: number, data: Partial<InsertStaffAdvance>): Promise<StaffAdvance | undefined>;
 
   getBookingCharges(bookingId: string): Promise<BookingCharge[]>;
   getBookingCharge(id: number): Promise<BookingCharge | undefined>;
@@ -679,6 +686,30 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteSalary(id: number): Promise<void> {
     await db.delete(salaries).where(eq(salaries.id, id));
+  }
+
+  async getStaffAdvances(staffId: number): Promise<StaffAdvance[]> {
+    return db.select().from(staffAdvances).where(eq(staffAdvances.staffId, staffId)).orderBy(desc(staffAdvances.createdAt));
+  }
+  async getActiveStaffAdvances(staffId: number): Promise<StaffAdvance[]> {
+    return db.select().from(staffAdvances).where(
+      and(eq(staffAdvances.staffId, staffId), eq(staffAdvances.status, "Active"))
+    ).orderBy(desc(staffAdvances.createdAt));
+  }
+  async getAllStaffAdvances(hotelId?: number | null, branchId?: number | null): Promise<StaffAdvance[]> {
+    const conditions = buildScopeConditions(staffAdvances.hotelId, staffAdvances.branchId, hotelId, branchId);
+    if (conditions.length > 0) {
+      return db.select().from(staffAdvances).where(and(...conditions)).orderBy(desc(staffAdvances.createdAt));
+    }
+    return db.select().from(staffAdvances).orderBy(desc(staffAdvances.createdAt));
+  }
+  async createStaffAdvance(data: InsertStaffAdvance): Promise<StaffAdvance> {
+    const [result] = await db.insert(staffAdvances).values(data).returning();
+    return result;
+  }
+  async updateStaffAdvance(id: number, data: Partial<InsertStaffAdvance>): Promise<StaffAdvance | undefined> {
+    const [result] = await db.update(staffAdvances).set(data).where(eq(staffAdvances.id, id)).returning();
+    return result;
   }
 
   async getBookingCharges(bookingId: string): Promise<BookingCharge[]> {
