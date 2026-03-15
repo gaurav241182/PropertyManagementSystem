@@ -52,6 +52,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHotelSettings } from "@/hooks/use-hotel-settings";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
@@ -1645,7 +1646,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   <span className="text-xs text-muted-foreground ml-auto">{filteredBookings.length} booking{filteredBookings.length !== 1 ? "s" : ""}</span>
                 </div>
                 {filteredBookings.map((booking: any) => {
-                  const totals = calculateTotals(booking);
+                  const rawBookingCard = bookingsData.find((b: any) => b.id === booking.id);
+                  let cardDiscount: any = null;
+                  if (rawBookingCard?.discountInfo) {
+                    try { cardDiscount = JSON.parse(rawBookingCard.discountInfo); } catch {}
+                  }
+                  const totals = calculateTotals(booking, cardDiscount);
                   return (
                     <div key={booking.id} className="border rounded-lg p-3 space-y-2" data-testid={`card-booking-${booking.id}`}>
                       <div className="flex items-start justify-between gap-2">
@@ -1681,9 +1687,66 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <div>
-                          <span className="text-muted-foreground">Balance:</span> <span className="font-medium">{cs}{totals.due.toFixed(2)}</span>
-                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition-colors" data-testid={`button-balance-mobile-${booking.id}`}>
+                              <span className="text-muted-foreground">Balance:</span> <span className="font-medium text-blue-600 underline decoration-dotted underline-offset-2">{cs}{totals.due.toFixed(2)}</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-0" align="start" side="bottom">
+                            <div className="p-2.5 border-b bg-muted/30">
+                              <p className="font-semibold text-xs">Balance Breakdown</p>
+                              <p className="text-[10px] text-muted-foreground">{booking.bookingId} — {booking.guest}</p>
+                            </div>
+                            <div className="p-2.5 space-y-1.5 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Room Charges ({booking.nights} night{booking.nights !== 1 ? "s" : ""})</span>
+                                <span className="font-medium">{cs}{totals.roomTotal.toFixed(2)}</span>
+                              </div>
+                              {booking.charges.length > 0 && (
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide pt-0.5">Extra Charges</p>
+                                  {booking.charges.map((charge: any, idx: number) => (
+                                    <div key={idx} className="flex justify-between pl-2">
+                                      <span className="text-muted-foreground truncate max-w-[140px]">{charge.item || charge.type}</span>
+                                      <span>{cs}{charge.amount.toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="border-t pt-1.5 flex justify-between">
+                                <span className="text-muted-foreground">Subtotal</span>
+                                <span>{cs}{totals.subtotal.toFixed(2)}</span>
+                              </div>
+                              {totals.discountAmount > 0 && (
+                                <div className="flex justify-between text-green-600">
+                                  <span>Discount</span>
+                                  <span>-{cs}{totals.discountAmount.toFixed(2)}</span>
+                                </div>
+                              )}
+                              {totals.tax > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Tax</span>
+                                  <span>{cs}{totals.tax.toFixed(2)}</span>
+                                </div>
+                              )}
+                              <div className="border-t pt-1.5 flex justify-between font-semibold">
+                                <span>Grand Total</span>
+                                <span>{cs}{totals.total.toFixed(2)}</span>
+                              </div>
+                              {booking.advance > 0 && (
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Advance Paid</span>
+                                  <span>-{cs}{booking.advance.toFixed(2)}</span>
+                                </div>
+                              )}
+                              <div className="border-t pt-1.5 flex justify-between font-bold text-sm">
+                                <span>Balance Due</span>
+                                <span className={totals.due > 0 ? "text-red-600" : "text-green-600"}>{cs}{totals.due.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">{booking.source}</Badge>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-1.5 border-t">
@@ -1764,7 +1827,12 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   </TableHeader>
                   <TableBody>
                     {filteredBookings.map((booking: any) => {
-                      const totals = calculateTotals(booking);
+                      const rawBookingRow = bookingsData.find((b: any) => b.id === booking.id);
+                      let rowDiscount: any = null;
+                      if (rawBookingRow?.discountInfo) {
+                        try { rowDiscount = JSON.parse(rawBookingRow.discountInfo); } catch {}
+                      }
+                      const totals = calculateTotals(booking, rowDiscount);
                       return (
                         <TableRow key={booking.id}>
                           <TableCell>
@@ -1804,10 +1872,82 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <Badge variant="outline">{booking.source}</Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{cs}{totals.due.toFixed(2)}</span>
-                              <span className="text-xs text-muted-foreground">{booking.charges.length} extra charges</span>
-                            </div>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="flex flex-col items-start text-left cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 -my-1 transition-colors" data-testid={`button-balance-${booking.id}`}>
+                                  <span className="font-medium text-blue-600 underline decoration-dotted underline-offset-2">{cs}{totals.due.toFixed(2)}</span>
+                                  <span className="text-xs text-muted-foreground">{booking.charges.length} extra charge{booking.charges.length !== 1 ? "s" : ""}</span>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 p-0" align="start" side="bottom">
+                                <div className="p-3 border-b bg-muted/30">
+                                  <p className="font-semibold text-sm">Balance Breakdown</p>
+                                  <p className="text-xs text-muted-foreground">{booking.bookingId} — {booking.guest}</p>
+                                </div>
+                                <div className="p-3 space-y-2 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Room Charges ({booking.nights} night{booking.nights !== 1 ? "s" : ""})</span>
+                                    <span className="font-medium">{cs}{totals.roomTotal.toFixed(2)}</span>
+                                  </div>
+
+                                  {booking.charges.length > 0 && (
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">Extra Charges</p>
+                                      {booking.charges.map((charge: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between text-xs pl-2">
+                                          <span className="text-muted-foreground truncate max-w-[180px]">{charge.item || charge.type}</span>
+                                          <span>{cs}{charge.amount.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  <div className="border-t pt-2 flex justify-between">
+                                    <span className="text-muted-foreground">Subtotal</span>
+                                    <span>{cs}{totals.subtotal.toFixed(2)}</span>
+                                  </div>
+
+                                  {totals.discountAmount > 0 && (
+                                    <div className="flex justify-between text-green-600">
+                                      <span>Discount{rowDiscount?.label ? ` (${rowDiscount.label})` : ""}</span>
+                                      <span>-{cs}{totals.discountAmount.toFixed(2)}</span>
+                                    </div>
+                                  )}
+
+                                  {totals.tax > 0 && (
+                                    <div className="space-y-1">
+                                      {totals.taxBreakdown.filter((t: any) => t.taxable && t.amount > 0).map((t: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between text-xs pl-2">
+                                          <span className="text-muted-foreground">Tax on {t.label} ({t.rate}%)</span>
+                                          <span>{cs}{t.amount.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Total Tax</span>
+                                        <span>{cs}{totals.tax.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div className="border-t pt-2 flex justify-between font-semibold">
+                                    <span>Grand Total</span>
+                                    <span>{cs}{totals.total.toFixed(2)}</span>
+                                  </div>
+
+                                  {booking.advance > 0 && (
+                                    <div className="flex justify-between text-muted-foreground">
+                                      <span>Advance Paid</span>
+                                      <span>-{cs}{booking.advance.toFixed(2)}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="border-t pt-2 flex justify-between font-bold text-base">
+                                    <span>Balance Due</span>
+                                    <span className={totals.due > 0 ? "text-red-600" : "text-green-600"}>{cs}{totals.due.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1.5">
