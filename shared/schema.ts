@@ -120,6 +120,7 @@ export const bookings = pgTable("bookings", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   advanceAmount: decimal("advance_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   paymentMethod: text("payment_method").default("Cash"),
+  source: text("source").notNull().default("Direct"),
   notes: text("notes"),
   discountInfo: text("discount_info"),
   checkedInAt: timestamp("checked_in_at"),

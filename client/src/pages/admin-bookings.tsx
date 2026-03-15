@@ -163,7 +163,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
       phoneCountry: "+91",
       taxes: (parseFloat(b.totalAmount) || 0) * 0.1,
       charges: bookingCharges,
-      source: "Direct",
+      source: b.source || "Direct",
       bookedDate: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : "",
       paymentStatus: b.status === "checked_out" ? "Paid" : "Pending",
       accompanyingGuests: [],
@@ -336,6 +336,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     email: "",
     notes: "",
     advanceAmount: 0,
+    source: "Direct",
     accompanyingGuests: [],
     selectedPaidFacilityIds: [] as number[]
   });
@@ -1099,6 +1100,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
           totalAmount: (roomAmount + facilityTotal).toFixed(2),
           advanceAmount: (newReservation.advanceAmount || 0).toFixed(2),
           paymentMethod: "Cash",
+          source: newReservation.source || "Direct",
           notes: newReservation.notes || "",
           overrideCapacity,
           facilityCharges: selectedPaidFacilities.map((f: any) => ({
@@ -1419,11 +1421,35 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Advance Payment</Label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input type="number" className="pl-9" placeholder="0.00" value={newReservation.advanceAmount} onChange={(e) => setNewReservation({...newReservation, advanceAmount: parseFloat(e.target.value) || 0})} data-testid="input-advance" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Advance Payment</Label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input type="number" className="pl-9" placeholder="0.00" value={newReservation.advanceAmount} onChange={(e) => setNewReservation({...newReservation, advanceAmount: parseFloat(e.target.value) || 0})} data-testid="input-advance" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Booking Source</Label>
+                          <Select value={newReservation.source} onValueChange={(val) => setNewReservation({...newReservation, source: val})}>
+                            <SelectTrigger data-testid="select-booking-source">
+                              <SelectValue placeholder="Select Source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Direct">Direct</SelectItem>
+                              <SelectItem value="Booking.com">Booking.com</SelectItem>
+                              <SelectItem value="Airbnb">Airbnb</SelectItem>
+                              <SelectItem value="Hotels.com">Hotels.com</SelectItem>
+                              <SelectItem value="Expedia">Expedia</SelectItem>
+                              <SelectItem value="MakeMyTrip">MakeMyTrip</SelectItem>
+                              <SelectItem value="Goibibo">Goibibo</SelectItem>
+                              <SelectItem value="Agoda">Agoda</SelectItem>
+                              <SelectItem value="TripAdvisor">TripAdvisor</SelectItem>
+                              <SelectItem value="Walk-in">Walk-in</SelectItem>
+                              <SelectItem value="Phone">Phone</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
