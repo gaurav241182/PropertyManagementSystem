@@ -30,7 +30,7 @@ import {
 function buildScopeConditions(hotelIdCol: Column, branchIdCol: Column, hotelId: number | null | undefined, branchId: number | null | undefined) {
   const conditions = [];
   if (hotelId) conditions.push(eq(hotelIdCol, hotelId));
-  if (branchId) conditions.push(eq(branchIdCol, branchId));
+  if (branchId) conditions.push(or(eq(branchIdCol, branchId), isNull(branchIdCol)));
   return conditions;
 }
 
