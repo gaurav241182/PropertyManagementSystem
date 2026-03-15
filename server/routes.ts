@@ -1143,6 +1143,7 @@ export async function registerRoutes(
     if (!salary) return res.status(404).json({ message: "Salary record not found" });
 
     const advanceAmount = Number(salary.advanceAmount) || 0;
+    const instalmentDeduction = Number(salary.instalmentDeduction) || 0;
     const netPay = Number(salary.netPay) || 0;
 
     await storage.updateSalary(salary.id, {
@@ -1150,16 +1151,20 @@ export async function registerRoutes(
       paidDate: new Date().toISOString().split('T')[0],
     } as any);
 
-    const overflow = advanceAmount - netPay;
-    if (overflow > 0) {
-      await storage.updateSalary(salary.id, {
-        advanceAmount: String(netPay),
-      } as any);
-      await carryForwardOverflow(salary, overflow, req, branchId);
+    let overflowAmount = 0;
+    if (instalmentDeduction <= 0) {
+      const overflow = advanceAmount - netPay;
+      if (overflow > 0) {
+        overflowAmount = overflow;
+        await storage.updateSalary(salary.id, {
+          advanceAmount: String(netPay),
+        } as any);
+        await carryForwardOverflow(salary, overflow, req, branchId);
+      }
     }
 
     const updated = await storage.getSalary(salary.id);
-    return res.json({ ...updated, overflowToNextMonth: overflow > 0 ? overflow : 0 });
+    return res.json({ ...updated, overflowToNextMonth: overflowAmount });
   });
 
   app.post("/api/salaries/:id/advance", async (req, res) => {
@@ -1179,10 +1184,6 @@ export async function registerRoutes(
       const numInstalments = Number(numberOfInstalments);
       const instalmentAmount = Math.round((advanceNum / numInstalments) * 100) / 100;
 
-      const [salYear, salMon] = salary.month.split("-").map(Number);
-      const nextMonth = new Date(salYear, salMon, 1);
-      const startMonthStr = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
-
       await storage.createStaffAdvance({
         staffId: salary.staffId,
         totalAmount: String(advanceNum),
@@ -1191,17 +1192,17 @@ export async function registerRoutes(
         remainingInstalments: numInstalments,
         remainingBalance: String(advanceNum),
         status: "Active",
-        startMonth: startMonthStr,
+        startMonth: salary.month,
         hotelId,
         branchId,
       });
 
       const existingAdvance = Number(salary.advanceAmount) || 0;
-      const newAdvance = existingAdvance + advanceNum;
-      const netPay = Number(salary.netPay) || 0;
+      const existingInstalment = Number(salary.instalmentDeduction) || 0;
 
       await storage.updateSalary(salary.id, {
-        advanceAmount: String(newAdvance),
+        advanceAmount: String(existingAdvance + advanceNum),
+        instalmentDeduction: String(existingInstalment + instalmentAmount),
       } as any);
 
       const updated = await storage.getSalary(salary.id);
