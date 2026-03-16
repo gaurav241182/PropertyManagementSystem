@@ -280,6 +280,7 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().default("Pending"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
+  servingTime: timestamp("serving_time"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

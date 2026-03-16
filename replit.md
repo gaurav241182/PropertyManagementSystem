@@ -25,6 +25,7 @@ client/src/components/ - Reusable UI components
 - Tax settings per-category: Room (12%), Food (5%), Facilities (18%), Other (0%)
 - Invoice actions only enabled AFTER checkout
 - Order workflow: Guest orders → Manager accepts → Kitchen fulfills → Auto-added to booking charges
+- Orders support optional serving time (Serve Now, Breakfast/Lunch/Dinner, 1-3 hours, Custom datetime); orders sorted by serving time in kitchen view
 - Guest authentication: Booking ID + Last Name (must be checked_in)
 - Role-based discount limits: Owner unlimited, Manager max 15%, Receptionist max 5%
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table

@@ -37,6 +37,7 @@ interface ApiOrder {
   status: string;
   totalAmount: string;
   notes: string | null;
+  servingTime: string | null;
   createdAt: string;
   items: ApiOrderItem[];
 }
@@ -134,16 +135,69 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     type: OrderType;
     items: { itemId: string; quantity: number }[];
     notes: string;
+    servingTimeOption: string;
+    servingTimeCustom: string;
   }>({
     bookingId: "",
     type: "Food",
     items: [],
-    notes: ""
+    notes: "",
+    servingTimeOption: "now",
+    servingTimeCustom: ""
   });
+
+  const getServingDateTime = (option: string, custom: string): string | null => {
+    const now = new Date();
+    switch (option) {
+      case "now": return now.toISOString();
+      case "1hour": return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+      case "2hours": return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+      case "3hours": return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+      case "breakfast": {
+        const d = new Date(now); d.setHours(8, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "lunch": {
+        const d = new Date(now); d.setHours(13, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "dinner": {
+        const d = new Date(now); d.setHours(20, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "custom": return custom ? new Date(custom).toISOString() : now.toISOString();
+      default: return now.toISOString();
+    }
+  };
+
+  const formatServingTime = (servingTime: string | null) => {
+    if (!servingTime) return null;
+    const st = new Date(servingTime);
+    const now = new Date();
+    const diffMs = st.getTime() - now.getTime();
+    const diffMins = Math.round(diffMs / 60000);
+    if (diffMins <= 5 && diffMins >= -5) return "Serve Now";
+    if (diffMins > 0 && diffMins <= 60) return `In ${diffMins} min`;
+    if (diffMins > 60 && diffMins <= 180) return `In ${Math.round(diffMins / 60)}h ${diffMins % 60}m`;
+    return st.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   const filteredOrders = orders
     .filter((order: ApiOrder) => statusFilter === "All" || order.status === statusFilter)
-    .sort((a: ApiOrder, b: ApiOrder) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a: ApiOrder, b: ApiOrder) => {
+      const aTime = a.servingTime ? new Date(a.servingTime).getTime() : new Date(a.createdAt).getTime();
+      const bTime = b.servingTime ? new Date(b.servingTime).getTime() : new Date(b.createdAt).getTime();
+      if (a.status === "Fulfilled" || a.status === "Cancelled") {
+        if (b.status !== "Fulfilled" && b.status !== "Cancelled") return 1;
+      }
+      if (b.status === "Fulfilled" || b.status === "Cancelled") {
+        if (a.status !== "Fulfilled" && a.status !== "Cancelled") return -1;
+      }
+      return aTime - bTime;
+    });
 
   const handleCreateOrder = () => {
     if (!newOrder.bookingId || newOrder.items.length === 0) {
@@ -176,6 +230,8 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
 
     const roomNumber = (booking as any).roomNumber || (booking as any).roomId?.toString() || "";
 
+    const servingTime = getServingDateTime(newOrder.servingTimeOption, newOrder.servingTimeCustom);
+
     createOrderMutation.mutate({
       orderId: `ORD-${Date.now().toString().slice(-6)}`,
       bookingId: booking.bookingId,
@@ -185,11 +241,12 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
       status: "Pending",
       totalAmount: total.toFixed(2),
       notes: newOrder.notes || null,
+      servingTime,
       items: orderItems,
     }, {
       onSuccess: () => {
         setIsCreateDialogOpen(false);
-        setNewOrder({ bookingId: "", type: "Food", items: [], notes: "" });
+        setNewOrder({ bookingId: "", type: "Food", items: [], notes: "", servingTimeOption: "now", servingTimeCustom: "" });
         toast({
           title: "Order Created",
           description: `Order for Room ${roomNumber} has been placed successfully.`
@@ -374,6 +431,52 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                 </div>
 
                 <div className="space-y-2">
+                  <Label>Serving Time</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: "now", label: "Serve Now", icon: "⚡" },
+                      { value: "breakfast", label: "Breakfast", icon: "🌅" },
+                      { value: "lunch", label: "Lunch", icon: "☀️" },
+                      { value: "dinner", label: "Dinner", icon: "🌙" },
+                      { value: "1hour", label: "1 Hour", icon: "🕐" },
+                      { value: "2hours", label: "2 Hours", icon: "🕑" },
+                      { value: "3hours", label: "3 Hours", icon: "🕒" },
+                      { value: "custom", label: "Custom", icon: "📅" },
+                    ].map(opt => (
+                      <Button
+                        key={opt.value}
+                        type="button"
+                        size="sm"
+                        variant={newOrder.servingTimeOption === opt.value ? "default" : "outline"}
+                        className={`text-xs ${newOrder.servingTimeOption === opt.value ? "" : "hover:bg-muted/50"}`}
+                        onClick={() => setNewOrder({...newOrder, servingTimeOption: opt.value})}
+                        data-testid={`button-serving-${opt.value}`}
+                      >
+                        <span className="mr-1">{opt.icon}</span> {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                  {newOrder.servingTimeOption === "custom" && (
+                    <Input
+                      type="datetime-local"
+                      value={newOrder.servingTimeCustom}
+                      onChange={(e) => setNewOrder({...newOrder, servingTimeCustom: e.target.value})}
+                      data-testid="input-serving-custom"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {newOrder.servingTimeOption === "now" && "Order will be prepared immediately."}
+                    {newOrder.servingTimeOption === "breakfast" && "Scheduled for breakfast service (8:00 AM)."}
+                    {newOrder.servingTimeOption === "lunch" && "Scheduled for lunch service (1:00 PM)."}
+                    {newOrder.servingTimeOption === "dinner" && "Scheduled for dinner service (8:00 PM)."}
+                    {newOrder.servingTimeOption === "1hour" && "To be prepared in 1 hour."}
+                    {newOrder.servingTimeOption === "2hours" && "To be prepared in 2 hours."}
+                    {newOrder.servingTimeOption === "3hours" && "To be prepared in 3 hours."}
+                    {newOrder.servingTimeOption === "custom" && "Select a custom date and time."}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                    <Label>Special Instructions (Optional)</Label>
                    <Input 
                      placeholder="e.g. No allergies, extra towels..." 
@@ -436,11 +539,18 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                         <span className="font-mono text-muted-foreground">{order.orderId}</span>
                         {order.type === 'Food' ? <Utensils className="h-4 w-4 text-orange-500" /> : <Sparkles className="h-4 w-4 text-purple-500" />}
                       </CardTitle>
-                      <CardDescription className="flex items-center gap-1 mt-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        <span className="mx-1">•</span>
-                        {new Date(order.createdAt).toLocaleDateString()}
+                      <CardDescription className="flex flex-col gap-0.5 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          <span className="mx-1">•</span>
+                          {new Date(order.createdAt).toLocaleDateString()}
+                        </span>
+                        {order.servingTime && (
+                          <span className="flex items-center gap-1 text-xs font-medium text-orange-600">
+                            🍽️ {formatServingTime(order.servingTime)}
+                          </span>
+                        )}
                       </CardDescription>
                     </div>
                     <Badge variant={

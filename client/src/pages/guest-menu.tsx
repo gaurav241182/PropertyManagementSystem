@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Plus, Minus, Utensils, Sparkles, ChefHat } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ShoppingCart, Plus, Minus, Utensils, Sparkles, ChefHat, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -46,6 +47,35 @@ export default function GuestMenu() {
   }
 
   const [cart, setCart] = useState<{itemId: number, type: 'food' | 'facility', qty: number}[]>([]);
+  const [servingTimeOption, setServingTimeOption] = useState("now");
+  const [servingTimeCustom, setServingTimeCustom] = useState("");
+
+  const getServingDateTime = (option: string, custom: string): string | null => {
+    const now = new Date();
+    switch (option) {
+      case "now": return now.toISOString();
+      case "1hour": return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+      case "2hours": return new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+      case "3hours": return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+      case "breakfast": {
+        const d = new Date(now); d.setHours(8, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "lunch": {
+        const d = new Date(now); d.setHours(13, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "dinner": {
+        const d = new Date(now); d.setHours(20, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+        return d.toISOString();
+      }
+      case "custom": return custom ? new Date(custom).toISOString() : now.toISOString();
+      default: return now.toISOString();
+    }
+  };
 
   const { data: rawMenuItems = [], isLoading: menuLoading } = useQuery<MenuItem[]>({
     queryKey: ['/api/menu-items'],
@@ -157,6 +187,8 @@ export default function GuestMenu() {
 
     const timestamp = Date.now();
 
+    const servingTime = getServingDateTime(servingTimeOption, servingTimeCustom);
+
     if (foodItems.length > 0) {
       const items = buildFoodOrderItems(foodItems);
       const totalAmount = foodItems.reduce((sum, ci) => {
@@ -177,6 +209,7 @@ export default function GuestMenu() {
         status: "Pending",
         totalAmount: String(totalAmount),
         notes: "",
+        servingTime,
         items,
       });
     }
@@ -197,9 +230,13 @@ export default function GuestMenu() {
         status: "Pending",
         totalAmount: String(totalAmount),
         notes: "",
+        servingTime,
         items,
       });
     }
+
+    setServingTimeOption("now");
+    setServingTimeCustom("");
   };
 
   return (
@@ -228,6 +265,60 @@ export default function GuestMenu() {
             </div>
           )}
         </div>
+
+        {cart.length > 0 && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-primary" />
+                When would you like it served?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "now", label: "Now", icon: "⚡" },
+                  { value: "breakfast", label: "Breakfast", icon: "🌅" },
+                  { value: "lunch", label: "Lunch", icon: "☀️" },
+                  { value: "dinner", label: "Dinner", icon: "🌙" },
+                  { value: "1hour", label: "1hr", icon: "🕐" },
+                  { value: "2hours", label: "2hr", icon: "🕑" },
+                  { value: "3hours", label: "3hr", icon: "🕒" },
+                  { value: "custom", label: "Pick Time", icon: "📅" },
+                ].map(opt => (
+                  <Button
+                    key={opt.value}
+                    type="button"
+                    size="sm"
+                    variant={servingTimeOption === opt.value ? "default" : "outline"}
+                    className="text-xs"
+                    onClick={() => setServingTimeOption(opt.value)}
+                    data-testid={`button-guest-serving-${opt.value}`}
+                  >
+                    <span className="mr-1">{opt.icon}</span> {opt.label}
+                  </Button>
+                ))}
+              </div>
+              {servingTimeOption === "custom" && (
+                <Input
+                  type="datetime-local"
+                  value={servingTimeCustom}
+                  onChange={(e) => setServingTimeCustom(e.target.value)}
+                  className="max-w-[250px]"
+                  data-testid="input-guest-serving-custom"
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {servingTimeOption === "now" && "Your order will be prepared right away."}
+                {servingTimeOption === "breakfast" && "Scheduled for breakfast (8:00 AM)."}
+                {servingTimeOption === "lunch" && "Scheduled for lunch (1:00 PM)."}
+                {servingTimeOption === "dinner" && "Scheduled for dinner (8:00 PM)."}
+                {servingTimeOption === "1hour" && "Will be ready in about 1 hour."}
+                {servingTimeOption === "2hours" && "Will be ready in about 2 hours."}
+                {servingTimeOption === "3hours" && "Will be ready in about 3 hours."}
+                {servingTimeOption === "custom" && "Choose your preferred date and time."}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList className="grid w-full md:w-[400px] grid-cols-2">
