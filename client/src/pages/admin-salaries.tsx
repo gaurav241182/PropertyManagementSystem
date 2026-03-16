@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote } from "lucide-react";
+import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -46,6 +46,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       ...s,
       name: staffMember?.name || `Staff #${s.staffId}`,
       role: staffMember?.role || "Unknown",
+      employeeId: staffMember?.employeeId || "-",
       photo: staffMember?.photo || null,
       netPayNum: netPay,
       advanceNum: advanceAmount,
@@ -59,6 +60,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const isLoading = salariesLoading || staffLoading;
 
   const [selectedMonth, setSelectedMonth] = useState("current");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("default");
   const [selectedSalaries, setSelectedSalaries] = useState<number[]>([]);
   const [advanceDialogOpen, setAdvanceDialogOpen] = useState(false);
   const [advanceSalary, setAdvanceSalary] = useState<any>(null);
@@ -213,10 +216,32 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     }
   };
 
-  const filteredSalaries = salaries.filter(s => {
-    if (selectedMonth === "current") return true;
-    return s.month === selectedMonth;
-  });
+  const filteredSalaries = salaries
+    .filter(s => {
+      if (selectedMonth !== "current" && s.month !== selectedMonth) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          s.name.toLowerCase().includes(q) ||
+          s.employeeId.toLowerCase().includes(q) ||
+          s.role.toLowerCase().includes(q) ||
+          s.month.includes(q) ||
+          s.status.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "staffId") return a.employeeId.localeCompare(b.employeeId, undefined, { numeric: true });
+      if (sortBy === "salary") return b.netPayNum - a.netPayNum;
+      if (sortBy === "advance") return b.advanceNum - a.advanceNum;
+      if (sortBy === "pending") return b.pending - a.pending;
+      if (sortBy === "status") return a.status.localeCompare(b.status);
+      if (sortBy === "month") return b.month.localeCompare(a.month);
+      if (sortBy === "dueDate") return (a.dueDate || "").localeCompare(b.dueDate || "");
+      return 0;
+    });
 
   const totalPayroll = filteredSalaries.reduce((acc, curr) => acc + curr.netPayNum, 0);
   const paidAmount = filteredSalaries.filter(s => s.status === "Paid").reduce((acc, curr) => acc + curr.netPayNum, 0);
@@ -239,9 +264,19 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
             <p className="text-muted-foreground">Process monthly payroll, record advances, and view payment history.</p>
           </div>
           
-          <div className="flex items-center gap-2">
-             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[180px]" data-testid="select-salary-month">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, staff ID..."
+                className="pl-9 w-[220px]"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                data-testid="input-salary-search"
+              />
+            </div>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[160px]" data-testid="select-salary-month">
                 <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue placeholder="Select Month" />
               </SelectTrigger>
@@ -250,6 +285,23 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                 {months.map(m => (
                   <SelectItem key={m} value={m}>{m}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[160px]" data-testid="select-salary-sort">
+                <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="staffId">Staff ID</SelectItem>
+                <SelectItem value="salary">Salary (High-Low)</SelectItem>
+                <SelectItem value="advance">Advance (High-Low)</SelectItem>
+                <SelectItem value="pending">Net Payable (High-Low)</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="month">Month</SelectItem>
+                <SelectItem value="dueDate">Due Date</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -320,6 +372,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       onCheckedChange={(checked) => toggleSelectAll(checked as boolean)}
                     />
                   </TableHead>
+                  <TableHead>Staff ID</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Month</TableHead>
                   <TableHead>Total Salary</TableHead>
@@ -340,6 +393,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                         checked={selectedSalaries.includes(salary.id)}
                         onCheckedChange={() => toggleSelect(salary.id)}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs">{salary.employeeId}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -420,7 +476,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                 ))}
                 {filteredSalaries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No salary records found for this period.
                     </TableCell>
                   </TableRow>
