@@ -136,6 +136,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/staff-advances'] });
       toast({ title: "Record Deleted", description: "Salary record has been permanently removed." });
     },
     onError: (error: Error) => {
