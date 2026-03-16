@@ -260,88 +260,90 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-salary-title">Salary Management</h2>
-            <p className="text-muted-foreground">Process monthly payroll, record advances, and view payment history.</p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-salary-title">Salary Management</h2>
+            <p className="text-muted-foreground text-sm md:text-base">Process monthly payroll, record advances, and view payment history.</p>
           </div>
           
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, staff ID..."
-                className="pl-9 w-[220px]"
+                className="pl-9 w-full sm:w-[220px]"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 data-testid="input-salary-search"
               />
             </div>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[160px]" data-testid="select-salary-month">
-                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Select Month" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current">All Months</SelectItem>
-                {months.map(m => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[160px]" data-testid="select-salary-sort">
-                <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="staffId">Staff ID</SelectItem>
-                <SelectItem value="salary">Salary (High-Low)</SelectItem>
-                <SelectItem value="advance">Advance (High-Low)</SelectItem>
-                <SelectItem value="pending">Net Payable (High-Low)</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
-                <SelectItem value="month">Month</SelectItem>
-                <SelectItem value="dueDate">Due Date</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="flex-1 sm:w-[160px]" data-testid="select-salary-month">
+                  <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Select Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">All Months</SelectItem>
+                  {months.map(m => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="flex-1 sm:w-[160px]" data-testid="select-salary-sort">
+                  <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="staffId">Staff ID</SelectItem>
+                  <SelectItem value="salary">Salary (High-Low)</SelectItem>
+                  <SelectItem value="advance">Advance (High-Low)</SelectItem>
+                  <SelectItem value="pending">Net Payable (High-Low)</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="dueDate">Due Date</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Payroll</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Total Payroll</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-total-payroll">{cs}{totalPayroll.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">For selected period</p>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold" data-testid="text-total-payroll">{cs}{totalPayroll.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground hidden md:block">For selected period</p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Paid</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600" data-testid="text-paid-amount">{cs}{paidAmount.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{filteredSalaries.filter(s => s.status === "Paid").length} Employees</p>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-green-600" data-testid="text-paid-amount">{cs}{paidAmount.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground hidden md:block">{filteredSalaries.filter(s => s.status === "Paid").length} Employees</p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600" data-testid="text-pending-amount">{cs}{pendingAmount.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{filteredSalaries.filter(s => s.status === "Pending").length} Employees</p>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-amber-600" data-testid="text-pending-amount">{cs}{pendingAmount.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground hidden md:block">{filteredSalaries.filter(s => s.status === "Pending").length} Employees</p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Advance</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Total Advance</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600" data-testid="text-total-advance">{cs}{totalAdvance.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Advance payments given</p>
+            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+              <div className="text-lg md:text-2xl font-bold text-blue-600" data-testid="text-total-advance">{cs}{totalAdvance.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground hidden md:block">Advance payments given</p>
             </CardContent>
           </Card>
         </div>
@@ -358,6 +360,109 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
           </div>
         )}
 
+        <div className="block md:hidden space-y-3">
+          {filteredSalaries.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No salary records found for this period.
+              </CardContent>
+            </Card>
+          )}
+          {filteredSalaries.map((salary) => (
+            <Card key={salary.id} data-testid={`card-salary-${salary.id}`}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {salary.photo ? (
+                      <img src={salary.photo} alt="" className="h-10 w-10 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-muted" />
+                    )}
+                    <div>
+                      <span className="font-medium block">{salary.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{salary.role}</span>
+                        <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">{salary.employeeId}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant={salary.status === "Paid" ? "default" : "secondary"} className={salary.status === "Paid" ? "bg-green-600 hover:bg-green-700" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}>
+                    {salary.status}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm bg-muted/30 p-3 rounded-lg">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Month</span>
+                    <span className="font-mono text-xs">{salary.month}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Salary</span>
+                    <span className="font-medium">{cs}{salary.netPayNum.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Advance</span>
+                    <span className={salary.advanceNum > 0 ? "font-medium text-blue-600" : "text-muted-foreground"}>{cs}{salary.advanceNum.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">EMI</span>
+                    <span className={salary.instalmentDeduction > 0 ? "font-medium text-purple-600" : "text-muted-foreground"}>{cs}{salary.instalmentDeduction.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Net Payable</span>
+                    <span className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>{cs}{salary.pending.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Due</span>
+                    <span className="text-xs">{salary.dueDate}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1 border-t">
+                  {salary.status === "Pending" && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => openAdvanceDialog(salary)} className="h-8 px-3 text-blue-600 border-blue-200 hover:bg-blue-50" data-testid={`button-advance-m-${salary.id}`}>
+                        <Banknote className="mr-1 h-3 w-3" />
+                        Advance
+                      </Button>
+                      <Button size="sm" onClick={() => handlePay(salary.id)} className="bg-green-600 hover:bg-green-700 h-8 px-3" data-testid={`button-pay-m-${salary.id}`}>
+                        <DollarSign className="mr-1 h-3 w-3" />
+                        Pay
+                      </Button>
+                    </>
+                  )}
+                  {salary.status === "Paid" && (
+                    <Button variant="outline" size="sm" onClick={() => handleRevert(salary.id)} className="h-8 px-3 text-amber-600 border-amber-200 hover:bg-amber-50" data-testid={`button-revert-m-${salary.id}`}>
+                      <Undo className="mr-1 h-3 w-3" />
+                      Revert
+                    </Button>
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" data-testid={`button-delete-salary-m-${salary.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Salary Record?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the salary record for {salary.name}.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(salary.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="hidden md:block">
         <Card>
           <CardHeader>
             <CardTitle>Payroll List</CardTitle>
@@ -485,6 +590,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
             </Table>
           </CardContent>
         </Card>
+        </div>
       </div>
       )}
 
