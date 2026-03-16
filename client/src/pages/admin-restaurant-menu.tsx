@@ -111,7 +111,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     name: "",
     description: "",
     category: "Food",
-    price: 0,
+    price: "",
     available: true
   });
 
@@ -122,7 +122,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
     type: "Daily",
     startDate: "",
     endDate: "",
-    price: 0,
+    price: "",
     items: [] as number[]
   });
 
@@ -131,21 +131,22 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       toast({ title: "Error", description: "Item name is required", variant: "destructive" });
       return;
     }
+    const itemPayload = { ...newItem, price: parseFloat(newItem.price) || 0 };
     if (editingItem) {
-      updateItemMutation.mutate({ id: editingItem.id, ...newItem }, {
+      updateItemMutation.mutate({ id: editingItem.id, ...itemPayload }, {
         onSuccess: () => {
           toast({ title: "Success", description: `${newItem.name} has been updated.` });
           setIsItemDialogOpen(false);
           setEditingItem(null);
-          setNewItem({ name: "", description: "", category: "Food", price: 0, available: true });
+          setNewItem({ name: "", description: "", category: "Food", price: "", available: true });
         },
       });
     } else {
-      addItemMutation.mutate(newItem, {
+      addItemMutation.mutate(itemPayload, {
         onSuccess: () => {
           toast({ title: "Success", description: `${newItem.name} has been added to the menu.` });
           setIsItemDialogOpen(false);
-          setNewItem({ name: "", description: "", category: "Food", price: 0, available: true });
+          setNewItem({ name: "", description: "", category: "Food", price: "", available: true });
         },
       });
     }
@@ -157,7 +158,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       name: item.name,
       description: item.description,
       category: item.category,
-      price: parseFloat(item.price),
+      price: String(item.price),
       available: item.available
     });
     setIsItemDialogOpen(true);
@@ -196,7 +197,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       type: newMenu.type,
       startDate: newMenu.startDate || null,
       endDate: newMenu.endDate || null,
-      price: newMenu.price,
+      price: parseFloat(newMenu.price) || 0,
       itemIds: JSON.stringify(newMenu.items),
       active: true
     };
@@ -207,7 +208,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
           toast({ title: "Success", description: `${newMenu.name} has been updated.` });
           setIsMenuDialogOpen(false);
           setEditingMenu(null);
-          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
+          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: "", items: [] });
         },
       });
     } else {
@@ -215,7 +216,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
         onSuccess: () => {
           toast({ title: "Success", description: `${newMenu.name} has been created.` });
           setIsMenuDialogOpen(false);
-          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
+          setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: "", items: [] });
         },
       });
     }
@@ -228,7 +229,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
       type: menu.type,
       startDate: menu.startDate || "",
       endDate: menu.endDate || "",
-      price: parseFloat(menu.price),
+      price: String(menu.price),
       items: JSON.parse(menu.itemIds || "[]")
     });
     setIsMenuDialogOpen(true);
@@ -266,13 +267,13 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
 
   const openAddItemDialog = () => {
     setEditingItem(null);
-    setNewItem({ name: "", description: "", category: "Food", price: 0, available: true });
+    setNewItem({ name: "", description: "", category: "Food", price: "", available: true });
     setIsItemDialogOpen(true);
   };
 
   const openAddMenuDialog = () => {
     setEditingMenu(null);
-    setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: 0, items: [] });
+    setNewMenu({ name: "", type: "Daily", startDate: "", endDate: "", price: "", items: [] });
     setIsMenuDialogOpen(true);
   };
 
@@ -364,7 +365,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                           placeholder="0.00" 
                           step="0.01"
                           value={newItem.price}
-                          onChange={(e) => setNewItem({...newItem, price: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setNewItem({...newItem, price: e.target.value})}
                           data-testid="input-item-price"
                         />
                       </div>
@@ -512,7 +513,7 @@ export default function AdminRestaurantMenu({ role = "owner" }: { role?: "owner"
                           placeholder="e.g. 25.00"
                           step="0.01"
                           value={newMenu.price}
-                          onChange={(e) => setNewMenu({...newMenu, price: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setNewMenu({...newMenu, price: e.target.value})}
                           data-testid="input-menu-price"
                         />
                       </div>
