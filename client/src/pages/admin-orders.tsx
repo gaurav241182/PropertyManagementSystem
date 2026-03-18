@@ -133,6 +133,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
     },
   });
 
