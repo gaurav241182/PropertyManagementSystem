@@ -86,9 +86,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const { runMigrations, seedPlatformAdmin } = await import("./db");
+  const { runMigrations, seedPlatformAdmin, seedDevAccounts } = await import("./db");
   await runMigrations();
   await seedPlatformAdmin();
+  if (process.env.NODE_ENV !== "production") {
+    await seedDevAccounts();
+  }
   await registerRoutes(httpServer, app);
   const { startScheduler } = await import("./tax-invoice-scheduler");
   startScheduler().catch(err => console.error("Failed to start tax scheduler:", err));

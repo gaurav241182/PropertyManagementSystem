@@ -30,6 +30,26 @@ export async function seedPlatformAdmin() {
   }
 }
 
+export async function seedDevAccounts() {
+  const client = await pool.connect();
+  try {
+    const ownerCheck = await client.query(
+      `SELECT id FROM platform_users WHERE email = 'happy@gmail.com' LIMIT 1`
+    );
+    if (ownerCheck.rows.length === 0) {
+      const firstHotel = await client.query(`SELECT id FROM hotels LIMIT 1`);
+      const hotelId = firstHotel.rows.length > 0 ? firstHotel.rows[0].id : null;
+      await client.query(
+        `INSERT INTO platform_users (name, email, password, role, hotel_id, status) VALUES ($1, $2, $3, $4, $5, $6)`,
+        ["Happy Owner", "happy@gmail.com", "123456", "owner", hotelId, "Active"]
+      );
+      console.log("Dev Seed: Created owner account (happy@gmail.com)");
+    }
+  } finally {
+    client.release();
+  }
+}
+
 export async function runMigrations() {
   const client = await pool.connect();
   try {

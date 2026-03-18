@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Hotel, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Hotel, AlertCircle, ArrowLeft, CheckCircle2, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+
+const IS_DEV = import.meta.env.DEV;
+
+const DEV_ACCOUNTS = [
+  { label: "Platform Admin", email: "admin@yellowberry.com", password: "Admin@2026", color: "bg-violet-50 hover:bg-violet-100 border-violet-200 text-violet-800" },
+  { label: "Happy Owner", email: "happy@gmail.com", password: "123456", color: "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800" },
+];
 
 type View = "login" | "forgot";
 
@@ -15,6 +22,7 @@ export default function Login() {
   const { user, login } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<View>("login");
+  const [quickLoading, setQuickLoading] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +83,19 @@ export default function Login() {
       setForgotError("Something went wrong. Please try again.");
     } finally {
       setForgotLoading(false);
+    }
+  };
+
+  const quickLogin = async (acc: typeof DEV_ACCOUNTS[0]) => {
+    setQuickLoading(acc.email);
+    try {
+      const loggedInUser = await login(acc.email, acc.password);
+      toast({ title: `Signed in as ${acc.label}` });
+      redirectUser(loggedInUser.role);
+    } catch (err: any) {
+      setError(err.message || "Quick login failed");
+    } finally {
+      setQuickLoading(null);
     }
   };
 
@@ -149,6 +170,30 @@ export default function Login() {
                   Forgot Password?
                 </button>
               </div>
+
+              {IS_DEV && (
+                <div className="pt-2 border-t border-dashed">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground font-medium">
+                    <Zap className="h-3.5 w-3.5" />
+                    Dev Quick Login
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DEV_ACCOUNTS.map((acc) => (
+                      <button
+                        key={acc.email}
+                        type="button"
+                        onClick={() => quickLogin(acc)}
+                        disabled={quickLoading !== null}
+                        className={`text-left px-3 py-2 rounded-md border text-xs font-medium transition-colors ${acc.color} disabled:opacity-50`}
+                        data-testid={`button-quick-login-${acc.label.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <div className="font-semibold">{acc.label}</div>
+                        <div className="opacity-70 truncate">{acc.email}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </form>
           )}
 
