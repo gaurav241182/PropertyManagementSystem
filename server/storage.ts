@@ -123,13 +123,17 @@ export interface IStorage {
   deleteFacility(id: number): Promise<void>;
 
   getOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]>;
+  getArchivedOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]>;
   getOrder(id: number): Promise<Order | undefined>;
   getOrdersByBookingId(bookingId: string): Promise<Order[]>;
   createOrder(data: InsertOrder): Promise<Order>;
   updateOrder(id: number, data: Partial<InsertOrder>): Promise<Order | undefined>;
+  archiveOrder(id: number): Promise<Order | undefined>;
+  deleteOrder(id: number): Promise<void>;
 
   getOrderItems(orderId: string): Promise<OrderItem[]>;
   createOrderItem(data: InsertOrderItem): Promise<OrderItem>;
+  deleteOrderItems(orderId: string): Promise<void>;
 
   getSettings(hotelId?: number | null, branchId?: number | null): Promise<Setting[]>;
   getSetting(key: string, hotelId?: number | null, branchId?: number | null): Promise<Setting | undefined>;
@@ -607,13 +611,16 @@ export class DatabaseStorage implements IStorage {
 
   async getOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]> {
     const conditions = buildScopeConditions(orders.hotelId, orders.branchId, hotelId, branchId);
-    if (conditions.length > 0) {
-      return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
-    }
-    return db.select().from(orders).orderBy(desc(orders.createdAt));
+    conditions.push(eq(orders.archived, false));
+    return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.createdAt));
+  }
+  async getArchivedOrders(hotelId?: number | null, branchId?: number | null): Promise<Order[]> {
+    const conditions = buildScopeConditions(orders.hotelId, orders.branchId, hotelId, branchId);
+    conditions.push(eq(orders.archived, true));
+    return db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.archivedAt));
   }
   async getOrdersByBookingId(bookingId: string): Promise<Order[]> {
-    return db.select().from(orders).where(eq(orders.bookingId, bookingId)).orderBy(desc(orders.createdAt));
+    return db.select().from(orders).where(and(eq(orders.bookingId, bookingId), eq(orders.archived, false))).orderBy(desc(orders.createdAt));
   }
   async getOrder(id: number): Promise<Order | undefined> {
     const [result] = await db.select().from(orders).where(eq(orders.id, id));
@@ -627,6 +634,17 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
     return result;
   }
+  async archiveOrder(id: number): Promise<Order | undefined> {
+    const [result] = await db.update(orders).set({ archived: true, archivedAt: new Date() }).where(eq(orders.id, id)).returning();
+    return result;
+  }
+  async deleteOrder(id: number): Promise<void> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    if (order) {
+      await db.delete(orderItems).where(eq(orderItems.orderId, order.orderId));
+    }
+    await db.delete(orders).where(eq(orders.id, id));
+  }
 
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
@@ -634,6 +652,9 @@ export class DatabaseStorage implements IStorage {
   async createOrderItem(data: InsertOrderItem): Promise<OrderItem> {
     const [result] = await db.insert(orderItems).values(data).returning();
     return result;
+  }
+  async deleteOrderItems(orderId: string): Promise<void> {
+    await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
   }
 
   async getSettings(hotelId?: number | null, branchId?: number | null): Promise<Setting[]> {

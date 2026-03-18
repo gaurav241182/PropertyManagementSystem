@@ -281,6 +281,8 @@ export const orders = pgTable("orders", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   servingTime: timestamp("serving_time"),
+  archived: boolean("archived").default(false),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

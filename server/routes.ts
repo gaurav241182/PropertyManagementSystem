@@ -907,6 +907,19 @@ export async function registerRoutes(
     res.json(ordersWithItems);
   });
 
+  app.get("/api/orders/archived", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const data = await storage.getArchivedOrders(hotelId, branchId);
+    const ordersWithItems = await Promise.all(
+      data.map(async (order) => {
+        const items = await storage.getOrderItems(order.orderId);
+        return { ...order, items };
+      })
+    );
+    res.json(ordersWithItems);
+  });
+
   app.post("/api/orders", async (req, res) => {
     const hotelId = getHotelId(req);
     const branchId = await getBranchIdValidated(req);
@@ -953,6 +966,52 @@ export async function registerRoutes(
     }
     const orderItems = await storage.getOrderItems(data.orderId);
     res.json({ ...data, items: orderItems });
+  });
+
+  app.patch("/api/orders/:id/archive", async (req, res) => {
+    const record = await storage.getOrder(Number(req.params.id));
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
+    if (!record || (record.status !== "Fulfilled" && record.status !== "Cancelled")) {
+      return res.status(400).json({ message: "Only Fulfilled or Cancelled orders can be archived." });
+    }
+    const data = await storage.archiveOrder(Number(req.params.id));
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.put("/api/orders/:id", async (req, res) => {
+    const record = await storage.getOrder(Number(req.params.id));
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
+    const { items, servingTime, ...rest } = req.body;
+    const updateData: any = { ...rest };
+    if (servingTime && typeof servingTime === "string") {
+      updateData.servingTime = new Date(servingTime);
+    } else if (servingTime === null) {
+      updateData.servingTime = null;
+    }
+    const data = await storage.updateOrder(Number(req.params.id), updateData);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    if (items && Array.isArray(items)) {
+      await storage.deleteOrderItems(data.orderId);
+      const total = items.reduce((sum: number, item: any) => sum + parseFloat(item.price || 0) * (item.quantity || 1), 0);
+      for (const item of items) {
+        await storage.createOrderItem({ ...item, orderId: data.orderId, hotelId: data.hotelId, branchId: data.branchId });
+      }
+      await storage.updateOrder(data.id, { totalAmount: String(total) });
+    }
+    const orderItems = await storage.getOrderItems(data.orderId);
+    const updated = await storage.getOrder(data.id);
+    res.json({ ...updated, items: orderItems });
+  });
+
+  app.delete("/api/orders/:id", async (req, res) => {
+    const record = await storage.getOrder(Number(req.params.id));
+    const branchId = await getBranchIdValidated(req);
+    if (!checkRecordScope(record, req, res, branchId)) return;
+    await storage.deleteOrder(Number(req.params.id));
+    res.status(204).send();
   });
 
   // ============= SETTINGS (hotel-level, not branch-scoped) =============

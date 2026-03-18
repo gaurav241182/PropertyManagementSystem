@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Utensils, Sparkles, Plus, Search, Filter, Clock, CheckCircle, ChefHat, User, Hotel } from "lucide-react";
+import { Utensils, Sparkles, Plus, Search, Filter, Clock, CheckCircle, ChefHat, User, Hotel, Pencil, Trash2, Archive, MoreVertical } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -135,6 +136,59 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     },
   });
 
+  const updateOrderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PUT", `/api/orders/${id}`, data);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update order");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast({ title: "Order Updated", description: "Order has been updated successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/orders/${id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete order");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast({ title: "Order Deleted", description: "The order has been permanently deleted." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const archiveOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("PATCH", `/api/orders/${id}/archive`, {});
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to archive order");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast({ title: "Order Archived", description: "Order moved to the archive in Settings." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Archive Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newOrder, setNewOrder] = useState<{
@@ -152,6 +206,62 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     servingTimeOption: "now",
     servingTimeCustom: ""
   });
+
+  const [editingOrder, setEditingOrder] = useState<ApiOrder | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editNotes, setEditNotes] = useState("");
+  const [editServingTimeOption, setEditServingTimeOption] = useState("now");
+  const [editServingTimeCustom, setEditServingTimeCustom] = useState("");
+  const [editItems, setEditItems] = useState<{ itemName: string; price: string; quantity: number }[]>([]);
+
+  const [deletingOrder, setDeletingOrder] = useState<ApiOrder | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+
+  const openEditDialog = (order: ApiOrder) => {
+    setEditingOrder(order);
+    setEditNotes(order.notes || "");
+    setEditItems(order.items.map(i => ({ itemName: i.itemName, price: i.price, quantity: i.quantity })));
+    if (order.servingTime) {
+      const dt = new Date(order.servingTime);
+      const localDT = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setEditServingTimeOption("custom");
+      setEditServingTimeCustom(localDT);
+    } else {
+      setEditServingTimeOption("now");
+      setEditServingTimeCustom("");
+    }
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSave = () => {
+    if (!editingOrder) return;
+    const servingTime = getServingDateTime(editServingTimeOption, editServingTimeCustom);
+    const total = editItems.reduce((sum, i) => sum + parseFloat(i.price || "0") * i.quantity, 0);
+    updateOrderMutation.mutate({
+      id: editingOrder.id,
+      data: {
+        notes: editNotes || null,
+        servingTime,
+        totalAmount: total.toFixed(2),
+        items: editItems,
+      }
+    }, {
+      onSuccess: () => { setIsEditDialogOpen(false); setEditingOrder(null); }
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingOrder || !deletePassword) return;
+    const verifyRes = await apiRequest("POST", "/api/auth/verify-password", { password: deletePassword });
+    if (!verifyRes.ok) {
+      toast({ title: "Incorrect Password", description: "Please enter the correct admin password.", variant: "destructive" });
+      return;
+    }
+    deleteOrderMutation.mutate(deletingOrder.id, {
+      onSuccess: () => { setIsDeleteDialogOpen(false); setDeletingOrder(null); setDeletePassword(""); }
+    });
+  };
 
   const getServingDateTime = (option: string, custom: string): string | null => {
     const now = new Date();
@@ -602,29 +712,164 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                     </div>
                   )}
                 </CardContent>
-                <CardFooter className="bg-muted/5 p-3 flex gap-2 justify-end">
-                  {order.status === "Pending" && (
-                    <>
-                      <Button size="sm" variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleStatusChange(order, "Cancelled")}>Reject</Button>
-                      <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(order, "Accepted")}>Accept Order</Button>
-                    </>
-                  )}
-                  {order.status === "Accepted" && (
-                     <Button size="sm" className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(order, "Fulfilled")}>
-                       <CheckCircle className="mr-2 h-4 w-4" /> Mark Fulfilled
-                     </Button>
-                  )}
-                  {order.status === "Fulfilled" && (
-                    <div className="w-full text-center text-xs text-muted-foreground italic flex items-center justify-center gap-1">
-                      <CheckCircle className="h-3 w-3 text-green-600" /> Added to Bill
-                    </div>
-                  )}
+                <CardFooter className="bg-muted/5 p-3 flex flex-col gap-2">
+                  <div className="flex gap-2 w-full">
+                    {order.status === "Pending" && (
+                      <>
+                        <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleStatusChange(order, "Cancelled")}>Reject</Button>
+                        <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(order, "Accepted")}>Accept Order</Button>
+                      </>
+                    )}
+                    {order.status === "Accepted" && (
+                       <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(order, "Fulfilled")}>
+                         <CheckCircle className="mr-2 h-4 w-4" /> Mark Fulfilled
+                       </Button>
+                    )}
+                    {order.status === "Fulfilled" && (
+                      <div className="flex-1 text-center text-xs text-muted-foreground italic flex items-center justify-center gap-1">
+                        <CheckCircle className="h-3 w-3 text-green-600" /> Added to Bill
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-1 w-full border-t pt-2">
+                    {(order.status === "Pending" || order.status === "Accepted") && (
+                      <Button size="sm" variant="ghost" className="flex-1 text-xs text-blue-600 hover:bg-blue-50" onClick={() => openEditDialog(order)} data-testid={`button-edit-order-${order.id}`}>
+                        <Pencil className="h-3 w-3 mr-1" /> Edit
+                      </Button>
+                    )}
+                    {(order.status === "Fulfilled" || order.status === "Cancelled") && (
+                      <Button size="sm" variant="ghost" className="flex-1 text-xs text-gray-600 hover:bg-gray-100" onClick={() => archiveOrderMutation.mutate(order.id)} disabled={archiveOrderMutation.isPending} data-testid={`button-archive-order-${order.id}`}>
+                        <Archive className="h-3 w-3 mr-1" /> Archive
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-xs text-red-500 hover:bg-red-50 hover:text-red-600 px-3" onClick={() => { setDeletingOrder(order); setDeletePassword(""); setIsDeleteDialogOpen(true); }} data-testid={`button-delete-order-${order.id}`}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
             ))
           )}
         </div>
       </div>
+
+      {/* Edit Order Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { setIsEditDialogOpen(open); if (!open) setEditingOrder(null); }}>
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Order</DialogTitle>
+            <DialogDescription>
+              {editingOrder?.orderId} — {editingOrder?.guestName} · Room {editingOrder?.roomNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-5 py-4">
+            <div className="space-y-2">
+              <Label>Order Items</Label>
+              <div className="border rounded-md divide-y">
+                {editItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 text-sm">
+                    <span className="flex-1">{item.itemName}</span>
+                    <span className="text-muted-foreground text-xs">{currencySymbol}{parseFloat(item.price).toFixed(2)} each</span>
+                    <div className="flex items-center gap-1">
+                      <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditItems(editItems.map((i, j) => j === idx ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i))}>−</Button>
+                      <span className="w-5 text-center font-medium">{item.quantity}</span>
+                      <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditItems(editItems.map((i, j) => j === idx ? { ...i, quantity: i.quantity + 1 } : i))}>+</Button>
+                    </div>
+                    <span className="w-16 text-right font-medium">{currencySymbol}{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setEditItems(editItems.filter((_, j) => j !== idx))}>
+                      ×
+                    </Button>
+                  </div>
+                ))}
+                {editItems.length > 0 && (
+                  <div className="p-2 bg-muted/20 flex justify-between font-bold text-sm">
+                    <span>Total</span>
+                    <span>{currencySymbol}{editItems.reduce((sum, i) => sum + parseFloat(i.price || "0") * i.quantity, 0).toFixed(2)}</span>
+                  </div>
+                )}
+                {editItems.length === 0 && (
+                  <div className="p-4 text-center text-sm text-muted-foreground italic">No items — order will be empty</div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Serving Time</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "now", label: "Now", icon: "⚡" },
+                  { value: "breakfast", label: "Breakfast", icon: "🌅" },
+                  { value: "lunch", label: "Lunch", icon: "☀️" },
+                  { value: "dinner", label: "Dinner", icon: "🌙" },
+                  { value: "1hour", label: "1h", icon: "🕐" },
+                  { value: "2hours", label: "2h", icon: "🕑" },
+                  { value: "3hours", label: "3h", icon: "🕒" },
+                  { value: "custom", label: "Custom", icon: "📅" },
+                ].map(opt => (
+                  <Button key={opt.value} type="button" size="sm" variant={editServingTimeOption === opt.value ? "default" : "outline"}
+                    className="text-xs" onClick={() => setEditServingTimeOption(opt.value)}>
+                    <span className="mr-1">{opt.icon}</span> {opt.label}
+                  </Button>
+                ))}
+              </div>
+              {editServingTimeOption === "custom" && (
+                <Input type="datetime-local" value={editServingTimeCustom} onChange={(e) => setEditServingTimeCustom(e.target.value)} />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Special Instructions</Label>
+              <Input placeholder="Notes for kitchen..." value={editNotes} onChange={(e) => setEditNotes(e.target.value)} data-testid="input-edit-notes" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditingOrder(null); }}>Cancel</Button>
+            <Button onClick={handleEditSave} disabled={updateOrderMutation.isPending}>
+              {updateOrderMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Order Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { setIsDeleteDialogOpen(open); if (!open) { setDeletingOrder(null); setDeletePassword(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" /> Delete Order
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>You are about to permanently delete order <strong>{deletingOrder?.orderId}</strong> for <strong>{deletingOrder?.guestName}</strong> (Room {deletingOrder?.roomNumber}). This cannot be undone.</p>
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium">Enter your admin password to confirm</Label>
+                  <Input
+                    type="password"
+                    placeholder="Admin password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleDeleteConfirm()}
+                    data-testid="input-delete-order-password"
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={(e) => { e.preventDefault(); handleDeleteConfirm(); }}
+              disabled={!deletePassword || deleteOrderMutation.isPending}
+              data-testid="button-confirm-delete-order"
+            >
+              {deleteOrderMutation.isPending ? "Deleting..." : "Delete Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </AdminLayout>
   );
 }

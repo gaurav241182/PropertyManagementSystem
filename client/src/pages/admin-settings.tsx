@@ -27,6 +27,7 @@ export default function AdminSettings() {
   const { data: facilitiesData, isLoading: facilitiesLoading } = useQuery<any[]>({ queryKey: ['/api/facilities'] });
   const { data: settingsData, isLoading: settingsLoading } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: archivedBookingsData } = useQuery<any[]>({ queryKey: ['/api/bookings-archived'] });
+  const { data: archivedOrdersData } = useQuery<any[]>({ queryKey: ['/api/orders/archived'] });
   const { data: roomsData } = useQuery<any[]>({ queryKey: ['/api/rooms'] });
   const { data: schedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/invoice-scheduler-logs'] });
   const { data: salarySchedulerLogsData } = useQuery<any[]>({ queryKey: ['/api/salary-scheduler/logs'] });
@@ -34,6 +35,7 @@ export default function AdminSettings() {
   const { data: allStaffData } = useQuery<any[]>({ queryKey: ['/api/staff'] });
   const [archivalSearch, setArchivalSearch] = useState("");
   const [staffArchivalSearch, setStaffArchivalSearch] = useState("");
+  const [ordersArchivalSearch, setOrdersArchivalSearch] = useState("");
   const [viewingArchived, setViewingArchived] = useState<any>(null);
 
   const [taxEmailInput, setTaxEmailInput] = useState("");
@@ -2862,6 +2864,90 @@ export default function AdminSettings() {
                 <div className="mt-4 text-xs text-muted-foreground">
                   Total archived records: {filteredArchivedBookings.length}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Archived Orders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Archive className="h-5 w-5 text-gray-500" />
+                      Archived Orders
+                    </CardTitle>
+                    <CardDescription>Fulfilled and cancelled orders archived from the Orders page for record-keeping.</CardDescription>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by guest, order ID, room..."
+                      value={ordersArchivalSearch}
+                      onChange={(e) => setOrdersArchivalSearch(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-orders-archival-search"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const archivedOrders = archivedOrdersData || [];
+                  const filtered = archivedOrders.filter((o: any) => {
+                    if (!ordersArchivalSearch) return true;
+                    const q = ordersArchivalSearch.toLowerCase();
+                    return o.guestName?.toLowerCase().includes(q) || o.orderId?.toLowerCase().includes(q) || o.roomNumber?.toLowerCase().includes(q);
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Archive className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p className="text-lg font-medium">No archived orders</p>
+                        <p className="text-sm">Fulfilled or cancelled orders can be archived from the Orders page.</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order ID</TableHead>
+                            <TableHead>Guest</TableHead>
+                            <TableHead>Room</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Ordered</TableHead>
+                            <TableHead>Archived On</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered.map((o: any) => (
+                            <TableRow key={o.id} className="bg-gray-50/60 text-gray-500" data-testid={`row-archived-order-${o.id}`}>
+                              <TableCell className="font-mono text-xs text-gray-400">{o.orderId}</TableCell>
+                              <TableCell className="font-medium text-gray-600">{o.guestName}</TableCell>
+                              <TableCell>Room {o.roomNumber}</TableCell>
+                              <TableCell>{o.type}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={
+                                  o.status === "Fulfilled" ? "border-green-200 text-green-700 bg-green-50" :
+                                  o.status === "Cancelled" ? "border-red-200 text-red-600 bg-red-50" : ""
+                                }>
+                                  {o.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-medium">{currency} {parseFloat(o.totalAmount || "0").toFixed(2)}</TableCell>
+                              <TableCell className="text-xs">{o.createdAt ? new Date(o.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}</TableCell>
+                              <TableCell className="text-xs">{o.archivedAt ? new Date(o.archivedAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="mt-4 text-xs text-muted-foreground">Total archived orders: {filtered.length}</div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
