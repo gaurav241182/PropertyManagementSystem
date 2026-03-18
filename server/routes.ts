@@ -300,6 +300,19 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.post("/api/platform-users/:id/reset-password", async (req, res) => {
+    if (!req.session.user || req.session.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only platform admins can reset passwords" });
+    }
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+    const data = await storage.updatePlatformUser(Number(req.params.id), { password: newPassword } as any);
+    if (!data) return res.status(404).json({ message: "User not found" });
+    res.json({ message: "Password reset successfully" });
+  });
+
   app.delete("/api/platform-users/:id", async (req, res) => {
     await storage.deletePlatformUser(Number(req.params.id));
     res.status(204).send();

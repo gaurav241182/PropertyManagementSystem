@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +21,9 @@ import {
   ShieldAlert,
   Mail,
   Building,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,6 +49,10 @@ export default function PlatformUsers() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+
+  const [resetPasswordUser, setResetPasswordUser] = useState<PlatformUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: users = [], isLoading } = useQuery<PlatformUser[]>({ queryKey: ["/api/platform-users"] });
   const { data: hotels = [] } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
@@ -74,6 +80,22 @@ export default function PlatformUsers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/platform-users"] });
       toast({ title: "User Updated", description: "User status has been updated." });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await apiRequest("POST", `/api/platform-users/${id}/reset-password`, { newPassword: password });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password Reset", description: `Password for ${resetPasswordUser?.name} has been updated successfully.` });
+      setResetPasswordUser(null);
+      setNewPassword("");
+      setShowPassword(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Reset Failed", description: error.message || "Could not reset password.", variant: "destructive" });
     },
   });
 
@@ -106,6 +128,16 @@ export default function PlatformUsers() {
       role: form.role,
       hotelId: form.hotelId ? Number(form.hotelId) : null,
     });
+  };
+
+  const handleResetPassword = () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast({ title: "Invalid Password", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    if (resetPasswordUser) {
+      resetPasswordMutation.mutate({ id: resetPasswordUser.id, password: newPassword });
+    }
   };
 
   const filteredUsers = users.filter(u => {
@@ -304,8 +336,10 @@ export default function PlatformUsers() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Account Actions</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => {
-                              toast({ title: "Password Reset", description: `Password reset link sent to ${user.email}.` });
-                            }}>
+                              setResetPasswordUser(user);
+                              setNewPassword("");
+                              setShowPassword(false);
+                            }} data-testid={`button-reset-password-${user.id}`}>
                               <Lock className="mr-2 h-4 w-4" />
                               Reset Password
                             </DropdownMenuItem>
@@ -330,6 +364,64 @@ export default function PlatformUsers() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!resetPasswordUser} onOpenChange={(open) => { if (!open) { setResetPasswordUser(null); setNewPassword(""); setShowPassword(false); } }}>
+          <DialogContent className="sm:max-w-[440px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-primary" />
+                Reset Password
+              </DialogTitle>
+              <DialogDescription>
+                Set a new password for <strong>{resetPasswordUser?.name}</strong> ({resetPasswordUser?.email}).
+                They will need to use this new password to log in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter new password (min. 6 characters)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleResetPassword()}
+                    data-testid="input-new-password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword(p => !p)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {newPassword.length > 0 && newPassword.length < 6 && (
+                  <p className="text-xs text-red-500">Password must be at least 6 characters.</p>
+                )}
+              </div>
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                The user's current password will be immediately replaced. Make sure to share the new password with them securely.
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setResetPasswordUser(null); setNewPassword(""); setShowPassword(false); }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleResetPassword}
+                disabled={resetPasswordMutation.isPending || newPassword.length < 6}
+                data-testid="button-confirm-reset-password"
+              >
+                {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </PlatformLayout>
   );
