@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 const IS_DEV = import.meta.env.DEV;
 
 const DEV_ACCOUNTS = [
-  { label: "Platform Admin", email: "admin@yellowberry.com", password: "Admin@2026", color: "bg-violet-50 hover:bg-violet-100 border-violet-200 text-violet-800" },
+  { label: "Platform Admin", email: "admin@yellowberry.com", password: "admin123", color: "bg-violet-50 hover:bg-violet-100 border-violet-200 text-violet-800" },
   { label: "Happy Owner", email: "happy@gmail.com", password: "123456", color: "bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800" },
 ];
 

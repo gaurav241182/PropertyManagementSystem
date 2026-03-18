@@ -21,7 +21,7 @@ export async function seedPlatformAdmin() {
     if (existing.rows.length === 0) {
       await client.query(
         `INSERT INTO platform_users (name, email, password, role, status) VALUES ($1, $2, $3, $4, $5)`,
-        ["Platform Admin", "admin@yellowberry.com", "Admin@2026", "super_admin", "Active"]
+        ["Platform Admin", "admin@yellowberry.com", "admin123", "super_admin", "Active"]
       );
       console.log("Seed: Created default platform admin (admin@yellowberry.com)");
     }
