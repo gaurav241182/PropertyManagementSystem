@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Utensils, Sparkles, Plus, Search, Filter, Clock, CheckCircle, ChefHat, User, Hotel, Pencil, Trash2, Archive, MoreVertical } from "lucide-react";
+import { Utensils, Plus, Filter, Clock, CheckCircle, ChefHat, Pencil, Trash2, Archive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -643,120 +643,119 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredOrders.length === 0 ? (
              <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/10">
-               <Utensils className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
                <h3 className="text-lg font-medium">No Orders Found</h3>
-               <p className="text-muted-foreground">There are no orders matching your current filter.</p>
+               <p className="text-muted-foreground text-sm">No orders match your current filter.</p>
              </div>
           ) : (
             filteredOrders.map((order: ApiOrder) => (
-              <Card key={order.id} className={`overflow-hidden border-t-4 ${
-                order.status === 'Pending' ? 'border-t-amber-500' :
-                order.status === 'Accepted' ? 'border-t-blue-500' :
-                order.status === 'Fulfilled' ? 'border-t-green-500' :
-                'border-t-gray-300'
+              <div key={order.id} className={`rounded-lg border bg-card overflow-hidden flex flex-col ${
+                order.status === 'Pending' ? 'border-l-4 border-l-amber-500' :
+                order.status === 'Accepted' ? 'border-l-4 border-l-blue-500' :
+                order.status === 'Fulfilled' ? 'border-l-4 border-l-green-500 opacity-70' :
+                'border-l-4 border-l-gray-300 opacity-60'
               }`}>
-                <CardHeader className="pb-3 bg-muted/10">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <span className="font-mono text-muted-foreground">{order.orderId}</span>
-                        {order.type === 'Food' ? <Utensils className="h-4 w-4 text-orange-500" /> : <Sparkles className="h-4 w-4 text-purple-500" />}
-                      </CardTitle>
-                      <CardDescription className="flex flex-col gap-0.5 mt-1">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          <span className="mx-1">•</span>
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </span>
-                        {order.servingTime && (
-                          <span className="flex items-center gap-1 text-xs font-medium text-orange-600">
-                            🍽️ {formatServingTime(order.servingTime)}
-                          </span>
-                        )}
-                      </CardDescription>
-                    </div>
-                    <Badge variant={
-                      order.status === 'Pending' ? "outline" :
-                      order.status === 'Accepted' ? "secondary" :
-                      order.status === 'Fulfilled' ? "default" : "destructive"
-                    } className={
-                      order.status === 'Pending' ? "text-amber-600 border-amber-200 bg-amber-50" :
-                      order.status === 'Accepted' ? "text-blue-600 bg-blue-50" :
-                      order.status === 'Fulfilled' ? "bg-green-600" : ""
-                    }>
+
+                {/* Compact header row */}
+                <div className={`flex items-center justify-between px-3 py-2 ${
+                  order.status === 'Pending' ? 'bg-amber-50' :
+                  order.status === 'Accepted' ? 'bg-blue-50' :
+                  order.status === 'Fulfilled' ? 'bg-green-50' : 'bg-gray-50'
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-[11px] font-semibold text-muted-foreground shrink-0">{order.orderId}</span>
+                    <span className="text-[11px] text-muted-foreground">·</span>
+                    <span className="text-[11px] font-semibold truncate">
+                      {order.guestName} <span className="font-normal text-muted-foreground">R{order.roomNumber}</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                    <Badge className={`text-[10px] px-1.5 py-0 h-5 ${
+                      order.status === 'Pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                      order.status === 'Accepted' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                      order.status === 'Fulfilled' ? 'bg-green-100 text-green-700 border-green-200' :
+                      'bg-gray-100 text-gray-500 border-gray-200'
+                    }`} variant="outline">
                       {order.status}
                     </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="mb-4">
-                    <h4 className="font-semibold text-lg flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {order.guestName}
-                    </h4>
-                    <p className="text-sm text-muted-foreground ml-6">Room {order.roomNumber}</p>
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-[10px]">Order Items</div>
-                    {order.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.itemName}</span>
-                        <span className="font-medium">{currencySymbol}{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    <div className="border-t pt-2 flex justify-between font-bold">
-                      <span>Total</span>
-                      <span>{currencySymbol}{parseFloat(order.totalAmount).toFixed(2)}</span>
-                    </div>
-                  </div>
+                </div>
 
+                {/* Serving time pill */}
+                {order.servingTime && (
+                  <div className="px-3 pt-1.5">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
+                      🍽️ {formatServingTime(order.servingTime)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Items — primary content */}
+                <div className="px-3 py-2 flex-1 space-y-1">
+                  {order.items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded font-bold text-sm shrink-0 ${
+                        order.status === 'Accepted' ? 'bg-blue-600 text-white' :
+                        order.status === 'Pending' ? 'bg-amber-500 text-white' :
+                        'bg-muted text-muted-foreground'
+                      }`}>{item.quantity}</span>
+                      <span className="font-semibold text-sm leading-tight">{item.itemName}</span>
+                    </div>
+                  ))}
                   {order.notes && (
-                    <div className="bg-amber-50 text-amber-800 p-2 rounded text-xs border border-amber-100">
-                      <span className="font-bold">Note:</span> {order.notes}
+                    <div className="mt-1.5 bg-amber-50 text-amber-800 px-2 py-1 rounded text-[11px] border border-amber-100">
+                      ⚠ {order.notes}
                     </div>
                   )}
-                </CardContent>
-                <CardFooter className="bg-muted/5 p-3 flex flex-col gap-2">
-                  <div className="flex gap-2 w-full">
-                    {order.status === "Pending" && (
-                      <>
-                        <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleStatusChange(order, "Cancelled")}>Reject</Button>
-                        <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(order, "Accepted")}>Accept Order</Button>
-                      </>
-                    )}
-                    {order.status === "Accepted" && (
-                       <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(order, "Fulfilled")}>
-                         <CheckCircle className="mr-2 h-4 w-4" /> Mark Fulfilled
-                       </Button>
-                    )}
-                    {order.status === "Fulfilled" && (
-                      <div className="flex-1 text-center text-xs text-muted-foreground italic flex items-center justify-center gap-1">
-                        <CheckCircle className="h-3 w-3 text-green-600" /> Added to Bill
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-1 w-full border-t pt-2">
+                </div>
+
+                {/* Action row */}
+                <div className={`px-2 py-1.5 border-t flex items-center gap-1 ${
+                  order.status === 'Pending' ? 'bg-amber-50/50' :
+                  order.status === 'Accepted' ? 'bg-blue-50/50' : 'bg-muted/20'
+                }`}>
+                  {order.status === "Pending" && (
+                    <>
+                      <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleStatusChange(order, "Cancelled")} data-testid={`button-reject-${order.id}`}>Reject</Button>
+                      <Button size="sm" className="flex-1 h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(order, "Accepted")} data-testid={`button-accept-${order.id}`}>Accept</Button>
+                    </>
+                  )}
+                  {order.status === "Accepted" && (
+                    <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(order, "Fulfilled")} data-testid={`button-fulfill-${order.id}`}>
+                      <CheckCircle className="mr-1 h-3 w-3" /> Fulfilled
+                    </Button>
+                  )}
+                  {order.status === "Fulfilled" && (
+                    <span className="flex-1 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+                      <CheckCircle className="h-3 w-3 text-green-600" /> Billed
+                    </span>
+                  )}
+                  {order.status === "Cancelled" && (
+                    <span className="flex-1 text-center text-[11px] text-muted-foreground">Cancelled</span>
+                  )}
+                  <div className="flex gap-0.5 shrink-0">
                     {(order.status === "Pending" || order.status === "Accepted") && (
-                      <Button size="sm" variant="ghost" className="flex-1 text-xs text-blue-600 hover:bg-blue-50" onClick={() => openEditDialog(order)} data-testid={`button-edit-order-${order.id}`}>
-                        <Pencil className="h-3 w-3 mr-1" /> Edit
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:bg-blue-50" onClick={() => openEditDialog(order)} data-testid={`button-edit-order-${order.id}`}>
+                        <Pencil className="h-3 w-3" />
                       </Button>
                     )}
                     {(order.status === "Fulfilled" || order.status === "Cancelled") && (
-                      <Button size="sm" variant="ghost" className="flex-1 text-xs text-gray-600 hover:bg-gray-100" onClick={() => archiveOrderMutation.mutate(order.id)} disabled={archiveOrderMutation.isPending} data-testid={`button-archive-order-${order.id}`}>
-                        <Archive className="h-3 w-3 mr-1" /> Archive
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:bg-gray-100" onClick={() => archiveOrderMutation.mutate(order.id)} disabled={archiveOrderMutation.isPending} data-testid={`button-archive-order-${order.id}`}>
+                        <Archive className="h-3 w-3" />
                       </Button>
                     )}
-                    <Button size="sm" variant="ghost" className="text-xs text-red-500 hover:bg-red-50 hover:text-red-600 px-3" onClick={() => { setDeletingOrder(order); setDeletePassword(""); setIsDeleteDialogOpen(true); }} data-testid={`button-delete-order-${order.id}`}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => { setDeletingOrder(order); setDeletePassword(""); setIsDeleteDialogOpen(true); }} data-testid={`button-delete-order-${order.id}`}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                </CardFooter>
-              </Card>
+                </div>
+
+              </div>
             ))
           )}
         </div>
