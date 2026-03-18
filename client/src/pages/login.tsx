@@ -16,8 +16,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [seeding, setSeeding] = useState(false);
-
   useEffect(() => {
     if (user) {
       redirectUser(user.role);
@@ -50,19 +48,6 @@ export default function Login() {
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSeedUsers = async () => {
-    setSeeding(true);
-    try {
-      const res = await fetch("/api/auth/seed", { method: "POST" });
-      const data = await res.json();
-      toast({ title: "Done", description: data.message });
-    } catch {
-      toast({ title: "Error", description: "Failed to create sample users", variant: "destructive" });
-    } finally {
-      setSeeding(false);
     }
   };
 
@@ -112,46 +97,6 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-xs text-muted-foreground text-center mb-3">Demo Credentials</p>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("admin@yellowberry.com"); setPassword("admin123"); }}
-                data-testid="button-fill-admin">
-                <span className="font-medium">Platform Admin</span>
-                <span>admin@yellowberry.com</span>
-              </div>
-              <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("happy@gmail.com"); setPassword("123456"); }}
-                data-testid="button-fill-owner">
-                <span className="font-medium">Hotel Owner (Legend)</span>
-                <span>happy@gmail.com</span>
-              </div>
-              <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("john@gmail.com"); setPassword("password123"); }}
-                data-testid="button-fill-manager">
-                <span className="font-medium">Hotel Owner (Biometric)</span>
-                <span>john@gmail.com</span>
-              </div>
-              <div className="flex justify-between bg-muted/50 rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => { setEmail("dunes@gmail.com"); setPassword("123456"); }}
-                data-testid="button-fill-dunes">
-                <span className="font-medium">Hotel Owner (Dune)</span>
-                <span>dunes@gmail.com</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-3"
-              onClick={handleSeedUsers}
-              disabled={seeding}
-              data-testid="button-seed-users"
-            >
-              {seeding ? "Creating..." : "Create Sample Users"}
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
