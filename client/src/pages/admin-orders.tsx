@@ -251,6 +251,15 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     });
   };
 
+  const addItemToEditOrder = (itemName: string, price: string) => {
+    const existing = editItems.find(i => i.itemName === itemName);
+    if (existing) {
+      setEditItems(editItems.map(i => i.itemName === itemName ? { ...i, quantity: i.quantity + 1 } : i));
+    } else {
+      setEditItems([...editItems, { itemName, price, quantity: 1 }]);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deletingOrder || !deletePassword) return;
     const verifyRes = await apiRequest("POST", "/api/auth/verify-password", { password: deletePassword });
@@ -763,6 +772,61 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 py-4">
+            {/* Add items from catalogue */}
+            {editingOrder?.type === "Food" && (
+              <div className="space-y-2">
+                <Label>Add Items</Label>
+                <div className="border rounded-md h-44 overflow-y-auto divide-y">
+                  {activeMenus.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 sticky top-0">
+                        <ChefHat className="h-3 w-3" /> Menus & Buffets
+                      </div>
+                      {activeMenus.map((menu: ApiMenu) => (
+                        <div key={`menu-${menu.id}`} className="flex items-center justify-between px-3 py-2 hover:bg-muted/30">
+                          <div>
+                            <p className="text-sm font-medium flex items-center gap-1">
+                              <ChefHat className="h-3 w-3 text-primary" /> {menu.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{currencySymbol}{menu.price} · {menu.type}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => addItemToEditOrder(menu.name, menu.price)} data-testid={`button-edit-add-menu-${menu.id}`}>Add</Button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  <div className="px-3 py-1.5 bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 sticky top-0">
+                    <Utensils className="h-3 w-3" /> Individual Items
+                  </div>
+                  {menuItems.filter((item: ApiMenuItem) => item.available).map((item: ApiMenuItem) => (
+                    <div key={item.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/30">
+                      <div>
+                        <p className="text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{currencySymbol}{item.price}</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => addItemToEditOrder(item.name, item.price)} data-testid={`button-edit-add-item-${item.id}`}>Add</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {editingOrder?.type === "Facility" && (
+              <div className="space-y-2">
+                <Label>Add Facilities</Label>
+                <div className="border rounded-md h-44 overflow-y-auto divide-y">
+                  {facilityItems.filter((item: ApiFacility) => item.active).map((item: ApiFacility) => (
+                    <div key={item.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/30">
+                      <div>
+                        <p className="text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{currencySymbol}{item.price} / {item.unit}</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => addItemToEditOrder(item.name, item.price)} data-testid={`button-edit-add-facility-${item.id}`}>Add</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Order Items</Label>
               <div className="border rounded-md divide-y">
