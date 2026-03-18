@@ -93,7 +93,7 @@ export default function PlatformHotels() {
   const editLogoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
-  const { data: allBranchesData = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
+  const { data: allBranchesData = [], isLoading: branchesLoading } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
 
   const getBranchesForHotel = (hotelId: number): Branch[] => {
     return allBranchesData.filter(b => b.hotelId === hotelId);
@@ -729,7 +729,7 @@ export default function PlatformHotels() {
                         <TableCell>
                           <Badge variant="outline" className="gap-1">
                             <GitBranch className="h-3 w-3" />
-                            {branchList.length}
+                            {branchesLoading ? "…" : branchList.length}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1073,11 +1073,11 @@ export default function PlatformHotels() {
         </Dialog>
 
         <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) { setEditDialogOpen(false); setEditHotel(null); } }}>
-          <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col p-0">
+          <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 py-4 border-b">
               <DialogTitle>Edit Hotel — {editHotel?.name}</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="flex-1 px-6 py-4">
+            <ScrollArea className="flex-1 min-h-0 px-6 py-4">
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <input
