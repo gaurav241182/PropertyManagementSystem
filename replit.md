@@ -49,6 +49,11 @@ hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, 
 - Logout API: POST /api/auth/logout (destroys session)
 - Session check: GET /api/auth/me (returns current user or 401)
 - Seed endpoint: POST /api/auth/seed (creates demo users)
+- Forgot Password: POST /api/auth/forgot-password (sends reset email via Resend, always returns generic message)
+- Verify Reset Token: GET /api/auth/verify-reset-token?token=XYZ (validates token before showing form)
+- Reset Password: POST /api/auth/reset-password (validates token, updates password, marks token used)
+- Reset tokens stored in `password_reset_tokens` table; expire in 60 min, single-use
+- Reset Password UI: `/reset-password?token=XYZ` page; "Forgot Password?" link on login page
 - Auth context: client/src/lib/auth.tsx (AuthProvider, useAuth, RequireAuth)
 - Route protection: RequireAuth wraps protected routes with role-based access
 - Demo accounts: admin@yellowberry.com/admin123, owner@demo.com/owner123, manager@demo.com/manager123

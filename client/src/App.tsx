@@ -29,6 +29,7 @@ import AdminOrders from "@/pages/admin-orders";
 import GuestLogin from "@/pages/guest-login";
 import GuestDashboard from "@/pages/guest-dashboard";
 import GuestMenu from "@/pages/guest-menu";
+import ResetPassword from "@/pages/reset-password";
 
 // Wrappers to satisfy wouter's Route component type
 const OwnerStaff = () => <AdminStaff role="owner" />;
@@ -81,7 +82,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
-      
+      <Route path="/reset-password" component={ResetPassword} />
+
       {/* Guest Portal Routes */}
       <Route path="/guest/login" component={GuestLogin} />
       <Route path="/guest/dashboard" component={GuestDashboard} />

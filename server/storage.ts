@@ -4,6 +4,7 @@ import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
   bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches, staffAdvances,
+  passwordResetTokens, type PasswordResetToken,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
   type InsertRoomType, type RoomType,
@@ -56,6 +57,10 @@ export interface IStorage {
   createPlatformUser(data: InsertPlatformUser): Promise<PlatformUser>;
   updatePlatformUser(id: number, data: Partial<InsertPlatformUser>): Promise<PlatformUser | undefined>;
   deletePlatformUser(id: number): Promise<void>;
+
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(id: number): Promise<void>;
 
   getRoomTypes(hotelId?: number | null, branchId?: number | null): Promise<RoomType[]>;
   getRoomType(id: number): Promise<RoomType | undefined>;
@@ -319,6 +324,19 @@ export class DatabaseStorage implements IStorage {
   }
   async deletePlatformUser(id: number): Promise<void> {
     await db.delete(platformUsers).where(eq(platformUsers.id, id));
+  }
+
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    const [result] = await db.insert(passwordResetTokens).values({ userId, token, expiresAt }).returning();
+    return result;
+  }
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [result] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return result;
+  }
+  async markPasswordResetTokenUsed(id: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
   }
 
   async getRoomTypes(hotelId?: number | null, branchId?: number | null): Promise<RoomType[]> {

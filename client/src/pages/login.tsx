@@ -4,32 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Hotel, AlertCircle } from "lucide-react";
+import { Hotel, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+
+type View = "login" | "forgot";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { user, login } = useAuth();
   const { toast } = useToast();
+  const [view, setView] = useState<View>("login");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+
   useEffect(() => {
-    if (user) {
-      redirectUser(user.role);
-    }
+    if (user) redirectUser(user.role);
   }, [user]);
 
   function redirectUser(role: string) {
-    if (role === "super_admin") {
-      setLocation("/platform/dashboard");
-    } else if (role === "owner") {
-      setLocation("/admin");
-    } else if (role === "manager") {
-      setLocation("/manager");
-    }
+    if (role === "super_admin") setLocation("/platform/dashboard");
+    else if (role === "owner") setLocation("/admin");
+    else if (role === "manager") setLocation("/manager");
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -51,6 +55,41 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    if (!forgotEmail.trim()) {
+      setForgotError("Please enter your email address.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      await res.json();
+      setForgotSent(true);
+    } catch {
+      setForgotError("Something went wrong. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const switchToForgot = () => {
+    setView("forgot");
+    setForgotEmail("");
+    setForgotSent(false);
+    setForgotError("");
+  };
+
+  const switchToLogin = () => {
+    setView("login");
+    setError("");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4" data-testid="login-page">
       <Card className="w-full max-w-md shadow-xl border-none">
@@ -60,43 +99,115 @@ export default function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-serif font-bold text-primary" data-testid="text-app-title">YellowBerry PMS</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardDescription>
+              {view === "login" ? "Sign in to your account" : "Reset your password"}
+            </CardDescription>
           </div>
         </CardHeader>
+
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive text-sm rounded-md" data-testid="text-login-error">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
+          {view === "login" && (
+            <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive text-sm rounded-md" data-testid="text-login-error">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  data-testid="input-email"
+                />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                data-testid="input-email"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  data-testid="input-password"
+                />
+              </div>
+              <Button className="w-full" type="submit" disabled={loading} data-testid="button-login">
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={switchToForgot}
+                  className="text-sm text-primary hover:underline focus:outline-none"
+                  data-testid="link-forgot-password"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            </form>
+          )}
+
+          {view === "forgot" && (
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={switchToLogin}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="button-back-to-login"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to Sign In
+              </button>
+
+              {forgotSent ? (
+                <div className="text-center space-y-4 py-4">
+                  <div className="mx-auto bg-green-100 w-12 h-12 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Check your inbox</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      If <strong>{forgotEmail}</strong> is registered, a password reset link has been sent. The link expires in 60 minutes.
+                    </p>
+                  </div>
+                  <Button variant="outline" className="w-full" onClick={switchToLogin}>
+                    Back to Sign In
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Enter the email address associated with your account and we'll send you a link to reset your password.
+                  </p>
+                  {forgotError && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      {forgotError}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-email">Email Address</Label>
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="Enter your registered email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      data-testid="input-forgot-email"
+                      autoFocus
+                    />
+                  </div>
+                  <Button className="w-full" type="submit" disabled={forgotLoading} data-testid="button-send-reset">
+                    {forgotLoading ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                </form>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                data-testid="input-password"
-              />
-            </div>
-            <Button className="w-full" type="submit" disabled={loading} data-testid="button-login">
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
+          )}
         </CardContent>
       </Card>
     </div>

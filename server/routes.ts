@@ -145,6 +145,88 @@ export async function registerRoutes(
     }
   });
 
+  // ============= FORGOT / RESET PASSWORD =============
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const GENERIC_MSG = { message: "If that email is registered, a reset link has been sent." };
+
+    try {
+      const user = await storage.getPlatformUserByEmail(email.toLowerCase().trim());
+      if (!user) return res.json(GENERIC_MSG);
+
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 minutes
+
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      const appUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : "http://localhost:5000";
+
+      const resetLink = `${appUrl}/reset-password?token=${token}`;
+
+      try {
+        const { getResendClient } = await import("./resend");
+        const { client, fromEmail } = await getResendClient();
+        await client.emails.send({
+          from: fromEmail,
+          to: user.email,
+          subject: "Reset Your Password — YellowBerry PMS",
+          html: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+              <h2 style="color:#1a1a1a;margin-bottom:8px">Reset Your Password</h2>
+              <p style="color:#555;margin-bottom:24px">Hi ${user.name},<br/>We received a request to reset the password for your YellowBerry PMS account. Click the button below to choose a new password.</p>
+              <a href="${resetLink}" style="display:inline-block;background:#f59e0b;color:#fff;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;margin-bottom:24px">Reset Password</a>
+              <p style="color:#888;font-size:13px">This link expires in <strong>60 minutes</strong>. If you did not request a password reset, you can safely ignore this email.</p>
+              <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+              <p style="color:#aaa;font-size:12px">YellowBerry PMS &mdash; Property Management System</p>
+            </div>
+          `,
+        });
+      } catch (emailErr) {
+        console.error("Failed to send reset email:", emailErr);
+      }
+
+      return res.json(GENERIC_MSG);
+    } catch (err: any) {
+      console.error("Forgot password error:", err);
+      return res.json(GENERIC_MSG);
+    }
+  });
+
+  app.get("/api/auth/verify-reset-token", async (req, res) => {
+    const { token } = req.query as { token: string };
+    if (!token) return res.status(400).json({ message: "Token is required" });
+
+    const record = await storage.getPasswordResetToken(token);
+    if (!record) return res.status(400).json({ message: "Invalid or expired reset link." });
+    if (record.usedAt) return res.status(400).json({ message: "This reset link has already been used." });
+    if (new Date() > record.expiresAt) return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+
+    res.json({ valid: true });
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ message: "Token and new password are required" });
+    if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
+
+    const record = await storage.getPasswordResetToken(token);
+    if (!record) return res.status(400).json({ message: "Invalid or expired reset link." });
+    if (record.usedAt) return res.status(400).json({ message: "This reset link has already been used." });
+    if (new Date() > record.expiresAt) return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+
+    await storage.updatePlatformUser(record.userId, { password: newPassword } as any);
+    await storage.markPasswordResetTokenUsed(record.id);
+
+    res.json({ message: "Password has been reset successfully." });
+  });
+
   // ============= HOTELS (Platform Admin) =============
   app.get("/api/hotels", async (_req, res) => {
     const data = await storage.getHotels();

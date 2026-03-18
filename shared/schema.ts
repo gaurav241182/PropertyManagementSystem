@@ -447,3 +447,15 @@ export const salarySchedulerLogs = pgTable("salary_scheduler_logs", {
 export const insertSalarySchedulerLogSchema = createInsertSchema(salarySchedulerLogs).omit({ id: true, createdAt: true });
 export type InsertSalarySchedulerLog = z.infer<typeof insertSalarySchedulerLogSchema>;
 export type SalarySchedulerLog = typeof salarySchedulerLogs.$inferSelect;
+
+// ============= PASSWORD RESET TOKENS =============
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  token: text("token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
