@@ -911,6 +911,9 @@ export async function registerRoutes(
     const hotelId = getHotelId(req);
     const branchId = await getBranchIdValidated(req);
     const { items, ...orderData } = req.body;
+    if (orderData.servingTime && typeof orderData.servingTime === "string") {
+      orderData.servingTime = new Date(orderData.servingTime);
+    }
     const data = await storage.createOrder({ ...orderData, hotelId, branchId });
     if (items && Array.isArray(items)) {
       for (const item of items) {

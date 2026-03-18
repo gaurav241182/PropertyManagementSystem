@@ -111,10 +111,17 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
   const createOrderMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/orders", data);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to create order");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Order Failed", description: error.message, variant: "destructive" });
     },
   });
 
