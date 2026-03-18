@@ -31,7 +31,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
     },
   }),
@@ -86,8 +86,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const { runMigrations } = await import("./db");
+  const { runMigrations, seedPlatformAdmin } = await import("./db");
   await runMigrations();
+  await seedPlatformAdmin();
   await registerRoutes(httpServer, app);
   const { startScheduler } = await import("./tax-invoice-scheduler");
   startScheduler().catch(err => console.error("Failed to start tax scheduler:", err));
