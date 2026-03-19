@@ -156,6 +156,16 @@ export default function AdminSettings() {
       return { enabled: false, firstYearAmount: 1000, afterFirstYearAmount: 1500, contributionType: "Fixed" };
     }
   })();
+  const [localWelfareAmounts, setLocalWelfareAmounts] = useState({
+    firstYearAmount: welfareSettings.firstYearAmount,
+    afterFirstYearAmount: welfareSettings.afterFirstYearAmount,
+  });
+  useEffect(() => {
+    setLocalWelfareAmounts({
+      firstYearAmount: welfareSettings.firstYearAmount,
+      afterFirstYearAmount: welfareSettings.afterFirstYearAmount,
+    });
+  }, [welfareSettings.firstYearAmount, welfareSettings.afterFirstYearAmount]);
 
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [newCategoryType, setNewCategoryType] = useState("");
@@ -2206,8 +2216,9 @@ export default function AdminSettings() {
                                 <Input 
                                   type="number" 
                                   className="pl-8"
-                                  value={welfareSettings.firstYearAmount}
-                                  onChange={(e) => handleSaveWelfareSettings({...welfareSettings, firstYearAmount: Number(e.target.value)})}
+                                  value={localWelfareAmounts.firstYearAmount}
+                                  onChange={(e) => setLocalWelfareAmounts(prev => ({ ...prev, firstYearAmount: Number(e.target.value) }))}
+                                  onBlur={() => handleSaveWelfareSettings({ ...welfareSettings, ...localWelfareAmounts })}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &lt; 1 year tenure.</p>
@@ -2219,8 +2230,9 @@ export default function AdminSettings() {
                                 <Input 
                                   type="number" 
                                   className="pl-8"
-                                  value={welfareSettings.afterFirstYearAmount}
-                                  onChange={(e) => handleSaveWelfareSettings({...welfareSettings, afterFirstYearAmount: Number(e.target.value)})}
+                                  value={localWelfareAmounts.afterFirstYearAmount}
+                                  onChange={(e) => setLocalWelfareAmounts(prev => ({ ...prev, afterFirstYearAmount: Number(e.target.value) }))}
+                                  onBlur={() => handleSaveWelfareSettings({ ...welfareSettings, ...localWelfareAmounts })}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &gt; 1 year tenure.</p>
