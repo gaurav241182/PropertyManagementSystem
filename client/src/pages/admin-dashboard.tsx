@@ -119,7 +119,7 @@ export default function AdminDashboard() {
       icon: BedDouble,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-500",
-      href: "/admin/rooms",
+      href: "",
     },
   ];
 
@@ -127,7 +127,7 @@ export default function AdminDashboard() {
     { title: "Total Revenue", value: formatCurrency(totalRevenue), icon: CreditCard, href: "/admin/sales" },
     { title: "Bookings", value: String(totalBookings), icon: CalendarCheck, href: "/admin/bookings" },
     { title: "Active Guests", value: String(activeGuests), icon: Users, href: "/admin/bookings" },
-    { title: "Occupancy Rate", value: `${occupancyRate}%`, icon: TrendingUp, href: "/admin/rooms" },
+    { title: "Occupancy Rate", value: `${occupancyRate}%`, icon: TrendingUp, href: "" },
   ];
 
   function formatShortDate(dateStr: string) {
@@ -155,10 +155,10 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {mobileKpiCards.map((card, i) => (
-              <Link key={i} href={card.href}>
+            {mobileKpiCards.map((card, i) => {
+              const cardEl = (
                 <div
-                  className="bg-white rounded-2xl shadow-sm border p-4 active:scale-95 transition-transform cursor-pointer"
+                  className={`bg-white rounded-2xl shadow-sm border p-4 transition-transform ${card.href ? "active:scale-95 cursor-pointer" : ""}`}
                   data-testid={`mobile-kpi-${i}`}
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -172,8 +172,9 @@ export default function AdminDashboard() {
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1.5">No prior data</p>
                 </div>
-              </Link>
-            ))}
+              );
+              return card.href ? <Link key={i} href={card.href}>{cardEl}</Link> : <div key={i}>{cardEl}</div>;
+            })}
           </div>
         )}
 
@@ -278,9 +279,9 @@ export default function AdminDashboard() {
           ) : (
             <>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {desktopStats.map((stat, index) => (
-                  <Link key={index} href={stat.href}>
-                    <Card className="shadow-sm cursor-pointer hover:shadow-md hover:border-primary/30 transition-all" data-testid={`stat-card-${index}`}>
+                {desktopStats.map((stat, index) => {
+                  const cardEl = (
+                    <Card className={`shadow-sm transition-all ${stat.href ? "cursor-pointer hover:shadow-md hover:border-primary/30" : ""}`} data-testid={`stat-card-${index}`}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                           {stat.title}
@@ -292,8 +293,9 @@ export default function AdminDashboard() {
                         <p className="text-xs text-muted-foreground mt-1">No prior data</p>
                       </CardContent>
                     </Card>
-                  </Link>
-                ))}
+                  );
+                  return stat.href ? <Link key={index} href={stat.href}>{cardEl}</Link> : <div key={index}>{cardEl}</div>;
+                })}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
