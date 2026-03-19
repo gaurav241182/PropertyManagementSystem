@@ -1430,9 +1430,6 @@ export async function registerRoutes(
     const record = await storage.getSalary(Number(req.params.id));
     const branchId = await getBranchIdValidated(req);
     if (!checkRecordScope(record, req, res, branchId)) return;
-    if (record) {
-      await storage.deleteStaffAdvancesByStaffId(record.staffId);
-    }
     await storage.deleteSalary(Number(req.params.id));
     res.status(204).send();
   });
