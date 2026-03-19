@@ -1723,22 +1723,22 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <span className="text-xs truncate">{formatDateTime(booking.createdAt)}</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-1 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 col-span-2">
                           <Calendar className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                          <span className="text-muted-foreground text-xs shrink-0">In:</span>
+                          <span className="text-muted-foreground text-xs shrink-0 w-6">In:</span>
                           <span className="font-medium text-xs">{booking.checkIn}</span>
                           {booking.checkedInAt && (
-                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 shrink-0">
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 ml-1 shrink-0">
                               <Clock className="h-2.5 w-2.5" />{formatTime(booking.checkedInAt)}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 col-span-2">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-muted-foreground text-xs shrink-0">Out:</span>
+                          <span className="text-muted-foreground text-xs shrink-0 w-6">Out:</span>
                           <span className="font-medium text-xs">{booking.checkOut}</span>
                           {booking.checkedOutAt && (
-                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 shrink-0">
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 ml-1 shrink-0">
                               <Clock className="h-2.5 w-2.5" />{formatTime(booking.checkedOutAt)}
                             </span>
                           )}
