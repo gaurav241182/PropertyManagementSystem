@@ -2023,54 +2023,132 @@ export default function AdminSettings() {
                 </Dialog>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type Name</TableHead>
-                      <TableHead>Bedding</TableHead>
-                      <TableHead>Capacity</TableHead>
-                      <TableHead>Default Price</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Facilities</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roomTypes.map((rt: any) => (
-                      <TableRow key={rt.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <BedDouble className="h-4 w-4 text-muted-foreground" />
-                            {rt.name}
+
+                {/* ── Mobile card view ── */}
+                <div className="block md:hidden space-y-3">
+                  {roomTypes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No room types configured yet.</p>
+                  ) : roomTypes.map((rt: any) => {
+                    const facilityIds: number[] = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })();
+                    return (
+                      <div key={rt.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden" data-testid={`card-roomtype-${rt.id}`}>
+                        {/* Header strip */}
+                        <div className="flex items-center gap-3 px-4 pt-3 pb-2.5 bg-primary/5 border-b">
+                          <div className="bg-primary/10 p-2 rounded-lg shrink-0">
+                            <BedDouble className="h-4 w-4 text-primary" />
                           </div>
-                        </TableCell>
-                        <TableCell>{rt.beds}</TableCell>
-                        <TableCell>{rt.maxAdults} Adults, {rt.maxChildren} Children</TableCell>
-                        <TableCell>{currency} {Number(rt.basePrice)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{rt.size || "—"}</TableCell>
-                        <TableCell>
-                          {(() => {
-                            const ids: number[] = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })();
-                            const count = ids.length;
-                            return count > 0 ? (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">{count} facilities</span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">None</span>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => { const facilityIds = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })(); setEditingRoomType({...rt, selectedFacilityIds: facilityIds}); setIsEditRoomTypeDialogOpen(true); }} data-testid="button-edit-roomtype">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+                          <p className="text-sm font-semibold text-gray-900 flex-1 truncate">{rt.name}</p>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() => {
+                                const ids = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })();
+                                setEditingRoomType({...rt, selectedFacilityIds: ids});
+                                setIsEditRoomTypeDialogOpen(true);
+                              }}
+                              data-testid={`button-edit-roomtype-${rt.id}`}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-red-400 hover:text-red-600"
+                              onClick={() => handleDeleteRoomType(rt.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Info grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 px-4 py-3">
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Bedding</p>
+                            <p className="text-xs font-medium text-gray-800">{rt.beds || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Base Price</p>
+                            <p className="text-xs font-medium text-gray-800">{currency} {Number(rt.basePrice).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Capacity</p>
+                            <p className="text-xs font-medium text-gray-800">{rt.maxAdults}A · {rt.maxChildren}C</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Size</p>
+                            <p className="text-xs font-medium text-gray-800">{rt.size || "—"}</p>
+                          </div>
+                        </div>
+
+                        {/* Footer strip — facilities */}
+                        <div className="px-4 pb-3">
+                          {facilityIds.length > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 bg-purple-50 text-purple-700 rounded-full font-medium">
+                              <Tags className="h-2.5 w-2.5" />
+                              {facilityIds.length} {facilityIds.length === 1 ? "facility" : "facilities"}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">No facilities</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── Desktop table view ── */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type Name</TableHead>
+                        <TableHead>Bedding</TableHead>
+                        <TableHead>Capacity</TableHead>
+                        <TableHead>Default Price</TableHead>
+                        <TableHead>Size</TableHead>
+                        <TableHead>Facilities</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {roomTypes.map((rt: any) => (
+                        <TableRow key={rt.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <BedDouble className="h-4 w-4 text-muted-foreground" />
+                              {rt.name}
+                            </div>
+                          </TableCell>
+                          <TableCell>{rt.beds}</TableCell>
+                          <TableCell>{rt.maxAdults} Adults, {rt.maxChildren} Children</TableCell>
+                          <TableCell>{currency} {Number(rt.basePrice)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{rt.size || "—"}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              const ids: number[] = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })();
+                              const count = ids.length;
+                              return count > 0 ? (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">{count} facilities</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => { const facilityIds = (() => { try { return JSON.parse(rt.facilityIds || "[]"); } catch { return []; } })(); setEditingRoomType({...rt, selectedFacilityIds: facilityIds}); setIsEditRoomTypeDialogOpen(true); }} data-testid="button-edit-roomtype">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteRoomType(rt.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>
