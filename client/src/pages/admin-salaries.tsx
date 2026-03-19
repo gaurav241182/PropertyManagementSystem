@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown, Gift, ChevronRight, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -287,6 +288,86 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const months = Array.from(new Set(salaries.map(s => s.month)));
   const hasAnyWelfare = filteredSalaries.some(s => s.welfareContrib > 0);
 
+  const SalaryBreakdown = ({ salary, side = "bottom" }: { salary: any; side?: "bottom" | "top" }) => {
+    const basicSalary = Number(salary.basicSalary) || 0;
+    const bonus = Number(salary.bonus) || 0;
+    const deductions = Number(salary.deductions) || 0;
+    const welfare = salary.welfareContrib;
+    const emi = salary.instalmentDeduction;
+    const advance = salary.advanceNum;
+    const gross = basicSalary + bonus - deductions;
+    const hasDeductions = welfare > 0 || emi > 0 || advance > 0;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className={`font-medium underline decoration-dotted underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}
+            data-testid={`button-salary-breakdown-${salary.id}`}
+          >
+            {cs}{salary.pending.toLocaleString()}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-0" align="start" side={side}>
+          <div className="p-3 border-b bg-muted/30">
+            <p className="font-semibold text-sm">Salary Breakdown</p>
+            <p className="text-xs text-muted-foreground">{salary.name} — {salary.month}</p>
+          </div>
+          <div className="p-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Basic Salary</span>
+              <span className="font-medium">{cs}{basicSalary.toLocaleString()}</span>
+            </div>
+            {bonus > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Bonus</span>
+                <span className="font-medium text-green-600">+{cs}{bonus.toLocaleString()}</span>
+              </div>
+            )}
+            {deductions > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Deductions</span>
+                <span className="font-medium text-red-600">-{cs}{deductions.toLocaleString()}</span>
+              </div>
+            )}
+            {(bonus > 0 || deductions > 0) && (
+              <div className="flex justify-between border-t pt-2">
+                <span className="text-muted-foreground">Gross Pay</span>
+                <span className="font-medium">{cs}{gross.toLocaleString()}</span>
+              </div>
+            )}
+            {hasDeductions && (
+              <div className="border-t pt-2 space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Deducted From Payable</p>
+                {welfare > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Welfare Fund</span>
+                    <span className="text-teal-600 font-medium">-{cs}{welfare.toLocaleString()}</span>
+                  </div>
+                )}
+                {emi > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">EMI Deduction</span>
+                    <span className="text-purple-600 font-medium">-{cs}{emi.toLocaleString()}</span>
+                  </div>
+                )}
+                {emi === 0 && advance > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Advance</span>
+                    <span className="text-blue-600 font-medium">-{cs}{advance.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className={`flex justify-between border-t pt-2 font-semibold ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>
+              <span>Net Payable</span>
+              <span>{cs}{salary.pending.toLocaleString()}</span>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <AdminLayout role={role}>
       {isLoading ? (
@@ -473,9 +554,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       <span className="font-medium text-teal-600">{cs}{salary.welfareContrib.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Net Payable</span>
-                    <span className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>{cs}{salary.pending.toLocaleString()}</span>
+                    <SalaryBreakdown salary={salary} side="top" />
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Due</span>
@@ -601,8 +682,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                         {salary.welfareContrib > 0 ? `${cs}${salary.welfareContrib.toLocaleString()}` : "-"}
                       </TableCell>
                     )}
-                    <TableCell className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>
-                      {cs}{salary.pending.toLocaleString()}
+                    <TableCell>
+                      <SalaryBreakdown salary={salary} />
                     </TableCell>
                     <TableCell>
                       <Badge variant={salary.status === "Paid" ? "default" : "secondary"} className={salary.status === "Paid" ? "bg-green-600 hover:bg-green-700" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}>
