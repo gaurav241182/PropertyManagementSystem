@@ -1167,7 +1167,9 @@ export async function registerRoutes(
               let totalInst = 0;
               let totalBal = 0;
               for (const adv of activeAdvances) {
-                totalInst += Number(adv.instalmentAmount) || 0;
+                const startMon = adv.instalmentStartMonth || "";
+                const shouldDeduct = !startMon || month >= startMon;
+                if (shouldDeduct) totalInst += Number(adv.instalmentAmount) || 0;
                 totalBal += Number(adv.remainingBalance) || 0;
               }
               await storage.updateSalary(existingSalary.id, {
@@ -1189,7 +1191,9 @@ export async function registerRoutes(
         let totalInstalmentDeduction = 0;
         let totalRemainingBalance = 0;
         for (const adv of activeAdvances) {
-          totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
+          const startMon = adv.instalmentStartMonth || "";
+          const shouldDeduct = !startMon || month >= startMon;
+          if (shouldDeduct) totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
           totalRemainingBalance += Number(adv.remainingBalance) || 0;
         }
         const salary = await storage.createSalary({
@@ -1210,6 +1214,9 @@ export async function registerRoutes(
         });
 
         for (const adv of activeAdvances) {
+          const startMon = adv.instalmentStartMonth || "";
+          const shouldDeduct = !startMon || month >= startMon;
+          if (!shouldDeduct) continue;
           const instalmentAmt = Number(adv.instalmentAmount) || 0;
           const newBalance = Math.max(0, Number(adv.remainingBalance) - instalmentAmt);
           const newRemaining = Math.max(0, Number(adv.remainingInstalments) - 1);
@@ -1344,7 +1351,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/salaries/:id/advance", async (req, res) => {
-    const { amount, useInstalments, numberOfInstalments } = req.body;
+    const { amount, useInstalments, numberOfInstalments, instalmentStartMonth } = req.body;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       return res.status(400).json({ message: "Valid advance amount is required" });
     }
@@ -1360,20 +1367,37 @@ export async function registerRoutes(
       const numInstalments = Number(numberOfInstalments);
       const instalmentAmount = Math.round((advanceNum / numInstalments) * 100) / 100;
 
-      // First instalment is already applied to the current salary,
-      // so start tracking from the remaining instalments and balance.
-      const remainingAfterFirst = numInstalments - 1;
-      const balanceAfterFirst = Math.max(0, advanceNum - instalmentAmount);
+      // Determine if the first instalment should be deducted immediately
+      // (start month is the same as salary month or not set) or deferred.
+      const effectiveStartMonth = instalmentStartMonth || salary.month;
+      const isDeferred = effectiveStartMonth > salary.month;
+
+      let remainingInst: number;
+      let remainingBal: number;
+      let salaryInstalmentDeduction: number;
+
+      if (isDeferred) {
+        // No deduction this month — full balance carried forward
+        remainingInst = numInstalments;
+        remainingBal = advanceNum;
+        salaryInstalmentDeduction = 0;
+      } else {
+        // First instalment applied to this month's salary
+        remainingInst = numInstalments - 1;
+        remainingBal = Math.max(0, advanceNum - instalmentAmount);
+        salaryInstalmentDeduction = instalmentAmount;
+      }
 
       await storage.createStaffAdvance({
         staffId: salary.staffId,
         totalAmount: String(advanceNum),
         instalmentAmount: String(instalmentAmount),
         totalInstalments: numInstalments,
-        remainingInstalments: remainingAfterFirst,
-        remainingBalance: String(balanceAfterFirst),
-        status: remainingAfterFirst <= 0 ? "Completed" : "Active",
+        remainingInstalments: remainingInst,
+        remainingBalance: String(remainingBal),
+        status: remainingInst <= 0 ? "Completed" : "Active",
         startMonth: salary.month,
+        instalmentStartMonth: effectiveStartMonth,
         hotelId,
         branchId,
       });
@@ -1383,11 +1407,11 @@ export async function registerRoutes(
 
       await storage.updateSalary(salary.id, {
         advanceAmount: String(existingAdvance + advanceNum),
-        instalmentDeduction: String(existingInstalment + instalmentAmount),
+        instalmentDeduction: String(existingInstalment + salaryInstalmentDeduction),
       } as any);
 
       const updated = await storage.getSalary(salary.id);
-      return res.json({ ...updated, instalmentCreated: true, instalmentAmount, totalInstalments: numInstalments });
+      return res.json({ ...updated, instalmentCreated: true, instalmentAmount, totalInstalments: numInstalments, instalmentStartMonth: effectiveStartMonth });
     }
 
     const existingAdvance = Number(salary.advanceAmount) || 0;

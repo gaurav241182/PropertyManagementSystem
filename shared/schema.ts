@@ -350,6 +350,7 @@ export const staffAdvances = pgTable("staff_advances", {
   remainingBalance: decimal("remaining_balance", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default("Active"),
   startMonth: text("start_month").notNull(),
+  instalmentStartMonth: text("instalment_start_month"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

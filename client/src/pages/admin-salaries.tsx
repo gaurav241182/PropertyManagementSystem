@@ -68,6 +68,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const [advanceInput, setAdvanceInput] = useState("");
   const [useInstalments, setUseInstalments] = useState(false);
   const [numberOfInstalments, setNumberOfInstalments] = useState("");
+  const [instalmentStartMonth, setInstalmentStartMonth] = useState("");
 
   const updateSalaryMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/salaries/${id}`, data),
@@ -80,8 +81,8 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   });
 
   const advanceMutation = useMutation({
-    mutationFn: ({ id, amount, useInstalments, numberOfInstalments }: { id: number; amount: number; useInstalments?: boolean; numberOfInstalments?: number }) =>
-      apiRequest("POST", `/api/salaries/${id}/advance`, { amount, useInstalments, numberOfInstalments }),
+    mutationFn: ({ id, amount, useInstalments, numberOfInstalments, instalmentStartMonth }: { id: number; amount: number; useInstalments?: boolean; numberOfInstalments?: number; instalmentStartMonth?: string }) =>
+      apiRequest("POST", `/api/salaries/${id}/advance`, { amount, useInstalments, numberOfInstalments, instalmentStartMonth }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
       queryClient.invalidateQueries({ queryKey: ['/api/staff-advances'] });
@@ -94,6 +95,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       setAdvanceInput("");
       setUseInstalments(false);
       setNumberOfInstalments("");
+      setInstalmentStartMonth("");
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -190,6 +192,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     setAdvanceInput("");
     setUseInstalments(false);
     setNumberOfInstalments("");
+    setInstalmentStartMonth("");
     setAdvanceDialogOpen(true);
   };
 
@@ -212,6 +215,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
         amount,
         useInstalments: useInstalments || undefined,
         numberOfInstalments: useInstalments ? Number(numberOfInstalments) : undefined,
+        instalmentStartMonth: useInstalments && instalmentStartMonth ? instalmentStartMonth : undefined,
       });
     }
   };
@@ -651,6 +655,12 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       <span>Instalments Remaining</span>
                       <span className="font-medium">{adv.remainingInstalments} of {adv.totalInstalments}</span>
                     </div>
+                    {adv.instalmentStartMonth && (
+                      <div className="flex justify-between">
+                        <span>Deductions Start</span>
+                        <span className="font-medium">{new Date(adv.instalmentStartMonth + "-01").toLocaleDateString("en", { month: "short", year: "numeric" })}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -678,7 +688,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                 checked={useInstalments}
                 onCheckedChange={(checked) => {
                   setUseInstalments(checked as boolean);
-                  if (!checked) setNumberOfInstalments("");
+                  if (!checked) { setNumberOfInstalments(""); setInstalmentStartMonth(""); }
                 }}
                 data-testid="checkbox-use-instalments"
               />
@@ -701,6 +711,16 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     data-testid="input-number-of-instalments"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Instalment Start Month <span className="text-muted-foreground text-xs">(optional — defaults to current month)</span></Label>
+                  <Input
+                    type="month"
+                    min={advanceSalary?.month}
+                    value={instalmentStartMonth}
+                    onChange={e => setInstalmentStartMonth(e.target.value)}
+                    data-testid="input-instalment-start-month"
+                  />
+                </div>
                 {advanceAmt > 0 && numInst > 1 && (
                   <div className="bg-purple-50 p-3 rounded-md border border-purple-200 text-sm space-y-1">
                     <div className="flex justify-between text-purple-800">
@@ -709,8 +729,13 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     </div>
                     <div className="flex justify-between text-purple-700 text-xs">
                       <span>Deduction Period</span>
-                      <span>{numInst} months starting next month</span>
+                      <span>{numInst} months{instalmentStartMonth && instalmentStartMonth > (advanceSalary?.month || "") ? ` starting ${new Date(instalmentStartMonth + "-01").toLocaleDateString("en", { month: "short", year: "numeric" })}` : " starting this month"}</span>
                     </div>
+                    {instalmentStartMonth && instalmentStartMonth > (advanceSalary?.month || "") && (
+                      <p className="text-amber-700 text-xs mt-1 bg-amber-50 p-2 rounded border border-amber-200">
+                        No deduction in {new Date((advanceSalary?.month || "") + "-01").toLocaleDateString("en", { month: "long", year: "numeric" })}. Full advance of {cs}{advanceAmt.toLocaleString()} carried forward until {new Date(instalmentStartMonth + "-01").toLocaleDateString("en", { month: "short", year: "numeric" })}.
+                      </p>
+                    )}
                     <p className="text-purple-600 text-xs mt-1">
                       {cs}{calculatedInstalment.toLocaleString()} will be automatically deducted from salary each month until the full advance of {cs}{advanceAmt.toLocaleString()} is recovered.
                     </p>

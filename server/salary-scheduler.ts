@@ -64,7 +64,9 @@ export async function runSalaryGenerationJob(
       let totalInstalmentDeduction = 0;
       let totalRemainingBalance = 0;
       for (const adv of activeAdvances) {
-        totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
+        const startMon = adv.instalmentStartMonth || "";
+        const shouldDeduct = !startMon || month >= startMon;
+        if (shouldDeduct) totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
         totalRemainingBalance += Number(adv.remainingBalance) || 0;
       }
       await storage.createSalary({
@@ -85,6 +87,9 @@ export async function runSalaryGenerationJob(
       });
 
       for (const adv of activeAdvances) {
+        const startMon = adv.instalmentStartMonth || "";
+        const shouldDeduct = !startMon || month >= startMon;
+        if (!shouldDeduct) continue;
         const instalmentAmt = Number(adv.instalmentAmount) || 0;
         const newBalance = Math.max(0, Number(adv.remainingBalance) - instalmentAmt);
         const newRemaining = Math.max(0, Number(adv.remainingInstalments) - 1);
