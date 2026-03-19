@@ -751,6 +751,33 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/staff/:id/activate", async (req, res) => {
+    try {
+      const branchId = await getBranchIdValidated(req);
+      const record = await storage.getStaffMember(Number(req.params.id));
+      if (!checkRecordScope(record, req, res, branchId)) return;
+
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to activate staff" });
+      }
+      const sessionUser = (req as any).session?.user;
+      if (!sessionUser) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const dbUser = await storage.getPlatformUserByEmail(sessionUser.email);
+      if (!dbUser || dbUser.password !== password) {
+        return res.status(401).json({ message: "Incorrect password" });
+      }
+
+      const data = await storage.updateStaff(Number(req.params.id), { status: "active" } as any);
+      if (!data) return res.status(404).json({ message: "Not found" });
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to activate staff" });
+    }
+  });
+
   app.get("/api/staff/:id/dues", async (req, res) => {
     const staffId = Number(req.params.id);
     console.log(`[DUES DEBUG] Checking dues for staffId=${staffId}`);

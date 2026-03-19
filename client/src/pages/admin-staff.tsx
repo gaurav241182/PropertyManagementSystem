@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign, Archive } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -229,6 +229,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [deactivateDues, setDeactivateDues] = useState<{ hasDues: boolean; count: number; totalDue: number } | null>(null);
   const [checkingDeactivateDues, setCheckingDeactivateDues] = useState(false);
   const [deactivateDuesForStaffId, setDeactivateDuesForStaffId] = useState<number | null>(null);
+  const [isActivateAlertOpen, setIsActivateAlertOpen] = useState(false);
+  const [staffToActivateId, setStaffToActivateId] = useState<number | null>(null);
+  const [staffToActivateName, setStaffToActivateName] = useState<string>("");
+  const [activatePassword, setActivatePassword] = useState("");
   const [editingStaff, setEditingStaff] = useState<any>(null);
 
   const [employeeId, setEmployeeId] = useState("");
@@ -468,8 +472,33 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     }
   };
 
-  const handleActivateStaff = (id: number) => {
-    updateStaffMutation.mutate({ id, data: { status: "active" } });
+  const activateStaffMutation = useMutation({
+    mutationFn: ({ id, password }: { id: number; password: string }) =>
+      apiRequest("POST", `/api/staff/${id}/activate`, { password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      toast({ title: "Staff Activated", description: "Employee has been re-activated and is now in the active staff list." });
+      setIsActivateAlertOpen(false);
+      setStaffToActivateId(null);
+      setStaffToActivateName("");
+      setActivatePassword("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Activation Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openActivateDialog = (id: number, name?: string) => {
+    setStaffToActivateId(id);
+    setStaffToActivateName(name || "");
+    setActivatePassword("");
+    setIsActivateAlertOpen(true);
+  };
+
+  const confirmActivate = () => {
+    if (staffToActivateId && activatePassword) {
+      activateStaffMutation.mutate({ id: staffToActivateId, password: activatePassword });
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1157,8 +1186,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <Button variant="ghost" size="icon" className="h-8 w-8" title="View" onClick={() => handleView(employee)} data-testid={`button-view-staff-mobile-${employee.id}`}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Generate Salary" onClick={() => openGenerateSalary(employee)} data-testid={`button-salary-staff-mobile-${employee.id}`}>
-                    <Calculator className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Archive Staff" onClick={() => openDeactivateDialog(employee.id, employee.name)} data-testid={`button-archive-staff-mobile-${employee.id}`}>
+                    <Archive className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1167,11 +1196,14 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openGenerateSalary(employee)} data-testid={`menu-salary-staff-mobile-${employee.id}`}>
+                        <Calculator className="h-4 w-4 mr-2" /> Generate Salary
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }} data-testid={`menu-settlement-staff-mobile-${employee.id}`}>
                         <LogOut className="h-4 w-4 mr-2 text-orange-500" /> Final Settlement
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeactivateDialog(employee.id, employee.name)} data-testid={`menu-deactivate-staff-mobile-${employee.id}`}>
-                        <Ban className="h-4 w-4 mr-2 text-red-500" /> Deactivate
+                      <DropdownMenuItem onClick={() => openDeactivateDialog(employee.id, employee.name)} data-testid={`menu-archive-staff-mobile-${employee.id}`}>
+                        <Archive className="h-4 w-4 mr-2 text-amber-600" /> Archive
                       </DropdownMenuItem>
                       {role === "owner" && (
                         <DropdownMenuItem onClick={() => openDeleteDialog(employee.id, employee.name)} className="text-destructive" data-testid={`menu-delete-staff-mobile-${employee.id}`}>
@@ -1235,8 +1267,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Button variant="ghost" size="icon" title="Final Settlement" className="text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={e => { e.stopPropagation(); setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }} data-testid={`button-settlement-staff-${employee.id}`}>
                           <LogOut className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeactivateDialog(employee.id, employee.name)}>
-                          <Ban className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" title="Archive Staff" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openDeactivateDialog(employee.id, employee.name)}>
+                          <Archive className="h-4 w-4" />
                         </Button>
                         {role === "owner" && (
                         <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
@@ -1292,7 +1324,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <div className="text-sm text-muted-foreground mt-1">{cs}{employee.salary?.toLocaleString()}</div>
                     </div>
                     <div className="flex-shrink-0 flex items-center gap-1 ml-1">
-                      <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 text-xs px-2" onClick={() => handleActivateStaff(employee.id)} data-testid={`button-activate-staff-mobile-${employee.id}`}>
+                      <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 text-xs px-2" onClick={() => openActivateDialog(employee.id, employee.name)} data-testid={`button-activate-staff-mobile-${employee.id}`}>
                         <Power className="h-3 w-3 mr-1" /> Activate
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)} data-testid={`button-delete-inactive-staff-mobile-${employee.id}`}>
@@ -1342,7 +1374,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <TableCell><Badge variant="secondary">{employee.status}</Badge></TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleActivateStaff(employee.id)}>
+                            <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => openActivateDialog(employee.id, employee.name)}>
                               <Power className="h-3 w-3 mr-1" /> Activate
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
@@ -1425,6 +1457,55 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 Permanently Delete
               </AlertDialogAction>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isActivateAlertOpen} onOpenChange={(open) => {
+        setIsActivateAlertOpen(open);
+        if (!open) { setStaffToActivateId(null); setStaffToActivateName(""); setActivatePassword(""); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-green-700 mb-2">
+              <Power className="h-5 w-5" />
+              <AlertDialogTitle>Re-activate Staff Member?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>You are about to re-activate <strong>{staffToActivateName || "this staff member"}</strong> and move them back to the active staff list. They will be included in future salary generation.</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-amber-800 text-sm font-medium flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Please confirm this action carefully
+                  </p>
+                  <p className="text-amber-700 text-sm mt-1">Re-activating a staff member will restore their access and include them in payroll. Make sure this is intentional.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="activate-password" className="text-sm font-medium">Enter your password to confirm</Label>
+                  <Input
+                    id="activate-password"
+                    type="password"
+                    placeholder="Enter your login password"
+                    value={activatePassword}
+                    onChange={(e) => setActivatePassword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && activatePassword) confirmActivate(); }}
+                    data-testid="input-activate-password"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setStaffToActivateId(null); setStaffToActivateName(""); setActivatePassword(""); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmActivate}
+              disabled={!activatePassword || activateStaffMutation.isPending}
+              className="bg-green-700 text-white hover:bg-green-800"
+            >
+              {activateStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Confirm Activation
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
