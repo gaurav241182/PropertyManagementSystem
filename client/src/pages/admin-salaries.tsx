@@ -40,7 +40,13 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     const netPay = Number(s.netPay) || 0;
     const advanceAmount = Number(s.advanceAmount) || 0;
     const instalmentDeduction = Number(s.instalmentDeduction) || 0;
-    const pending = s.status === "Paid" ? 0 : (instalmentDeduction > 0 ? Math.max(0, netPay - instalmentDeduction) : Math.max(0, netPay - advanceAmount));
+    // If an active instalment advance exists, advanceAmount is a carry-forward balance
+    // (not a direct deduction), so only instalmentDeduction should reduce pending pay.
+    const hasActiveInstalment = staffAdvancesData.some((a: any) => a.staffId === s.staffId && a.status === "Active");
+    const pending = s.status === "Paid" ? 0
+      : instalmentDeduction > 0 ? Math.max(0, netPay - instalmentDeduction)
+      : hasActiveInstalment ? Math.max(0, netPay)
+      : Math.max(0, netPay - advanceAmount);
     const dueDate = s.dueDate || getEndOfMonth(s.month);
     return {
       ...s,
