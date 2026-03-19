@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import AdminRooms from "@/pages/admin-rooms";
-import { TIMEZONE_OPTIONS, useHotelSettings } from "@/hooks/use-hotel-settings";
+import { TIMEZONE_OPTIONS, useHotelSettings, getCurrencySymbol } from "@/hooks/use-hotel-settings";
+import { Power } from "lucide-react";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -38,6 +39,13 @@ export default function AdminSettings() {
   const [archivalSearch, setArchivalSearch] = useState("");
   const [staffArchivalSearch, setStaffArchivalSearch] = useState("");
   const [ordersArchivalSearch, setOrdersArchivalSearch] = useState("");
+  const [settingsActivateId, setSettingsActivateId] = useState<number | null>(null);
+  const [settingsActivateName, setSettingsActivateName] = useState("");
+  const [settingsActivatePassword, setSettingsActivatePassword] = useState("");
+  const [isSettingsActivateOpen, setIsSettingsActivateOpen] = useState(false);
+  const [settingsDeleteId, setSettingsDeleteId] = useState<number | null>(null);
+  const [settingsDeleteName, setSettingsDeleteName] = useState("");
+  const [isSettingsDeleteOpen, setIsSettingsDeleteOpen] = useState(false);
   const [viewingArchived, setViewingArchived] = useState<any>(null);
 
   const [taxEmailInput, setTaxEmailInput] = useState("");
@@ -59,6 +67,7 @@ export default function AdminSettings() {
   const facilities = facilitiesData || [];
 
   const currency = settingsData?.currency || "USD";
+  const cs = getCurrencySymbol(currency);
   const timezone = settingsData?.timezone || "UTC";
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
   const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
@@ -317,12 +326,34 @@ export default function AdminSettings() {
 
 
   const activateStaffMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("PATCH", `/api/staff/${id}`, { status: "active" });
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await apiRequest("POST", `/api/staff/${id}/activate`, { password });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Activation failed"); }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      setIsSettingsActivateOpen(false);
+      setSettingsActivateId(null);
+      setSettingsActivateName("");
+      setSettingsActivatePassword("");
       toast({ title: "Staff Activated", description: "The staff member has been restored to active status." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteArchivedStaffMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/staff/${id}`);
+      if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Delete failed"); }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      setIsSettingsDeleteOpen(false);
+      setSettingsDeleteId(null);
+      setSettingsDeleteName("");
+      toast({ title: "Staff Deleted", description: "The archived staff member has been permanently removed." });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -3192,22 +3223,34 @@ export default function AdminSettings() {
                             {filteredStaff.map((s: any) => (
                               <TableRow key={s.id} className="bg-gray-50/60 text-gray-500" data-testid={`row-archived-staff-${s.id}`}>
                                 <TableCell className="font-mono text-xs">{s.employeeId || "—"}</TableCell>
-                                <TableCell className="font-medium">{s.firstName} {s.lastName}</TableCell>
+                                <TableCell className="font-medium">{s.name || `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—"}</TableCell>
                                 <TableCell>{s.role || "—"}</TableCell>
                                 <TableCell>{s.department || "—"}</TableCell>
-                                <TableCell>{currency} {s.salary || "0"}</TableCell>
+                                <TableCell>{cs}{Number(s.salary || 0).toLocaleString()}</TableCell>
                                 <TableCell>{s.joined || "—"}</TableCell>
                                 <TableCell className="text-right">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-                                    onClick={() => activateStaffMutation.mutate(s.id)}
-                                    disabled={activateStaffMutation.isPending}
-                                    data-testid={`button-activate-staff-${s.id}`}
-                                  >
-                                    <ArchiveRestore className="h-3 w-3 mr-1" /> Reactivate
-                                  </Button>
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                      onClick={() => { setSettingsActivateId(s.id); setSettingsActivateName(s.name || ""); setSettingsActivatePassword(""); setIsSettingsActivateOpen(true); }}
+                                      disabled={activateStaffMutation.isPending}
+                                      data-testid={`button-activate-staff-${s.id}`}
+                                    >
+                                      <ArchiveRestore className="h-3 w-3 mr-1" /> Reactivate
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => { setSettingsDeleteId(s.id); setSettingsDeleteName(s.name || ""); setIsSettingsDeleteOpen(true); }}
+                                      disabled={deleteArchivedStaffMutation.isPending}
+                                      data-testid={`button-delete-archived-staff-${s.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -3264,6 +3307,94 @@ export default function AdminSettings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Reactivate Archived Staff Dialog */}
+      <AlertDialog open={isSettingsActivateOpen} onOpenChange={(open) => {
+        setIsSettingsActivateOpen(open);
+        if (!open) { setSettingsActivateId(null); setSettingsActivateName(""); setSettingsActivatePassword(""); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-green-700 mb-2">
+              <Power className="h-5 w-5" />
+              <AlertDialogTitle>Reactivate Staff Member?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>You are about to reactivate <strong>{settingsActivateName || "this staff member"}</strong> and move them back to the active staff list.</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-amber-800 text-sm font-medium flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    This will restore their payroll inclusion
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-activate-password" className="text-sm font-medium">Enter your password to confirm</Label>
+                  <Input
+                    id="settings-activate-password"
+                    type="password"
+                    placeholder="Enter your login password"
+                    value={settingsActivatePassword}
+                    onChange={(e) => setSettingsActivatePassword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && settingsActivatePassword && settingsActivateId) activateStaffMutation.mutate({ id: settingsActivateId, password: settingsActivatePassword }); }}
+                    data-testid="input-settings-activate-password"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (settingsActivateId && settingsActivatePassword) activateStaffMutation.mutate({ id: settingsActivateId, password: settingsActivatePassword }); }}
+              disabled={!settingsActivatePassword || activateStaffMutation.isPending}
+              className="bg-green-700 text-white hover:bg-green-800"
+            >
+              {activateStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Confirm Reactivation
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Archived Staff Dialog */}
+      <AlertDialog open={isSettingsDeleteOpen} onOpenChange={(open) => {
+        setIsSettingsDeleteOpen(open);
+        if (!open) { setSettingsDeleteId(null); setSettingsDeleteName(""); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2 text-destructive mb-2">
+              <Trash2 className="h-5 w-5" />
+              <AlertDialogTitle>Permanently Delete Staff?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>You are about to permanently delete <strong>{settingsDeleteName || "this staff member"}</strong> and all their associated records.</p>
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-red-800 text-sm font-medium flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    This action cannot be undone
+                  </p>
+                  <p className="text-red-700 text-sm mt-1">All salary records, advance records, and related data will be permanently removed.</p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (settingsDeleteId) deleteArchivedStaffMutation.mutate(settingsDeleteId); }}
+              disabled={deleteArchivedStaffMutation.isPending}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleteArchivedStaffMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </AdminLayout>
   );
 }
