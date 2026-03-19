@@ -167,6 +167,8 @@ export const staff = pgTable("staff", {
   idCardNumber: text("id_card_number"),
   policeVerification: boolean("police_verification").default(false),
   photo: text("photo"),
+  idDocument: text("id_document"),
+  idDocumentName: text("id_document_name"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

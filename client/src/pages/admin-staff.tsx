@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign, Archive } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign, Archive, FileText, Upload, Download, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -260,6 +260,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [idCardNumber, setIdCardNumber] = useState("");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [idDocument, setIdDocument] = useState<string | null>(null);
+  const [idDocumentName, setIdDocumentName] = useState<string>("");
+  const idDocumentInputRef = useRef<HTMLInputElement>(null);
   const [createLogin, setCreateLogin] = useState(false);
   const [loginPassword, setLoginPassword] = useState("");
   const [basicSalary, setBasicSalary] = useState(0);
@@ -398,6 +401,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setIdCardNumber(emp.idCardNumber || "");
     setPoliceVerification(emp.policeVerification || false);
     setPhotoPreview(emp.photo || null);
+    setIdDocument(emp.idDocument || null);
+    setIdDocumentName(emp.idDocumentName || "");
     setCreateLogin(false);
     setLoginPassword("");
     setFormErrors({});
@@ -423,7 +428,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setCity(""); setAddress(""); setPhone(""); setEmail(""); setCountryCode("+1");
     setJoiningDate(""); setWelfareFund(false); setBonus(0); setPoliceVerification(false);
     setEmergencyName(""); setEmergencyRelation(""); setEmergencyPhone("");
-    setIdCardNumber(""); setPhotoPreview(null);
+    setIdCardNumber(""); setPhotoPreview(null); setIdDocument(null); setIdDocumentName("");
     setSelectedBranchId(null);
     setCreateLogin(false); setLoginPassword(""); setFormErrors({});
     setDialogMode("add");
@@ -514,6 +519,22 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     }
   };
 
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Document must be under 5MB.", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setIdDocument(reader.result as string);
+        setIdDocumentName(file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleNameInput = (value: string, setter: (v: string) => void) => {
     setter(value.replace(/[^a-zA-Z\s'-]/g, ""));
   };
@@ -581,6 +602,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       idCardNumber: idCardNumber || null,
       policeVerification,
       photo: photoPreview || null,
+      idDocument: idDocument || null,
+      idDocumentName: idDocumentName || null,
     };
 
     if (editingStaff) {
@@ -750,6 +773,44 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <ViewField label="ID Card Number" value={idCardNumber} />
                       <ViewField label="Police Verification" value={policeVerification ? "Completed" : "Pending"} />
                     </div>
+                    {idDocument ? (
+                      <div className="flex items-center gap-3 border rounded-lg p-3 bg-primary/5">
+                        <FileText className="h-5 w-5 text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{idDocumentName || "ID Document"}</p>
+                          <p className="text-xs text-muted-foreground">Identity proof on file</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => window.open(idDocument, "_blank")}
+                            data-testid="button-view-document"
+                          >
+                            <Eye className="h-3 w-3 mr-1" /> View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              const a = document.createElement("a");
+                              a.href = idDocument;
+                              a.download = idDocumentName || "id_document";
+                              a.click();
+                            }}
+                            data-testid="button-download-document"
+                          >
+                            <Download className="h-3 w-3 mr-1" /> Download
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed rounded-lg p-3 text-center text-muted-foreground text-sm">
+                        No ID document uploaded
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1006,7 +1067,47 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     </div>
                     <div className="space-y-2">
                       <Label>ID Proof Document</Label>
-                      <Input type="file" data-testid="input-id-document" />
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/30 transition-colors ${idDocument ? "border-primary/40 bg-primary/5" : "border-muted-foreground/30"}`}
+                        onClick={() => idDocumentInputRef.current?.click()}
+                        data-testid="button-id-document-upload"
+                      >
+                        <input
+                          ref={idDocumentInputRef}
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={handleDocumentUpload}
+                          data-testid="input-id-document"
+                        />
+                        {idDocument ? (
+                          <>
+                            <FileText className="h-5 w-5 text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-primary truncate">{idDocumentName}</p>
+                              <p className="text-xs text-muted-foreground">Click to replace</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+                              onClick={(e) => { e.stopPropagation(); setIdDocument(null); setIdDocumentName(""); }}
+                              data-testid="button-clear-document"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-5 w-5 text-muted-foreground shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">Upload ID Document</p>
+                              <p className="text-xs text-muted-foreground">PDF or image, max 5MB</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <div className="col-span-2 flex items-center space-x-2 pt-2">
                       <Checkbox id="policeVerification" checked={policeVerification} onCheckedChange={(checked) => setPoliceVerification(checked as boolean)} data-testid="checkbox-police-verification" />
