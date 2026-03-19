@@ -1617,15 +1617,20 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
 
         <Card>
           <CardHeader className="pb-3 space-y-2">
-            <div className="relative">
-              <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search name, ID, room..."
-                className="pl-8 w-full"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                data-testid="input-search-bookings"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search name, ID, room..."
+                  className="pl-8 w-full"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-search-bookings"
+                />
+              </div>
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-semibold shrink-0" data-testid="badge-booking-count">
+                {filteredBookings.length}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1662,9 +1667,6 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             ) : (
             <>
               <div className="block md:hidden space-y-3">
-                <div className="flex items-center justify-end pb-1">
-                  <span className="text-xs text-muted-foreground">{filteredBookings.length} booking{filteredBookings.length !== 1 ? "s" : ""}</span>
-                </div>
                 {filteredBookings.map((booking: any) => {
                   const rawBookingCard = bookingsData.find((b: any) => b.id === booking.id);
                   let cardDiscount: any = null;
