@@ -1625,6 +1625,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   className="pl-8 w-full"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
                   data-testid="input-search-bookings"
                 />
               </div>
@@ -2847,6 +2848,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   value={reversalPassword}
                   onChange={(e) => { setReversalPassword(e.target.value); setReversalError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter" && reversalPassword) executeReversal(); }}
+                  autoComplete="new-password"
                   data-testid="input-reversal-password"
                 />
                 {reversalError && <p className="text-sm text-red-500">{reversalError}</p>}
