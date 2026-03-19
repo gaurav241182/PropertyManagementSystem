@@ -60,6 +60,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       staffHra: Number(staffMember?.hra) || 0,
       staffTransport: Number(staffMember?.transport) || 0,
       staffAllowance: Number(staffMember?.allowance) || 0,
+      staffJoinDate: staffMember?.joinDate || null,
       netPayNum: netPay,
       advanceNum: advanceAmount,
       instalmentDeduction,
@@ -301,7 +302,25 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     const welfare = salary.welfareContrib;
     const emi = salary.instalmentDeduction;
     const advance = salary.advanceNum;
-    const hasComponents = hra > 0 || transport > 0 || allowance > 0 || bonus > 0;
+    let proRateDays: number | null = salary.proRateDays ? Number(salary.proRateDays) : null;
+    let totalDays: number | null = salary.totalDaysInMonth ? Number(salary.totalDaysInMonth) : null;
+    const fullSalary = basicPay + hra + transport + allowance;
+    // Fallback: infer pro-rate from join date for older records that didn't store the days
+    if (proRateDays === null && salary.staffJoinDate && salary.month) {
+      const joinDate = new Date(salary.staffJoinDate + "T00:00:00");
+      const [yr, mo] = salary.month.split('-').map(Number);
+      if (joinDate.getFullYear() === yr && joinDate.getMonth() + 1 === mo) {
+        totalDays = new Date(yr, mo, 0).getDate();
+        proRateDays = totalDays - joinDate.getDate() + 1;
+        // only treat as pro-rated if the net pay is actually less than full salary
+        if (proRateDays >= totalDays || (salary.netPayNum - bonus) >= fullSalary) {
+          proRateDays = null;
+          totalDays = null;
+        }
+      }
+    }
+    const isProRated = proRateDays !== null && totalDays !== null;
+    const hasComponents = hra > 0 || transport > 0 || allowance > 0 || bonus > 0 || isProRated;
     const hasDeductions = welfare > 0 || emi > 0 || advance > 0;
     return (
       <Popover>
@@ -339,6 +358,23 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Other Allowance</span>
                 <span className="font-medium">{cs}{allowance.toLocaleString()}</span>
+              </div>
+            )}
+            {isProRated && (
+              <div className="border-t pt-2 space-y-1.5 bg-orange-50 -mx-3 px-3 py-2 rounded">
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Pro-Rated (Joining Month)</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Days Worked</span>
+                  <span className="font-medium">{proRateDays} of {totalDays} days</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Full Month Salary</span>
+                  <span className="line-through text-muted-foreground">{cs}{fullSalary.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs font-medium text-orange-700">
+                  <span>Pro-Rated Salary</span>
+                  <span>{cs}{(salary.netPayNum - bonus).toLocaleString()}</span>
+                </div>
               </div>
             )}
             {bonus > 0 && (

@@ -338,6 +338,8 @@ export const salaries = pgTable("salaries", {
   status: text("status").notNull().default("Pending"),
   paidDate: date("paid_date"),
   isFinalSettlement: boolean("is_final_settlement").notNull().default(false),
+  proRateDays: integer("pro_rate_days"),
+  totalDaysInMonth: integer("total_days_in_month"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

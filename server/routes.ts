@@ -669,11 +669,13 @@ export async function registerRoutes(
         const joinDate = data.joinDate ? new Date(data.joinDate + "T00:00:00") : now;
         let netPay = totalSalary;
         let proRateFactor = 1;
+        let proRateDays: number | null = null;
+        let totalDaysInMonth: number | null = null;
         if (!isNaN(joinDate.getTime()) && joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear()) {
-          const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
           const dayOfJoining = joinDate.getDate();
-          const daysWorked = daysInMonth - dayOfJoining + 1;
-          proRateFactor = daysWorked / daysInMonth;
+          proRateDays = totalDaysInMonth - dayOfJoining + 1;
+          proRateFactor = proRateDays / totalDaysInMonth;
           netPay = Math.round(totalSalary * proRateFactor);
         }
         const bonusAmt = Number(data.bonusAmount) || 0;
@@ -696,6 +698,8 @@ export async function registerRoutes(
           paidDate: null,
           hotelId,
           branchId,
+          proRateDays,
+          totalDaysInMonth,
         });
       }
       
