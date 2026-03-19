@@ -1127,20 +1127,22 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
   return (
     <AdminLayout role={role}>
       <div className="space-y-6 overflow-x-hidden">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary">Bookings & Reservations</h2>
-            <p className="text-sm sm:text-base text-muted-foreground">Manage guest reservations, charges, and checkouts.</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary">Reservations</h2>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing} className="hidden sm:flex">
               {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               {isSyncing ? "Syncing..." : "Sync Platforms"}
             </Button>
-            
+            <Button variant="outline" size="icon" className="h-9 w-9 flex sm:hidden" onClick={handleSync} disabled={isSyncing} title="Sync Platforms">
+              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+            <Button size="icon" className="h-9 w-9 flex sm:hidden" onClick={() => setIsNewReservationOpen(true)} title="New Reservation" data-testid="button-new-reservation-mobile">
+              <Plus className="h-4 w-4" />
+            </Button>
             <Dialog open={isNewReservationOpen} onOpenChange={handleReservationDialogClose}>
               <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-new-reservation">
+                <Button size="sm" className="hidden sm:flex" data-testid="button-new-reservation">
                   <Calendar className="mr-2 h-4 w-4" />
                   New Reservation
                 </Button>
@@ -1614,35 +1616,42 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
         </div>
 
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <CardTitle>Active Bookings</CardTitle>
-                <CardDescription>View and manage all reservations.</CardDescription>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:flex-none">
-                  <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search name, ID, room..."
-                    className="pl-8 w-full sm:w-[250px]"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="input-search-bookings"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[120px] sm:w-[150px] shrink-0" data-testid="select-status-filter">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="confirmed">Booked</SelectItem>
-                    <SelectItem value="active">Checked In</SelectItem>
-                    <SelectItem value="checkout">Checked Out</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <CardHeader className="pb-3 space-y-2">
+            <div className="relative">
+              <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search name, ID, room..."
+                className="pl-8 w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                data-testid="input-search-bookings"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="flex-1 sm:w-[150px]" data-testid="select-status-filter">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="confirmed">Booked</SelectItem>
+                  <SelectItem value="active">Checked In</SelectItem>
+                  <SelectItem value="checkout">Checked Out</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="flex-1 sm:w-[150px]" data-testid="select-sort-filter">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default Order</SelectItem>
+                  <SelectItem value="guest">Guest Name</SelectItem>
+                  <SelectItem value="room">Room</SelectItem>
+                  <SelectItem value="checkin">Check-in Date</SelectItem>
+                  <SelectItem value="checkout">Check-out Date</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
@@ -1653,22 +1662,8 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             ) : (
             <>
               <div className="block md:hidden space-y-3">
-                <div className="flex items-center gap-2 pb-2">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">Sort by:</span>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="h-8 text-xs w-[140px]" data-testid="select-sort-mobile">
-                      <SelectValue placeholder="Default" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="guest">Guest Name</SelectItem>
-                      <SelectItem value="room">Room</SelectItem>
-                      <SelectItem value="checkin">Check-in Date</SelectItem>
-                      <SelectItem value="checkout">Check-out Date</SelectItem>
-                      <SelectItem value="status">Status</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-xs text-muted-foreground ml-auto">{filteredBookings.length} booking{filteredBookings.length !== 1 ? "s" : ""}</span>
+                <div className="flex items-center justify-end pb-1">
+                  <span className="text-xs text-muted-foreground">{filteredBookings.length} booking{filteredBookings.length !== 1 ? "s" : ""}</span>
                 </div>
                 {filteredBookings.map((booking: any) => {
                   const rawBookingCard = bookingsData.find((b: any) => b.id === booking.id);
