@@ -514,7 +514,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         return;
       }
       const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+        if (dialogMode === "view") setDialogMode("edit");
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -705,11 +708,23 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <Badge variant="outline" className="font-mono">ID: {employeeId}</Badge>
                     </div>
                     <div className="flex items-start gap-4">
-                      {photoPreview && (
-                        <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-primary/20 shrink-0">
-                          <img src={photoPreview} alt="Staff photo" className="h-full w-full object-cover" />
+                      <div
+                        className="relative h-20 w-20 rounded-full shrink-0 cursor-pointer group"
+                        onClick={() => photoInputRef.current?.click()}
+                        data-testid="button-view-photo-change"
+                      >
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Staff photo" className="h-full w-full rounded-full object-cover border-2 border-primary/20" />
+                        ) : (
+                          <div className="h-full w-full rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                            <Camera className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Camera className="h-5 w-5 text-white" />
                         </div>
-                      )}
+                        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} data-testid="input-photo-view" />
+                      </div>
                       <div className="grid grid-cols-3 gap-4 flex-1">
                         <ViewField label="Full Name" value={`${firstName} ${lastName}`} />
                         <ViewField label="Gender" value={gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : null} />
@@ -780,31 +795,20 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <p className="text-sm font-medium truncate">{idDocumentName || "ID Document"}</p>
                           <p className="text-xs text-muted-foreground">Identity proof on file</p>
                         </div>
-                        <div className="flex gap-2 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => window.open(idDocument, "_blank")}
-                            data-testid="button-view-document"
-                          >
-                            <Eye className="h-3 w-3 mr-1" /> View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => {
-                              const a = document.createElement("a");
-                              a.href = idDocument;
-                              a.download = idDocumentName || "id_document";
-                              a.click();
-                            }}
-                            data-testid="button-download-document"
-                          >
-                            <Download className="h-3 w-3 mr-1" /> Download
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs shrink-0"
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = idDocument;
+                            a.download = idDocumentName || "id_document";
+                            a.click();
+                          }}
+                          data-testid="button-download-document"
+                        >
+                          <Download className="h-3 w-3 mr-1" /> Download
+                        </Button>
                       </div>
                     ) : (
                       <div className="border border-dashed rounded-lg p-3 text-center text-muted-foreground text-sm">
