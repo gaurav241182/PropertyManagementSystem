@@ -668,16 +668,18 @@ export async function registerRoutes(
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
         const joinDate = data.joinDate ? new Date(data.joinDate + "T00:00:00") : now;
         let netPay = totalSalary;
+        let proRateFactor = 1;
         if (!isNaN(joinDate.getTime()) && joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear()) {
           const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
           const dayOfJoining = joinDate.getDate();
           const daysWorked = daysInMonth - dayOfJoining + 1;
-          netPay = Math.round((totalSalary / daysInMonth) * daysWorked);
+          proRateFactor = daysWorked / daysInMonth;
+          netPay = Math.round(totalSalary * proRateFactor);
         }
         const bonusAmt = Number(data.bonusAmount) || 0;
         const allSettings = await storage.getSettings(hotelId);
         const ws = parseWelfareSettings(allSettings);
-        const welfareAmount = computeWelfare(data, month, ws);
+        const welfareAmount = Math.round(computeWelfare(data, month, ws) * proRateFactor);
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const dueDateStr = lastDay.toISOString().split('T')[0];
         await storage.createSalary({
