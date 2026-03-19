@@ -275,7 +275,8 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     if (!settlementStaff || !lastWorkDay) return null;
     const joinDate = new Date(settlementStaff.joinDate || settlementStaff.joined);
     const lastDay = new Date(lastWorkDay);
-    if (isNaN(joinDate.getTime()) || isNaN(lastDay.getTime()) || lastDay < joinDate) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (isNaN(joinDate.getTime()) || isNaN(lastDay.getTime()) || lastDay <= today || lastDay < joinDate) return null;
     const totalMonths = (lastDay.getFullYear() - joinDate.getFullYear()) * 12 + (lastDay.getMonth() - joinDate.getMonth());
     const months = Math.max(0, totalMonths);
     const rate = months >= 12 ? afterFirstYearRate : firstYearRate;
@@ -1339,8 +1340,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               <Input
                 type="date"
                 value={lastWorkDay}
-                min={settlementStaff?.joinDate || settlementStaff?.joined || ""}
-                max={new Date().toISOString().split("T")[0]}
+                min={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split("T")[0]; })()}
                 onChange={e => setLastWorkDay(e.target.value)}
                 data-testid="input-last-work-day"
               />
@@ -1391,7 +1391,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             )}
 
             {!settlementCalc && lastWorkDay && (
-              <p className="text-sm text-destructive">Last working day must be on or after the join date.</p>
+              <p className="text-sm text-destructive">Last working day must be a future date after the employee's join date.</p>
             )}
           </div>
           <DialogFooter>
