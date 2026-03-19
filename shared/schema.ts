@@ -335,6 +335,7 @@ export const salaries = pgTable("salaries", {
   dueDate: date("due_date"),
   status: text("status").notNull().default("Pending"),
   paidDate: date("paid_date"),
+  isFinalSettlement: boolean("is_final_settlement").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -59,6 +59,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       advanceNum: advanceAmount,
       instalmentDeduction,
       welfareContrib,
+      isFinalSettlement: !!s.isFinalSettlement,
       pending,
       dueDate,
       paymentDate: s.paidDate || "-",
@@ -382,8 +383,13 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
             </Card>
           )}
           {filteredSalaries.map((salary) => (
-            <Card key={salary.id} data-testid={`card-salary-${salary.id}`}>
+            <Card key={salary.id} data-testid={`card-salary-${salary.id}`} className={salary.isFinalSettlement ? "border-amber-400 bg-amber-50/60" : ""}>
               <CardContent className="p-4 space-y-3">
+                {salary.isFinalSettlement && (
+                  <div className="flex items-center gap-1.5 text-amber-700 text-xs font-semibold bg-amber-100 rounded px-2 py-1 w-fit">
+                    <span>⭐</span> Final Settlement
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {salary.photo ? (
@@ -512,7 +518,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               </TableHeader>
               <TableBody>
                 {filteredSalaries.map((salary) => (
-                  <TableRow key={salary.id} data-testid={`row-salary-${salary.id}`}>
+                  <TableRow key={salary.id} data-testid={`row-salary-${salary.id}`} className={salary.isFinalSettlement ? "bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-400" : ""}>
                     <TableCell>
                       <Checkbox 
                         checked={selectedSalaries.includes(salary.id)}
@@ -520,7 +526,12 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-mono text-xs">{salary.employeeId}</Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="font-mono text-xs w-fit">{salary.employeeId}</Badge>
+                        {salary.isFinalSettlement && (
+                          <span className="text-[10px] font-semibold text-amber-700 flex items-center gap-0.5">⭐ Final Settlement</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">

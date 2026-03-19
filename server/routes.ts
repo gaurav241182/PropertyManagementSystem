@@ -1161,7 +1161,7 @@ export async function registerRoutes(
       const created: any[] = [];
       const skipped: number[] = [];
       for (const entry of staffSalaries) {
-        const { staffId, netPay, bonus } = entry;
+        const { staffId, netPay, bonus, isFinalSettlement } = entry;
         const existingSalary = existingSalaries.find((s: any) => s.staffId === staffId);
         if (existingSalary) {
           // If existing salary is still pending and advance column is stale (0 but active advances exist),
@@ -1201,20 +1201,21 @@ export async function registerRoutes(
           if (shouldDeduct) totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
           totalRemainingBalance += Number(adv.remainingBalance) || 0;
         }
-        const welfareContribution = computeWelfare(staffMember, month, wsGen);
+        const computedWelfare = isFinalSettlement ? 0 : computeWelfare(staffMember, month, wsGen);
         const salary = await storage.createSalary({
           staffId,
           month,
           basicSalary: String(netPay),
           bonus: String(bonus || 0),
           deductions: "0",
-          welfareContribution: String(welfareContribution),
+          welfareContribution: String(computedWelfare),
           netPay: String(Number(netPay) + Number(bonus || 0)),
-          advanceAmount: String(totalRemainingBalance),
-          instalmentDeduction: String(totalInstalmentDeduction),
+          advanceAmount: String(isFinalSettlement ? 0 : totalRemainingBalance),
+          instalmentDeduction: String(isFinalSettlement ? 0 : totalInstalmentDeduction),
           dueDate: dueDateStr,
           status: "Pending",
           paidDate: null,
+          isFinalSettlement: !!isFinalSettlement,
           hotelId,
           branchId,
         });

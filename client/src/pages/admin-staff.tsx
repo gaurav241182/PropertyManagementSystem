@@ -295,7 +295,16 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       const verifyRes = await apiRequest("POST", "/api/auth/verify-password", { password: goodbyePassword });
       if (!verifyRes.ok) {
         toast({ title: "Incorrect Password", description: "The password you entered is wrong.", variant: "destructive" });
-        setGoodbyePending(false);
+        return;
+      }
+      const duesRes = await apiRequest("GET", `/api/staff/${settlementStaff.id}/dues`);
+      const duesData = await duesRes.json();
+      if (duesData.hasDues) {
+        toast({
+          title: "Pending Salaries",
+          description: `${settlementStaff.name} has ${duesData.count} unpaid salary record(s) totalling ${cs}${duesData.totalDue.toFixed(2)}. Please clear all dues before proceeding.`,
+          variant: "destructive",
+        });
         return;
       }
       const [yr, mo] = lastWorkDay.split("-");
@@ -307,6 +316,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           netPay: settlementCalc.totalWelfare,
           bonus: 0,
           welfareContribution: settlementCalc.totalWelfare,
+          isFinalSettlement: true,
         }],
       });
       await apiRequest("POST", `/api/staff/${settlementStaff.id}/deactivate`, { password: goodbyePassword });
