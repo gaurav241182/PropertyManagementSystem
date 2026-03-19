@@ -317,6 +317,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           bonus: 0,
           welfareContribution: settlementCalc.totalWelfare,
           isFinalSettlement: true,
+          paidDate: lastWorkDay,
         }],
       });
       await apiRequest("POST", `/api/staff/${settlementStaff.id}/deactivate`, { password: goodbyePassword });
