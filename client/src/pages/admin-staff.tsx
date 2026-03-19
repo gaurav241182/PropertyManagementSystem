@@ -617,20 +617,16 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         </div>
       ) : (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
             <h2 className="text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-page-title">Staff Management</h2>
-            <p className="text-muted-foreground">Manage employees and their records.</p>
-          </div>
-          
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleAdd} className="w-full sm:w-auto" data-testid="button-onboard-staff">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Onboard Staff
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={handleAdd} variant="outline" size="icon" title="Onboard Staff" data-testid="button-onboard-staff">
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -1041,7 +1037,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
               )}
             </DialogContent>
           </Dialog>
-        </div>
+            </div>
+          </div>
+          <p className="text-muted-foreground">Manage employees and their records.</p>
 
         <Dialog open={isGenerateSalaryOpen} onOpenChange={setIsGenerateSalaryOpen}>
           <DialogContent className="sm:max-w-[450px]">
