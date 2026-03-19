@@ -1169,9 +1169,12 @@ export async function registerRoutes(
 
         const activeAdvances = await storage.getActiveStaffAdvances(staffId);
         let totalInstalmentDeduction = 0;
+        let totalRemainingBalance = 0;
         for (const adv of activeAdvances) {
           totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
+          totalRemainingBalance += Number(adv.remainingBalance) || 0;
         }
+        const remainingAdvanceAfterDeduction = Math.max(0, totalRemainingBalance - totalInstalmentDeduction);
 
         const salary = await storage.createSalary({
           staffId,
@@ -1181,7 +1184,7 @@ export async function registerRoutes(
           deductions: "0",
           welfareContribution: String(welfareContribution || 0),
           netPay: String(Number(netPay) + Number(bonus || 0)),
-          advanceAmount: "0",
+          advanceAmount: String(remainingAdvanceAfterDeduction),
           instalmentDeduction: String(totalInstalmentDeduction),
           dueDate: dueDateStr,
           status: "Pending",
