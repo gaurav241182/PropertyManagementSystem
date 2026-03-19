@@ -2,6 +2,7 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import type { Booking, Room, Expense, Order } from "@shared/schema";
 import { 
   Users, 
@@ -16,6 +17,7 @@ import {
   IndianRupee,
   BedDouble,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react";
 import { useHotelSettings } from "@/hooks/use-hotel-settings";
 
@@ -93,6 +95,7 @@ export default function AdminDashboard() {
       icon: IndianRupee,
       iconBg: "bg-amber-50",
       iconColor: "text-amber-500",
+      href: "/admin/sales",
     },
     {
       title: "Bookings",
@@ -100,6 +103,7 @@ export default function AdminDashboard() {
       icon: CalendarCheck,
       iconBg: "bg-blue-50",
       iconColor: "text-blue-500",
+      href: "/admin/bookings",
     },
     {
       title: "Active Guests",
@@ -107,6 +111,7 @@ export default function AdminDashboard() {
       icon: Users,
       iconBg: "bg-green-50",
       iconColor: "text-green-500",
+      href: "/admin/bookings",
     },
     {
       title: "Occupancy",
@@ -114,14 +119,15 @@ export default function AdminDashboard() {
       icon: BedDouble,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-500",
+      href: "/admin/rooms",
     },
   ];
 
   const desktopStats = [
-    { title: "Total Revenue", value: formatCurrency(totalRevenue), icon: CreditCard },
-    { title: "Bookings", value: String(totalBookings), icon: CalendarCheck },
-    { title: "Active Guests", value: String(activeGuests), icon: Users },
-    { title: "Occupancy Rate", value: `${occupancyRate}%`, icon: TrendingUp },
+    { title: "Total Revenue", value: formatCurrency(totalRevenue), icon: CreditCard, href: "/admin/sales" },
+    { title: "Bookings", value: String(totalBookings), icon: CalendarCheck, href: "/admin/bookings" },
+    { title: "Active Guests", value: String(activeGuests), icon: Users, href: "/admin/bookings" },
+    { title: "Occupancy Rate", value: `${occupancyRate}%`, icon: TrendingUp, href: "/admin/rooms" },
   ];
 
   function formatShortDate(dateStr: string) {
@@ -150,22 +156,23 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {mobileKpiCards.map((card, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl shadow-sm border p-4"
-                data-testid={`mobile-kpi-${i}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-medium text-muted-foreground leading-tight">{card.title}</span>
-                  <div className={`${card.iconBg} p-1.5 rounded-lg`}>
-                    <card.icon className={`h-4 w-4 ${card.iconColor}`} />
+              <Link key={i} href={card.href}>
+                <div
+                  className="bg-white rounded-2xl shadow-sm border p-4 active:scale-95 transition-transform cursor-pointer"
+                  data-testid={`mobile-kpi-${i}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-medium text-muted-foreground leading-tight">{card.title}</span>
+                    <div className={`${card.iconBg} p-1.5 rounded-lg`}>
+                      <card.icon className={`h-4 w-4 ${card.iconColor}`} />
+                    </div>
                   </div>
+                  <p className="text-xl font-bold text-gray-900 leading-none" data-testid={`mobile-kpi-value-${i}`}>
+                    {card.value}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">No prior data</p>
                 </div>
-                <p className="text-xl font-bold text-gray-900 leading-none" data-testid={`mobile-kpi-value-${i}`}>
-                  {card.value}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-1.5">No prior data</p>
-              </div>
+              </Link>
             ))}
           </div>
         )}
@@ -221,34 +228,35 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-2">
               {recentBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="bg-white rounded-2xl shadow-sm border px-4 py-3"
-                  data-testid={`mobile-booking-card-${booking.id}`}
-                >
-                  {/* Row 1: Name + Status */}
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <p className="text-sm font-semibold text-gray-900 truncate" data-testid={`mobile-guest-${booking.id}`}>
-                      {booking.guestName} {booking.guestLastName}
-                    </p>
-                    <StatusBadge status={booking.status} />
-                  </div>
-                  {/* Row 2: Booking ID */}
-                  <p className="text-[10px] text-muted-foreground mb-2">{booking.bookingId}</p>
-                  {/* Row 3: Dates + Amount */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <CalendarDays className="h-3 w-3 shrink-0" />
-                      <span>{formatShortDate(booking.checkIn)} – {formatShortDate(booking.checkOut)}</span>
+                <Link key={booking.id} href="/admin/bookings">
+                  <div
+                    className="bg-white rounded-2xl shadow-sm border px-4 py-3 active:scale-95 transition-transform cursor-pointer"
+                    data-testid={`mobile-booking-card-${booking.id}`}
+                  >
+                    {/* Row 1: Name + Status */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-sm font-semibold text-gray-900 truncate" data-testid={`mobile-guest-${booking.id}`}>
+                        {booking.guestName} {booking.guestLastName}
+                      </p>
+                      <StatusBadge status={booking.status} />
                     </div>
-                    <div className="flex items-center gap-1 text-sm font-bold text-gray-900">
-                      <IndianRupee className="h-3 w-3 text-gray-500" />
-                      <span data-testid={`mobile-amount-${booking.id}`}>
-                        {parseFloat(booking.totalAmount || "0").toLocaleString("en-IN")}
-                      </span>
+                    {/* Row 2: Booking ID */}
+                    <p className="text-[10px] text-muted-foreground mb-2">{booking.bookingId}</p>
+                    {/* Row 3: Dates + Amount */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        <span>{formatShortDate(booking.checkIn)} – {formatShortDate(booking.checkOut)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm font-bold text-gray-900">
+                        <IndianRupee className="h-3 w-3 text-gray-500" />
+                        <span data-testid={`mobile-amount-${booking.id}`}>
+                          {parseFloat(booking.totalAmount || "0").toLocaleString("en-IN")}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -271,18 +279,20 @@ export default function AdminDashboard() {
             <>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {desktopStats.map((stat, index) => (
-                  <Card key={index} className="shadow-sm" data-testid={`stat-card-${index}`}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        {stat.title}
-                      </CardTitle>
-                      <stat.icon className="h-4 w-4 text-secondary" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold" data-testid={`stat-value-${index}`}>{stat.value}</div>
-                      <p className="text-xs text-muted-foreground mt-1">No prior data</p>
-                    </CardContent>
-                  </Card>
+                  <Link key={index} href={stat.href}>
+                    <Card className="shadow-sm cursor-pointer hover:shadow-md hover:border-primary/30 transition-all" data-testid={`stat-card-${index}`}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                          {stat.title}
+                        </CardTitle>
+                        <stat.icon className="h-4 w-4 text-secondary" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold" data-testid={`stat-value-${index}`}>{stat.value}</div>
+                        <p className="text-xs text-muted-foreground mt-1">No prior data</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
 
@@ -297,16 +307,21 @@ export default function AdminDashboard() {
                     ) : (
                       <div className="space-y-4">
                         {recentBookings.map((booking) => (
-                          <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0" data-testid={`row-booking-${booking.id}`}>
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium leading-none" data-testid={`text-guest-${booking.id}`}>{booking.guestName} {booking.guestLastName}</p>
-                              <p className="text-xs text-muted-foreground">{booking.bookingId} · {booking.checkIn} to {booking.checkOut}</p>
+                          <Link key={booking.id} href="/admin/bookings">
+                            <div className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-pointer hover:bg-muted/40 rounded-md px-2 -mx-2 transition-colors" data-testid={`row-booking-${booking.id}`}>
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium leading-none" data-testid={`text-guest-${booking.id}`}>{booking.guestName} {booking.guestLastName}</p>
+                                <p className="text-xs text-muted-foreground">{booking.bookingId} · {booking.checkIn} to {booking.checkOut}</p>
+                              </div>
+                              <div className="text-right flex items-center gap-2">
+                                <div>
+                                  <p className="text-sm font-medium" data-testid={`text-amount-${booking.id}`}>{formatCurrency(parseFloat(booking.totalAmount || "0"))}</p>
+                                  <p className="text-xs text-muted-foreground">{booking.status}</p>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-medium" data-testid={`text-amount-${booking.id}`}>{formatCurrency(parseFloat(booking.totalAmount || "0"))}</p>
-                              <p className="text-xs text-muted-foreground">{booking.status}</p>
-                            </div>
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     )}
