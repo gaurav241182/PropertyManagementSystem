@@ -1,0 +1,83 @@
+Enhance the mobile view of the Bookings & Reservations page by redesigning the booking card into a modern, global-standard compact UI.
+The goal is to keep all existing information but improve readability, spacing, and usability on small screens by using icons, hierarchy, and clean layout.
+
+1. Card Layout Redesign (Mobile First)
+Redesign each booking card into a 3-section structure:
+Header Section
+Display:
+Guest Name (bold, prominent)
+Booking ID (small, secondary text)
+Status badge (e.g., Checked In / Booked / Checked Out)
+Example:
+[👤 Hellow] [Checked In]
+BK-018811-6
+
+Info Section (Compact with Icons)
+Replace full text labels with icons + short values.
+Display in 2-column grid:
+🏨 Room: 101
+🛏 Type: Garden Villa
+📅 Bkdt: 15 Mar, 02:23 AM
+📅 In: 20 Mar, 02:23 AM
+📅 Out: 21 Mar
+Use:
+Short date format
+Compact time format
+
+Financial Section
+Display balance clearly:
+💰 Balance: ₹95,000 (highlighted in bold/color)
+Also show booking type:
+Tag: Direct / OTA
+
+2. Action Buttons (Mobile Optimized)
+Replace current large buttons with icon-based actions.
+Actions:
+👁 View
+➕ Add Charge
+🚪 Check Out
+🔄 Revert
+🗑 Delete
+Design:
+Use icon buttons (rounded)
+Keep max 3 primary actions visible
+Move secondary actions into a "More (⋮)" menu
+Example:
+[👁] [➕] [🚪] [⋮]
+
+3. Visual Improvements
+Add subtle card shadow and rounded corners
+Maintain proper padding (minimum 12–16px)
+Use color coding:
+Green → Checked In
+Blue → Booked
+Gray → Checked Out
+Ensure text truncation for long names
+
+4. Responsive Behavior
+This design should apply only for mobile view (sm screens)
+Desktop view should remain unchanged
+Use Tailwind responsive classes (e.g., md:hidden, block md:hidden)
+
+5. Reusable Component
+Create a reusable component
+Props:
+booking object
+action handlers
+Ensure it is clean, reusable, and consistent across the app.
+
+6. Accessibility & UX
+Ensure touch targets are at least 40px
+Use tooltips for icons (on long press or hover)
+Maintain readable font sizes (min 14px)
+
+7. Keep Existing Data Intact
+Do NOT remove any existing data.
+Only improve:
+layout
+visual hierarchy
+mobile usability
+
+Goal
+Create a clean, modern, and intuitive booking card UI similar to global apps like Airbnb / Booking.com mobile interfaces, optimized for hotel staff quick usage.
+

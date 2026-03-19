@@ -46,13 +46,18 @@ import {
   Clock,
   ShieldAlert,
   Tags,
-  Archive
+  Archive,
+  MoreVertical,
+  BedDouble,
+  Building2,
+  Wallet
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useHotelSettings } from "@/hooks/use-hotel-settings";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { differenceInYears, parseISO } from "date-fns";
 
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
@@ -1673,47 +1678,84 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                   }
                   const totals = calculateTotals(booking, cardDiscount);
                   return (
-                    <div key={booking.id} className="border rounded-lg p-3 space-y-2" data-testid={`card-booking-${booking.id}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium text-sm truncate">{booking.guest}</div>
-                          <div className="text-xs text-muted-foreground">{booking.bookingId}</div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Badge variant="secondary" className={`font-medium text-[10px] px-1.5 py-0.5 ${booking.status === "Checked In" ? "bg-green-100 text-green-700" : booking.status === "Checked Out" ? "bg-gray-100 text-gray-500" : ""}`}>
-                            {booking.status}
-                          </Badge>
-                          {booking.status === "Checked Out" && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 font-medium">
-                              Paid
+                    <div key={booking.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden" data-testid={`card-booking-${booking.id}`}>
+
+                      {/* ── Header ── */}
+                      <div className={`px-4 pt-3 pb-2.5 ${booking.status === "Checked In" ? "bg-green-50 border-b border-green-100" : booking.status === "Checked Out" ? "bg-gray-50 border-b border-gray-100" : "bg-blue-50 border-b border-blue-100"}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-bold text-base truncate flex items-center gap-1.5">
+                              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span className="truncate">{booking.guest}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5 pl-5">{booking.bookingId}</div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <Badge variant="outline" className={`text-[11px] px-2 py-0.5 font-semibold ${
+                              booking.status === "Checked In" ? "bg-green-100 text-green-700 border-green-200" :
+                              booking.status === "Checked Out" ? "bg-gray-200 text-gray-600 border-gray-300" :
+                              "bg-blue-100 text-blue-700 border-blue-200"
+                            }`}>
+                              {booking.status}
                             </Badge>
-                          )}
+                            {booking.status === "Checked Out" && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">Paid</Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1 text-xs">
-                        <div><span className="text-muted-foreground">Room:</span> {booking.room}</div>
-                        <div className="truncate"><span className="text-muted-foreground">Type:</span> {booking.type}</div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground">In:</span> {booking.checkIn}
+
+                      {/* ── Info Grid ── */}
+                      <div className="px-4 py-3 grid grid-cols-2 gap-y-2.5 gap-x-3 text-sm">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-muted-foreground text-xs shrink-0">Room</span>
+                          <span className="font-semibold text-xs truncate">{booking.room}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <BedDouble className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs truncate text-muted-foreground">{booking.type}</span>
+                        </div>
+                        {booking.createdAt && (
+                          <div className="flex items-center gap-1.5 min-w-0 col-span-2">
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground text-xs shrink-0">Bkdt:</span>
+                            <span className="text-xs truncate">{formatDateTime(booking.createdAt)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Calendar className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                          <span className="text-muted-foreground text-xs shrink-0">In:</span>
+                          <span className="font-medium text-xs">{booking.checkIn}</span>
                           {booking.checkedInAt && (
-                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedInAt)}</span>
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 shrink-0">
+                              <Clock className="h-2.5 w-2.5" />{formatTime(booking.checkedInAt)}
+                            </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground">Out:</span> {booking.checkOut}
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-muted-foreground text-xs shrink-0">Out:</span>
+                          <span className="font-medium text-xs">{booking.checkOut}</span>
                           {booking.checkedOutAt && (
-                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedOutAt)}</span>
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5 shrink-0">
+                              <Clock className="h-2.5 w-2.5" />{formatTime(booking.checkedOutAt)}
+                            </span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
+
+                      {/* ── Financial Row ── */}
+                      <div className="px-4 py-2 border-t flex items-center justify-between gap-2 bg-muted/20">
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition-colors" data-testid={`button-balance-mobile-${booking.id}`}>
-                              <span className="text-muted-foreground">Balance:</span> <span className="font-medium text-blue-600 underline decoration-dotted underline-offset-2">{cs}{totals.due.toFixed(2)}</span>
+                            <button className="flex items-center gap-1.5 cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors" data-testid={`button-balance-mobile-${booking.id}`}>
+                              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Balance:</span>
+                              <span className={`font-bold text-sm ${totals.due > 0 ? "text-red-600" : "text-green-600"}`}>{cs}{totals.due.toFixed(2)}</span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-72 p-0" align="start" side="bottom">
+                          <PopoverContent className="w-72 p-0" align="start" side="top">
                             <div className="p-2.5 border-b bg-muted/30">
                               <p className="font-semibold text-xs">Balance Breakdown</p>
                               <p className="text-[10px] text-muted-foreground">{booking.bookingId} — {booking.guest}</p>
@@ -1767,65 +1809,94 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             </div>
                           </PopoverContent>
                         </Popover>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">{booking.source}</Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 shrink-0">{booking.source}</Badge>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 pt-1.5 border-t">
-                        <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2" onClick={() => openViewDialog(booking)}>
-                          <Eye className="h-3 w-3 mr-1" /> View
+
+                      {/* ── Action Buttons ── */}
+                      <div className="px-3 pb-3 pt-2.5 flex items-center gap-1.5">
+                        <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted" onClick={() => openViewDialog(booking)} title="View / Edit" data-testid={`button-view-mobile-${booking.id}`}>
+                          <Eye className="h-4 w-4" />
                         </Button>
+
                         {booking.status === "Confirmed" && (
-                          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 border-green-200 text-green-700" onClick={() => handleCheckIn(booking)}>
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Check In
+                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-green-600 hover:bg-green-50" onClick={() => handleCheckIn(booking)} title="Check In" data-testid={`button-checkin-mobile-${booking.id}`}>
+                            <CheckCircle2 className="h-4 w-4" />
                           </Button>
                         )}
+
                         {booking.status === "Checked In" && (
                           <>
-                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openChargeDialog(booking.bookingId)}>
-                              <Plus className="h-3 w-3 mr-1" /> Charge
+                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-muted-foreground hover:bg-muted" onClick={() => openChargeDialog(booking.bookingId)} title="Add Charge" data-testid={`button-charge-mobile-${booking.id}`}>
+                              <Plus className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
-                              <LogOut className="h-3 w-3 mr-1" /> Out
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => openReversalDialog(booking, "revert_booked")}>
-                              <Undo2 className="h-3 w-3 mr-1" /> Revert
+                            <Button size="icon" className="h-10 w-10 rounded-xl" onClick={() => openCheckoutDialog(booking)} title="Check Out" data-testid={`button-checkout-mobile-${booking.id}`}>
+                              <LogOut className="h-4 w-4" />
                             </Button>
                           </>
                         )}
+
                         {booking.status === "Checked Out" && (
-                          <>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-red-600" onClick={() => openReversalDialog(booking, "payment")}>
-                              <BadgeDollarSign className="h-3 w-3 mr-1" /> Reverse Pay
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-orange-600" onClick={() => openReversalDialog(booking, "checkout")}>
-                              <RotateCcw className="h-3 w-3 mr-1" /> Undo Out
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-6 text-[11px] px-2" onClick={() => openCheckoutDialog(booking)}>
-                              <FileCheck className="h-3 w-3 mr-1" /> Invoice
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 text-gray-500" onClick={() => archiveBookingMutation.mutate(booking.id)} title="Archive this booking" data-testid={`button-archive-${booking.id}`}>
-                              <Archive className="h-3 w-3 mr-1" /> Archive
-                            </Button>
-                          </>
+                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-muted-foreground hover:bg-muted" onClick={() => openCheckoutDialog(booking)} title="View Invoice" data-testid={`button-invoice-mobile-${booking.id}`}>
+                            <FileCheck className="h-4 w-4" />
+                          </Button>
                         )}
-                        {role === "owner" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Reservation?</AlertDialogTitle>
-                                <AlertDialogDescription>This will permanently remove the booking for {booking.guest}.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteBooking(booking)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-muted-foreground hover:bg-muted ml-auto" data-testid={`button-more-mobile-${booking.id}`}>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onClick={() => openViewDialog(booking)}>
+                              <Eye className="h-3.5 w-3.5 mr-2" /> View / Edit
+                            </DropdownMenuItem>
+
+                            {booking.status === "Checked In" && (
+                              <DropdownMenuItem onClick={() => openReversalDialog(booking, "revert_booked")} className="text-orange-600">
+                                <Undo2 className="h-3.5 w-3.5 mr-2" /> Revert to Booked
+                              </DropdownMenuItem>
+                            )}
+
+                            {booking.status === "Checked Out" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openReversalDialog(booking, "checkout")} className="text-orange-600">
+                                  <RotateCcw className="h-3.5 w-3.5 mr-2" /> Undo Checkout
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openReversalDialog(booking, "payment")} className="text-red-600">
+                                  <BadgeDollarSign className="h-3.5 w-3.5 mr-2" /> Reverse Payment
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => archiveBookingMutation.mutate(booking.id)} className="text-gray-500" data-testid={`button-archive-${booking.id}`}>
+                                  <Archive className="h-3.5 w-3.5 mr-2" /> Archive
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
+                            {role === "owner" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-500 focus:text-red-500" disabled={booking.status === "Checked In" || booking.status === "Checked Out"}>
+                                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Reservation?</AlertDialogTitle>
+                                      <AlertDialogDescription>This will permanently remove the booking for {booking.guest}.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteBooking(booking)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   );
