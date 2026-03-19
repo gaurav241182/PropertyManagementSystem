@@ -1157,7 +1157,26 @@ export async function registerRoutes(
       const skipped: number[] = [];
       for (const entry of staffSalaries) {
         const { staffId, netPay, bonus, welfareContribution } = entry;
-        if (existingSalaries.find((s: any) => s.staffId === staffId)) {
+        const existingSalary = existingSalaries.find((s: any) => s.staffId === staffId);
+        if (existingSalary) {
+          // If existing salary is still pending and advance column is stale (0 but active advances exist),
+          // recalculate and patch advanceAmount + instalmentDeduction so the display is always correct.
+          if (existingSalary.status === "Pending") {
+            const activeAdvances = await storage.getActiveStaffAdvances(staffId);
+            if (activeAdvances.length > 0) {
+              let totalInst = 0;
+              let totalBal = 0;
+              for (const adv of activeAdvances) {
+                totalInst += Number(adv.instalmentAmount) || 0;
+                totalBal += Number(adv.remainingBalance) || 0;
+              }
+              const newAdvanceAmount = Math.max(0, totalBal - totalInst);
+              await storage.updateSalary(existingSalary.id, {
+                advanceAmount: String(newAdvanceAmount),
+                instalmentDeduction: String(totalInst),
+              } as any);
+            }
+          }
           skipped.push(staffId);
           continue;
         }
