@@ -156,16 +156,20 @@ export default function AdminSettings() {
       return { enabled: false, firstYearAmount: 1000, afterFirstYearAmount: 1500, contributionType: "Fixed" };
     }
   })();
-  const [localWelfareAmounts, setLocalWelfareAmounts] = useState({
+  const [localWelfareSettings, setLocalWelfareSettings] = useState({
+    enabled: welfareSettings.enabled,
+    contributionType: welfareSettings.contributionType,
     firstYearAmount: welfareSettings.firstYearAmount,
     afterFirstYearAmount: welfareSettings.afterFirstYearAmount,
   });
   useEffect(() => {
-    setLocalWelfareAmounts({
+    setLocalWelfareSettings({
+      enabled: welfareSettings.enabled,
+      contributionType: welfareSettings.contributionType,
       firstYearAmount: welfareSettings.firstYearAmount,
       afterFirstYearAmount: welfareSettings.afterFirstYearAmount,
     });
-  }, [welfareSettings.firstYearAmount, welfareSettings.afterFirstYearAmount]);
+  }, [welfareSettings.enabled, welfareSettings.contributionType, welfareSettings.firstYearAmount, welfareSettings.afterFirstYearAmount]);
 
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [newCategoryType, setNewCategoryType] = useState("");
@@ -2183,19 +2187,19 @@ export default function AdminSettings() {
                        <p className="text-sm text-muted-foreground">Configure owner's contribution to employee welfare fund.</p>
                      </div>
                      <Switch 
-                        checked={welfareSettings.enabled}
-                        onCheckedChange={(checked) => handleSaveWelfareSettings({...welfareSettings, enabled: checked})}
+                        checked={localWelfareSettings.enabled}
+                        onCheckedChange={(checked) => setLocalWelfareSettings(prev => ({ ...prev, enabled: checked }))}
                      />
                    </div>
                    
-                   {welfareSettings.enabled && (
+                   {localWelfareSettings.enabled && (
                      <div className="grid gap-6 border p-4 rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                            <div className="space-y-2">
                              <Label>Contribution Type</Label>
                              <Select 
-                               value={welfareSettings.contributionType}
-                               onValueChange={(val) => handleSaveWelfareSettings({...welfareSettings, contributionType: val})}
+                               value={localWelfareSettings.contributionType}
+                               onValueChange={(val) => setLocalWelfareSettings(prev => ({ ...prev, contributionType: val }))}
                              >
                                <SelectTrigger>
                                  <SelectValue />
@@ -2212,13 +2216,12 @@ export default function AdminSettings() {
                            <div className="space-y-2">
                               <Label>1st Year Contribution</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{welfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
+                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{localWelfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
                                 <Input 
                                   type="number" 
                                   className="pl-8"
-                                  value={localWelfareAmounts.firstYearAmount}
-                                  onChange={(e) => setLocalWelfareAmounts(prev => ({ ...prev, firstYearAmount: Number(e.target.value) }))}
-                                  onBlur={() => handleSaveWelfareSettings({ ...welfareSettings, ...localWelfareAmounts })}
+                                  value={localWelfareSettings.firstYearAmount}
+                                  onChange={(e) => setLocalWelfareSettings(prev => ({ ...prev, firstYearAmount: Number(e.target.value) }))}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &lt; 1 year tenure.</p>
@@ -2226,13 +2229,12 @@ export default function AdminSettings() {
                            <div className="space-y-2">
                               <Label>After 1 Year Contribution</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{welfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
+                                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">{localWelfareSettings.contributionType === 'Fixed' ? currency : '%'}</span>
                                 <Input 
                                   type="number" 
                                   className="pl-8"
-                                  value={localWelfareAmounts.afterFirstYearAmount}
-                                  onChange={(e) => setLocalWelfareAmounts(prev => ({ ...prev, afterFirstYearAmount: Number(e.target.value) }))}
-                                  onBlur={() => handleSaveWelfareSettings({ ...welfareSettings, ...localWelfareAmounts })}
+                                  value={localWelfareSettings.afterFirstYearAmount}
+                                  onChange={(e) => setLocalWelfareSettings(prev => ({ ...prev, afterFirstYearAmount: Number(e.target.value) }))}
                                 />
                               </div>
                               <p className="text-xs text-muted-foreground">Monthly contribution for employees &gt; 1 year tenure.</p>
@@ -2243,7 +2245,7 @@ export default function AdminSettings() {
                  </div>
 
                  <div className="pt-4 flex justify-end">
-                   <Button onClick={() => handleSaveWelfareSettings(welfareSettings)}>
+                   <Button onClick={() => handleSaveWelfareSettings(localWelfareSettings)}>
                      <Save className="mr-2 h-4 w-4" />
                      Save HR Settings
                    </Button>
