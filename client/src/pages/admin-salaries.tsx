@@ -56,6 +56,10 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       role: staffMember?.role || "Unknown",
       employeeId: staffMember?.employeeId || "-",
       photo: staffMember?.photo || null,
+      staffBasicPay: Number(staffMember?.basicPay) || 0,
+      staffHra: Number(staffMember?.hra) || 0,
+      staffTransport: Number(staffMember?.transport) || 0,
+      staffAllowance: Number(staffMember?.allowance) || 0,
       netPayNum: netPay,
       advanceNum: advanceAmount,
       instalmentDeduction,
@@ -289,13 +293,15 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const hasAnyWelfare = filteredSalaries.some(s => s.welfareContrib > 0);
 
   const SalaryBreakdown = ({ salary, side = "bottom" }: { salary: any; side?: "bottom" | "top" }) => {
-    const basicSalary = Number(salary.basicSalary) || 0;
+    const basicPay = salary.staffBasicPay;
+    const hra = salary.staffHra;
+    const transport = salary.staffTransport;
+    const allowance = salary.staffAllowance;
     const bonus = Number(salary.bonus) || 0;
-    const deductions = Number(salary.deductions) || 0;
     const welfare = salary.welfareContrib;
     const emi = salary.instalmentDeduction;
     const advance = salary.advanceNum;
-    const gross = basicSalary + bonus - deductions;
+    const hasComponents = hra > 0 || transport > 0 || allowance > 0 || bonus > 0;
     const hasDeductions = welfare > 0 || emi > 0 || advance > 0;
     return (
       <Popover>
@@ -314,25 +320,37 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
           </div>
           <div className="p-3 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Basic Salary</span>
-              <span className="font-medium">{cs}{basicSalary.toLocaleString()}</span>
+              <span className="text-muted-foreground">Basic Pay</span>
+              <span className="font-medium">{cs}{basicPay.toLocaleString()}</span>
             </div>
+            {hra > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">HRA</span>
+                <span className="font-medium">{cs}{hra.toLocaleString()}</span>
+              </div>
+            )}
+            {transport > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Transport</span>
+                <span className="font-medium">{cs}{transport.toLocaleString()}</span>
+              </div>
+            )}
+            {allowance > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Other Allowance</span>
+                <span className="font-medium">{cs}{allowance.toLocaleString()}</span>
+              </div>
+            )}
             {bonus > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Bonus</span>
                 <span className="font-medium text-green-600">+{cs}{bonus.toLocaleString()}</span>
               </div>
             )}
-            {deductions > 0 && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Deductions</span>
-                <span className="font-medium text-red-600">-{cs}{deductions.toLocaleString()}</span>
-              </div>
-            )}
-            {(bonus > 0 || deductions > 0) && (
+            {hasComponents && (
               <div className="flex justify-between border-t pt-2">
-                <span className="text-muted-foreground">Gross Pay</span>
-                <span className="font-medium">{cs}{gross.toLocaleString()}</span>
+                <span className="text-muted-foreground font-medium">Total Salary</span>
+                <span className="font-semibold">{cs}{salary.netPayNum.toLocaleString()}</span>
               </div>
             )}
             {hasDeductions && (
