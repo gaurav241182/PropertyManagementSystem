@@ -1,0 +1,71 @@
+Enhance the Dashboard page (Hotel Owner view) for mobile devices by redesigning it into a modern, clean, and highly usable PMS dashboard.
+The goal is to improve visual hierarchy, quick insights, and usability for small screens while keeping all existing data.
+
+1. Overall Layout (Mobile First)
+Use a vertical scroll layout
+Add proper spacing between sections (16px+)
+Keep UI minimal and easy to scan
+Use card-based design with rounded corners and soft shadows
+
+2. Top Summary Section (Key Metrics)
+Redesign the top metrics into compact KPI cards with icons.
+Display in 2-column grid:
+💰 Total Revenue
+📅 Bookings
+👥 Active Guests
+📈 Occupancy Rate
+Each card should include:
+Icon (top right or left)
+Title (small text)
+Value (large bold text)
+Optional subtext (e.g., "No prior data")
+Example layout:
+[💰 ₹35,400] [📅 2]
+[👥 1] [📈 0%]
+
+3. Recent Bookings Section
+Redesign as compact booking cards (mobile optimized).
+Each booking card should show:
+Guest Name (bold)
+Booking ID (small)
+Stay dates (short format)
+Amount (right aligned, bold)
+Status badge (e.g., Checked In)
+Use icons instead of text:
+📅 for dates
+💰 for amount
+5. Visual Improvements
+Use color-coded indicators:
+Green → positive / active
+Blue → informational
+Orange → warnings
+Increase font size for key numbers
+Use consistent spacing and alignment
+Avoid long text — keep everything concise
+
+6. Sticky Header Optimization
+Keep header minimal:
+Hotel name/logo
+Menu icon (☰)
+Optional:
+Add small notification icon 🔔
+
+7. Performance Considerations
+Use skeleton loaders for cards
+Optimize rendering for mobile
+Lazy load sections if needed
+
+8. Responsive Behavior
+Apply this layout only for mobile screens
+Keep existing desktop dashboard unchanged
+Use Tailwind responsive classes (md:hidden, grid-cols-2, etc.)
+Goal
+Create a modern mobile dashboard experience similar to global apps like:
+Airbnb Host Dashboard
+Booking.com Extranet
+Modern SaaS admin dashboards
+Focus on:
+Quick insights
+Fast actions
+Clean UI
+Operational efficiency
