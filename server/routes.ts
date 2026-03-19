@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertStaffSchema } from "@shared/schema";
 import { runTaxInvoiceJob, startScheduler, refreshScheduler } from "./tax-invoice-scheduler";
 import { runSalaryGenerationJob, startSalaryScheduler, refreshSalaryScheduler } from "./salary-scheduler";
+import { parseWelfareSettings, computeWelfare } from "./welfare-utils";
 
 function getHotelId(req: Request): number | null {
   return req.session?.user?.hotelId || null;
@@ -674,7 +675,9 @@ export async function registerRoutes(
           netPay = Math.round((totalSalary / daysInMonth) * daysWorked);
         }
         const bonusAmt = Number(data.bonusAmount) || 0;
-        const welfareAmount = data.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+        const allSettings = await storage.getSettings(hotelId);
+        const ws = parseWelfareSettings(allSettings);
+        const welfareAmount = computeWelfare(data, month, ws);
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const dueDateStr = lastDay.toISOString().split('T')[0];
         await storage.createSalary({
@@ -1153,10 +1156,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Month and staffSalaries array are required" });
       }
       const existingSalaries = await storage.getSalariesByMonth(month, hotelId, branchId);
+      const allSettings = await storage.getSettings(hotelId);
+      const wsGen = parseWelfareSettings(allSettings);
       const created: any[] = [];
       const skipped: number[] = [];
       for (const entry of staffSalaries) {
-        const { staffId, netPay, bonus, welfareContribution } = entry;
+        const { staffId, netPay, bonus } = entry;
         const existingSalary = existingSalaries.find((s: any) => s.staffId === staffId);
         if (existingSalary) {
           // If existing salary is still pending and advance column is stale (0 but active advances exist),
@@ -1196,13 +1201,14 @@ export async function registerRoutes(
           if (shouldDeduct) totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
           totalRemainingBalance += Number(adv.remainingBalance) || 0;
         }
+        const welfareContribution = computeWelfare(staffMember, month, wsGen);
         const salary = await storage.createSalary({
           staffId,
           month,
           basicSalary: String(netPay),
           bonus: String(bonus || 0),
           deductions: "0",
-          welfareContribution: String(welfareContribution || 0),
+          welfareContribution: String(welfareContribution),
           netPay: String(Number(netPay) + Number(bonus || 0)),
           advanceAmount: String(totalRemainingBalance),
           instalmentDeduction: String(totalInstalmentDeduction),
@@ -1275,8 +1281,9 @@ export async function registerRoutes(
     } else {
       const totalSalary = Number(staffMember.salary) || 0;
       const bonusAmt = Number(staffMember.bonusAmount) || 0;
-      const basicPay = Number(staffMember.basicPay) || totalSalary;
-      const welfareAmount = staffMember.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+      const allSettings = await storage.getSettings(hotelId);
+      const wsCarry = parseWelfareSettings(allSettings);
+      const welfareAmount = computeWelfare(staffMember, nextMonthStr, wsCarry);
       const totalPay = totalSalary + bonusAmt;
       const lastDayNext = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0);
       if (overflow >= totalPay) {

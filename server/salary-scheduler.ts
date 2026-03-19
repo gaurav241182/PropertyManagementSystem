@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { storage } from "./storage";
+import { parseWelfareSettings, computeWelfare } from "./welfare-utils";
 
 let schedulerTask: cron.ScheduledTask | null = null;
 
@@ -26,6 +27,8 @@ export async function runSalaryGenerationJob(
     const allStaff = await storage.getStaff(hotelId, branchId);
     const activeStaff = allStaff.filter((s: any) => s.status === "active");
     const existingSalaries = await storage.getSalariesByMonth(month, hotelId, branchId);
+    const allSettings = await storage.getSettings(hotelId);
+    const ws = parseWelfareSettings(allSettings);
 
     const generatedList: { staffId: number; name: string; employeeId: string }[] = [];
     const skippedList: { staffId: number; name: string; employeeId: string; reason: string }[] = [];
@@ -55,7 +58,7 @@ export async function runSalaryGenerationJob(
 
       const basicPay = Number(emp.basicPay) || totalSalary;
       const bonusAmt = Number(emp.bonusAmount) || 0;
-      const welfareAmount = emp.welfareEnabled ? Math.round(basicPay * 0.01) : 0;
+      const welfareAmount = computeWelfare(emp, month, ws);
       const [year, mon] = month.split("-").map(Number);
       const lastDay = new Date(year, mon, 0);
       const dueDateStr = lastDay.toISOString().split("T")[0];

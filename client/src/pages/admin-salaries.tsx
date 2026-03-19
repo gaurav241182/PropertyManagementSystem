@@ -40,6 +40,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     const netPay = Number(s.netPay) || 0;
     const advanceAmount = Number(s.advanceAmount) || 0;
     const instalmentDeduction = Number(s.instalmentDeduction) || 0;
+    const welfareContrib = Number(s.welfareContribution) || 0;
     // If an active instalment advance exists, advanceAmount is a carry-forward balance
     // (not a direct deduction), so only instalmentDeduction should reduce pending pay.
     const hasActiveInstalment = staffAdvancesData.some((a: any) => a.staffId === s.staffId && a.status === "Active");
@@ -57,6 +58,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
       netPayNum: netPay,
       advanceNum: advanceAmount,
       instalmentDeduction,
+      welfareContrib,
       pending,
       dueDate,
       paymentDate: s.paidDate || "-",
@@ -259,6 +261,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const totalAdvance = filteredSalaries.reduce((acc, curr) => acc + curr.advanceNum, 0);
 
   const months = Array.from(new Set(salaries.map(s => s.month)));
+  const hasAnyWelfare = filteredSalaries.some(s => s.welfareContrib > 0);
 
   return (
     <AdminLayout role={role}>
@@ -418,6 +421,12 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     <span className="text-muted-foreground">EMI</span>
                     <span className={salary.instalmentDeduction > 0 ? "font-medium text-purple-600" : "text-muted-foreground"}>{cs}{salary.instalmentDeduction.toLocaleString()}</span>
                   </div>
+                  {salary.welfareContrib > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Welfare Fund</span>
+                      <span className="font-medium text-teal-600">{cs}{salary.welfareContrib.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Net Payable</span>
                     <span className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>{cs}{salary.pending.toLocaleString()}</span>
@@ -493,6 +502,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                   <TableHead>Total Salary</TableHead>
                   <TableHead>Advance</TableHead>
                   <TableHead>EMI Deduction</TableHead>
+                  {hasAnyWelfare && <TableHead>Welfare Fund</TableHead>}
                   <TableHead>Net Payable</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Due Date</TableHead>
@@ -535,6 +545,11 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                     <TableCell className={salary.instalmentDeduction > 0 ? "text-purple-600 font-medium" : "text-muted-foreground"}>
                       {cs}{salary.instalmentDeduction.toLocaleString()}
                     </TableCell>
+                    {hasAnyWelfare && (
+                      <TableCell className={salary.welfareContrib > 0 ? "text-teal-600 font-medium" : "text-muted-foreground"}>
+                        {salary.welfareContrib > 0 ? `${cs}${salary.welfareContrib.toLocaleString()}` : "-"}
+                      </TableCell>
+                    )}
                     <TableCell className={`font-medium ${salary.pending > 0 ? "text-amber-600" : "text-green-600"}`}>
                       {cs}{salary.pending.toLocaleString()}
                     </TableCell>
