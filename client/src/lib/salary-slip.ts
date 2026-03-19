@@ -1,31 +1,24 @@
 import jsPDF from "jspdf";
 
 interface SalarySlipData {
-  // Employee
   name: string;
   employeeId: string;
   role: string;
   staffJoinDate: string | null;
-  // Salary period
   month: string;
   status: string;
-  // Earnings
   staffBasicPay: number;
   staffHra: number;
   staffTransport: number;
   staffAllowance: number;
   bonus: number;
   netPayNum: number;
-  // Deductions
   welfareContrib: number;
   instalmentDeduction: number;
   advanceNum: number;
-  // Net payable
   pending: number;
-  // Pro-rate
   proRateDays: number | null;
   totalDaysInMonth: number | null;
-  // Reference
   id: number;
 }
 
@@ -39,73 +32,100 @@ interface HotelInfo {
   branchAddress?: string;
 }
 
+// jsPDF's built-in fonts (Helvetica) only support Latin-1 charset.
+// Currency symbols like ₹ € ¥ etc. are not in Latin-1 and render as garbage.
+// We map them to safe ASCII alternatives.
+const SAFE_SYMBOLS: Record<string, string> = {
+  "₹": "Rs.", "€": "EUR ", "£": "GBP ", "¥": "JPY ", "₩": "KRW ",
+  "₱": "PHP ", "₽": "RUB ", "฿": "THB ", "₫": "VND ", "₪": "ILS ",
+  "Rp": "IDR ", "RM": "MYR ", "د.إ": "AED ",
+};
+function safeCurrency(cs: string): string {
+  if (SAFE_SYMBOLS[cs]) return SAFE_SYMBOLS[cs];
+  // Check if any char is outside Latin-1 range
+  for (let i = 0; i < cs.length; i++) {
+    if (cs.charCodeAt(i) > 255) return cs.slice(0, i) || "";
+  }
+  return cs;
+}
+
+function fmt(n: number, sc: string): string {
+  return `${sc}${n.toLocaleString("en-IN")}`;
+}
+
 function fmtMonth(monthStr: string): string {
   if (!monthStr) return monthStr;
   const [y, m] = monthStr.split("-");
-  const d = new Date(Number(y), Number(m) - 1, 1);
-  return d.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  return new Date(Number(y), Number(m) - 1, 1)
+    .toLocaleString("en-GB", { month: "long", year: "numeric" });
 }
 
 function fmtDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
+  if (!dateStr) return "-";
   const d = new Date(dateStr + "T00:00:00");
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function downloadSalarySlip(salary: SalarySlipData, hotel: HotelInfo, cs: string) {
+  const sc = safeCurrency(cs);
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
+  // ─── Page dimensions ──────────────────────────────────────────────────────
   const pageW = 210;
-  const margin = 14;
-  const contentW = pageW - margin * 2;
-  const col2X = margin + contentW / 2 + 2;
-  const col2W = contentW / 2 - 2;
+  const ML = 14;          // left margin
+  const MR = 14;          // right margin
+  const CW = pageW - ML - MR;  // 182mm content width
 
-  let y = margin;
+  // Column split: 50/50 with a 2mm gap
+  const GAP = 4;
+  const COL = (CW - GAP) / 2;  // ~89mm each
+  const L_LABEL = ML + 3;
+  const L_AMT = ML + COL - 2;                // right-align earnings amount here
+  const R_LABEL = ML + COL + GAP + 1;
+  const R_AMT = ML + CW - 2;                  // right-align deductions amount here
 
   // ─── Colors ──────────────────────────────────────────────────────────────
-  const primary: [number, number, number] = [30, 64, 120];
-  const lightGray: [number, number, number] = [245, 246, 248];
-  const midGray: [number, number, number] = [120, 120, 130];
-  const darkText: [number, number, number] = [20, 20, 30];
-  const green: [number, number, number] = [22, 130, 80];
+  const C_PRIMARY: [number, number, number] = [30, 64, 120];
+  const C_LIGHT: [number, number, number] = [245, 246, 248];
+  const C_MID: [number, number, number] = [120, 120, 130];
+  const C_DARK: [number, number, number] = [20, 20, 30];
+  const C_RED: [number, number, number] = [170, 30, 30];
+
+  let y = 0;
 
   // ─── Header bar ──────────────────────────────────────────────────────────
-  doc.setFillColor(...primary);
-  doc.rect(0, 0, pageW, 22, "F");
+  doc.setFillColor(...C_PRIMARY);
+  doc.rect(0, 0, pageW, 24, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
   doc.setTextColor(255, 255, 255);
-  doc.text(hotel.name.toUpperCase(), margin, 10);
+  doc.text(hotel.name.toUpperCase(), ML, 10);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  const hotelSubLine = [hotel.branchName, hotel.city, hotel.country].filter(Boolean).join(" • ");
-  if (hotelSubLine) doc.text(hotelSubLine, margin, 15.5);
-  if (hotel.ownerPhone) doc.text(`Ph: ${hotel.ownerPhone}`, margin, 19.5);
+  const sub = [hotel.branchName, hotel.city, hotel.country].filter(Boolean).join("  |  ");
+  if (sub) doc.text(sub, ML, 16);
+  if (hotel.ownerPhone) doc.text(`Ph: ${hotel.ownerPhone}`, ML, 21);
 
-  // SALARY SLIP title on right
+  // Right side
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(15);
   doc.setTextColor(255, 255, 255);
-  doc.text("SALARY SLIP", pageW - margin, 11, { align: "right" });
-  doc.setFontSize(8);
+  doc.text("SALARY SLIP", pageW - MR, 10, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.text(fmtMonth(salary.month), pageW - margin, 16.5, { align: "right" });
+  doc.setFontSize(9);
+  doc.text(fmtMonth(salary.month), pageW - MR, 16, { align: "right" });
+  if (hotel.taxId) doc.text(`Tax ID: ${hotel.taxId}`, pageW - MR, 21, { align: "right" });
 
-  if (hotel.taxId) {
-    doc.text(`Tax ID: ${hotel.taxId}`, pageW - margin, 20.5, { align: "right" });
-  }
-
-  y = 26;
+  y = 28;
 
   // ─── Employee info card ───────────────────────────────────────────────────
-  doc.setFillColor(...lightGray);
-  doc.roundedRect(margin, y, contentW, 26, 2, 2, "F");
+  doc.setFillColor(...C_LIGHT);
+  doc.roundedRect(ML, y, CW, 28, 2, 2, "F");
 
-  const infoFields: [string, string][] = [
+  const fields: [string, string][] = [
     ["Employee Name", salary.name],
     ["Employee ID", salary.employeeId],
     ["Designation", salary.role],
@@ -114,74 +134,68 @@ export function downloadSalarySlip(salary: SalarySlipData, hotel: HotelInfo, cs:
     ["Payment Status", salary.status],
   ];
 
-  const cellH = 5.5;
-  const colHalf = contentW / 2;
-  infoFields.forEach((field, i) => {
+  const halfCW = CW / 2;
+  fields.forEach(([label, value], i) => {
     const col = i % 2;
     const row = Math.floor(i / 2);
-    const cellX = margin + col * colHalf + 4;
-    const cellY = y + 4 + row * (cellH + 2);
-
+    const fx = ML + col * halfCW + 5;
+    const fy = y + 5 + row * 8.5;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...midGray);
-    doc.text(field[0], cellX, cellY);
-
+    doc.setFontSize(7);
+    doc.setTextColor(...C_MID);
+    doc.text(label, fx, fy);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
-    doc.setTextColor(...darkText);
-    doc.text(field[1], cellX, cellY + 3.5);
+    doc.setTextColor(...C_DARK);
+    doc.text(value, fx, fy + 3.8);
   });
 
-  y += 30;
+  y += 32;
 
-  // ─── Earnings & Deductions section label ─────────────────────────────────
+  // ─── Section heading ──────────────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.setTextColor(...primary);
-  doc.text("EARNINGS & DEDUCTIONS", margin, y + 4);
-
-  doc.setDrawColor(...primary);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y + 6, margin + contentW, y + 6);
-  y += 9;
+  doc.setTextColor(...C_PRIMARY);
+  doc.text("EARNINGS & DEDUCTIONS", ML, y + 4);
+  doc.setDrawColor(...C_PRIMARY);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y + 6, ML + CW, y + 6);
+  y += 10;
 
   // ─── Column headers ───────────────────────────────────────────────────────
-  doc.setFillColor(...primary);
-  doc.rect(margin, y, contentW / 2 - 1, 7, "F");
-  doc.rect(col2X - 2, y, contentW / 2 + 2, 7, "F");
+  const headerH = 7;
+  doc.setFillColor(...C_PRIMARY);
+  doc.rect(ML, y, COL, headerH, "F");
+  doc.rect(ML + COL + GAP, y, COL, headerH, "F");
 
-  doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.text("EARNINGS", margin + 3, y + 4.8);
-  doc.text("DEDUCTIONS", col2X, y + 4.8);
-  y += 9;
+  doc.setTextColor(255, 255, 255);
+  doc.text("EARNINGS", L_LABEL, y + 4.8);
+  doc.text("DEDUCTIONS", R_LABEL, y + 4.8);
+  y += headerH;
 
-  // ─── Build earnings & deductions rows ────────────────────────────────────
+  // ─── Rows ─────────────────────────────────────────────────────────────────
   const fullSalary = salary.staffBasicPay + salary.staffHra + salary.staffTransport + salary.staffAllowance;
 
-  const proRateDays = salary.proRateDays ?? (() => {
-    if (!salary.staffJoinDate || !salary.month) return null;
+  // Pro-rate detection (with fallback from join date)
+  let proRateDays = salary.proRateDays;
+  let totalDays = salary.totalDaysInMonth;
+  if (!proRateDays && salary.staffJoinDate && salary.month) {
     const jd = new Date(salary.staffJoinDate + "T00:00:00");
     const [yr, mo] = salary.month.split("-").map(Number);
     if (jd.getFullYear() === yr && jd.getMonth() + 1 === mo) {
       const td = new Date(yr, mo, 0).getDate();
       const pd = td - jd.getDate() + 1;
-      if (pd < td && (salary.netPayNum - salary.bonus) < fullSalary) return pd;
+      if (pd < td && (salary.netPayNum - salary.bonus) < fullSalary) {
+        proRateDays = pd;
+        totalDays = td;
+      }
     }
-    return null;
-  })();
-  const totalDays = salary.totalDaysInMonth ?? (() => {
-    if (!proRateDays || !salary.month) return null;
-    const [yr, mo] = salary.month.split("-").map(Number);
-    return new Date(yr, mo, 0).getDate();
-  })();
-  const isProRated = proRateDays !== null && totalDays !== null;
+  }
+  const isProRated = !!(proRateDays && totalDays);
 
-  const earnings: [string, number][] = [
-    ["Basic Pay", salary.staffBasicPay],
-  ];
+  const earnings: [string, number][] = [["Basic Pay", salary.staffBasicPay]];
   if (salary.staffHra > 0) earnings.push(["HRA", salary.staffHra]);
   if (salary.staffTransport > 0) earnings.push(["Transport Allowance", salary.staffTransport]);
   if (salary.staffAllowance > 0) earnings.push(["Other Allowance", salary.staffAllowance]);
@@ -191,119 +205,122 @@ export function downloadSalarySlip(salary: SalarySlipData, hotel: HotelInfo, cs:
   if (salary.welfareContrib > 0) deductions.push(["Welfare Fund", salary.welfareContrib]);
   if (salary.instalmentDeduction > 0) deductions.push(["Advance EMI", salary.instalmentDeduction]);
   else if (salary.advanceNum > 0) deductions.push(["Advance Adjustment", salary.advanceNum]);
+
   const totalDeductions = salary.welfareContrib +
     (salary.instalmentDeduction > 0 ? salary.instalmentDeduction : salary.advanceNum);
 
   const maxRows = Math.max(earnings.length, deductions.length);
-  const rowH = 6.5;
+  const rowH = 7;
 
   for (let i = 0; i < maxRows; i++) {
-    const rowY = y + i * rowH;
-    const bg: [number, number, number] = i % 2 === 0 ? [255, 255, 255] : lightGray;
+    const ry = y + i * rowH;
+    const bg: [number, number, number] = i % 2 === 0 ? [255, 255, 255] : C_LIGHT;
+
     doc.setFillColor(...bg);
-    doc.rect(margin, rowY, contentW / 2 - 1, rowH, "F");
-    doc.rect(col2X - 2, rowY, contentW / 2 + 2, rowH, "F");
+    doc.rect(ML, ry, COL, rowH, "F");
+    doc.rect(ML + COL + GAP, ry, COL, rowH, "F");
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...darkText);
+    doc.setFontSize(8.5);
+    doc.setTextColor(...C_DARK);
 
     if (earnings[i]) {
-      doc.text(earnings[i][0], margin + 3, rowY + 4.3);
-      doc.text(`${cs}${earnings[i][1].toLocaleString()}`, margin + contentW / 2 - 4, rowY + 4.3, { align: "right" });
+      doc.text(earnings[i][0], L_LABEL, ry + rowH * 0.65);
+      doc.text(fmt(earnings[i][1], sc), L_AMT, ry + rowH * 0.65, { align: "right" });
     }
     if (deductions[i]) {
-      doc.text(deductions[i][0], col2X, rowY + 4.3);
-      doc.setTextColor(180, 30, 30);
-      doc.text(`-${cs}${deductions[i][1].toLocaleString()}`, col2X + col2W - 2, rowY + 4.3, { align: "right" });
-      doc.setTextColor(...darkText);
+      doc.text(deductions[i][0], R_LABEL, ry + rowH * 0.65);
+      doc.setTextColor(...C_RED);
+      doc.text(`-${fmt(deductions[i][1], sc)}`, R_AMT, ry + rowH * 0.65, { align: "right" });
+      doc.setTextColor(...C_DARK);
     }
   }
 
   y += maxRows * rowH;
 
   // ─── Totals row ──────────────────────────────────────────────────────────
-  doc.setFillColor(220, 230, 245);
-  doc.rect(margin, y, contentW / 2 - 1, 7.5, "F");
-  doc.rect(col2X - 2, y, contentW / 2 + 2, 7.5, "F");
+  const totH = 8;
+  doc.setFillColor(210, 222, 245);
+  doc.rect(ML, y, COL, totH, "F");
+  doc.rect(ML + COL + GAP, y, COL, totH, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-  doc.setTextColor(...primary);
-  doc.text("Total Earnings", margin + 3, y + 5);
-  doc.text(`${cs}${salary.netPayNum.toLocaleString()}`, margin + contentW / 2 - 4, y + 5, { align: "right" });
+  doc.setTextColor(...C_PRIMARY);
+  doc.text("Total Earnings", L_LABEL, y + totH * 0.65);
+  doc.text(fmt(salary.netPayNum, sc), L_AMT, y + totH * 0.65, { align: "right" });
 
-  doc.text("Total Deductions", col2X, y + 5);
-  doc.setTextColor(180, 30, 30);
-  doc.text(`-${cs}${totalDeductions.toLocaleString()}`, col2X + col2W - 2, y + 5, { align: "right" });
+  doc.text("Total Deductions", R_LABEL, y + totH * 0.65);
+  doc.setTextColor(...C_RED);
+  doc.text(`-${fmt(totalDeductions, sc)}`, R_AMT, y + totH * 0.65, { align: "right" });
 
-  y += 10;
+  y += totH + 5;
 
   // ─── Pro-rate note ────────────────────────────────────────────────────────
-  if (isProRated) {
-    doc.setFillColor(255, 244, 220);
-    doc.roundedRect(margin, y, contentW, 11, 1.5, 1.5, "F");
-    doc.setDrawColor(220, 150, 30);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, contentW, 11, 1.5, 1.5, "S");
+  if (isProRated && proRateDays && totalDays) {
+    doc.setFillColor(255, 244, 210);
+    doc.roundedRect(ML, y, CW, 13, 1.5, 1.5, "F");
+    doc.setDrawColor(200, 140, 20);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(ML, y, CW, 13, 1.5, 1.5, "S");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(150, 90, 0);
-    doc.text("PRO-RATED SALARY (Joining Month)", margin + 4, y + 4.5);
-
+    doc.setTextColor(130, 80, 0);
+    doc.text("PRO-RATED SALARY (Joining Month)", ML + 4, y + 5);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
     doc.text(
-      `${proRateDays} of ${totalDays} days worked  •  Full month salary: ${cs}${fullSalary.toLocaleString()}  •  Pro-rated gross: ${cs}${(salary.netPayNum - salary.bonus).toLocaleString()}`,
-      margin + 4, y + 8.5
+      `${proRateDays} of ${totalDays} days worked   |   Full month: ${fmt(fullSalary, sc)}   |   Pro-rated gross: ${fmt(salary.netPayNum - salary.bonus, sc)}`,
+      ML + 4, y + 10
     );
-    y += 14;
+    y += 17;
   }
 
   // ─── Net Pay box ─────────────────────────────────────────────────────────
-  doc.setFillColor(...primary);
-  doc.roundedRect(margin, y, contentW, 16, 2, 2, "F");
+  const npH = 18;
+  doc.setFillColor(...C_PRIMARY);
+  doc.roundedRect(ML, y, CW, npH, 2, 2, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(200, 215, 240);
-  doc.text("NET PAY (TAKE HOME)", margin + 6, y + 7);
+  doc.setTextColor(185, 205, 235);
+  doc.text("NET PAY (TAKE HOME)", ML + 6, y + 7);
 
-  doc.setFontSize(16);
+  // Net pay amount — right-aligned within the box with safe margin
+  const netPayStr = fmt(salary.pending, sc);
+  doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${cs}${salary.pending.toLocaleString()}`, pageW - margin - 6, y + 10, { align: "right" });
+  doc.text(netPayStr, ML + CW - 6, y + 12, { align: "right" });
 
-  doc.setFontSize(8);
+  // Summary line
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 200, 235);
-  const deductSummary = totalDeductions > 0 ? `Total Earnings ${cs}${salary.netPayNum.toLocaleString()}  −  Deductions ${cs}${totalDeductions.toLocaleString()}` : `Total Earnings ${cs}${salary.netPayNum.toLocaleString()}`;
-  doc.text(deductSummary, margin + 6, y + 13);
+  doc.setFontSize(7.5);
+  doc.setTextColor(165, 190, 225);
+  const summaryLine = totalDeductions > 0
+    ? `Earnings ${fmt(salary.netPayNum, sc)}  -  Deductions ${fmt(totalDeductions, sc)}`
+    : `Total Earnings ${fmt(salary.netPayNum, sc)}`;
+  doc.text(summaryLine, ML + 6, y + 14);
 
-  y += 20;
+  y += npH + 6;
 
   // ─── Footer ───────────────────────────────────────────────────────────────
-  doc.setDrawColor(...midGray);
+  doc.setDrawColor(...C_MID);
   doc.setLineWidth(0.2);
-  doc.line(margin, y, margin + contentW, y);
+  doc.line(ML, y, ML + CW, y);
   y += 5;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
-  doc.setTextColor(...midGray);
-  doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, margin, y);
-  doc.text("This is a computer generated document and does not require a physical signature.", pageW / 2, y, { align: "center" });
+  doc.setTextColor(...C_MID);
+  doc.text(`Generated on: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`, ML, y);
+  doc.text("This is a computer-generated document and does not require a physical signature.", pageW / 2, y, { align: "center" });
 
-  // Signature area
   y += 14;
   doc.setLineWidth(0.3);
-  doc.setDrawColor(...midGray);
-  doc.line(pageW - margin - 45, y, pageW - margin, y);
+  doc.setDrawColor(...C_MID);
+  doc.line(ML + CW - 50, y, ML + CW, y);
   doc.setFontSize(7.5);
-  doc.setTextColor(...midGray);
-  doc.text("Authorised Signatory", pageW - margin - 45, y + 4);
+  doc.text("Authorised Signatory", ML + CW - 50, y + 4);
 
-  // ─── Save ─────────────────────────────────────────────────────────────────
-  const fileName = `SalarySlip_${salary.employeeId}_${salary.month}.pdf`;
-  doc.save(fileName);
+  doc.save(`SalarySlip_${salary.employeeId}_${salary.month}.pdf`);
 }
