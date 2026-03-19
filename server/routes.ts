@@ -1279,6 +1279,32 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.post("/api/salaries/bonus", async (req, res) => {
+    try {
+      const { salaryIds, bonusType, bonusValue } = req.body;
+      if (!Array.isArray(salaryIds) || salaryIds.length === 0) return res.status(400).json({ message: "No salary records selected" });
+      if (!["Fixed", "Percentage"].includes(bonusType)) return res.status(400).json({ message: "Invalid bonus type" });
+      const value = Number(bonusValue);
+      if (!value || value <= 0) return res.status(400).json({ message: "Invalid bonus value" });
+      const branchId = await getBranchIdValidated(req);
+      const results = [];
+      for (const salaryId of salaryIds) {
+        const record = await storage.getSalary(Number(salaryId));
+        if (!record) continue;
+        if (!checkRecordScope(record, req, res, branchId)) return;
+        const basicSalary = Number(record.basicSalary) || 0;
+        const bonusAmt = bonusType === "Percentage" ? Math.round(basicSalary * value / 100) : Math.round(value);
+        const newBonus = Number(record.bonus || 0) + bonusAmt;
+        const newNetPay = Number(record.netPay || 0) + bonusAmt;
+        const updated = await storage.updateSalary(Number(salaryId), { bonus: String(newBonus), netPay: String(newNetPay) });
+        results.push(updated);
+      }
+      res.json({ success: true, updated: results.length });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to apply bonus" });
+    }
+  });
+
   async function carryForwardOverflow(salary: any, overflow: number, req: any, branchId: any) {
     if (overflow <= 0) return;
     const hotelId = getHotelId(req);

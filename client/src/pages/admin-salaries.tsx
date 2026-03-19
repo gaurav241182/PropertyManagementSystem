@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown } from "lucide-react";
+import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown, Gift, ChevronRight, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -78,6 +78,29 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const [useInstalments, setUseInstalments] = useState(false);
   const [numberOfInstalments, setNumberOfInstalments] = useState("");
   const [instalmentStartMonth, setInstalmentStartMonth] = useState("");
+
+  const [bonusDialogOpen, setBonusDialogOpen] = useState(false);
+  const [bonusStep, setBonusStep] = useState<1 | 2>(1);
+  const [bonusType, setBonusType] = useState<"Fixed" | "Percentage">("Fixed");
+  const [bonusValue, setBonusValue] = useState("");
+  const [bonusMonth, setBonusMonth] = useState("");
+  const [bonusSalaryIds, setBonusSalaryIds] = useState<number[]>([]);
+
+  const bonusMutation = useMutation({
+    mutationFn: (payload: { salaryIds: number[]; bonusType: string; bonusValue: number }) =>
+      apiRequest("POST", "/api/salaries/bonus", payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({ title: "Bonus Applied", description: `Bonus successfully added to ${bonusSalaryIds.length} employee${bonusSalaryIds.length !== 1 ? "s" : ""}.` });
+      setBonusDialogOpen(false);
+      setBonusStep(1);
+      setBonusValue("");
+      setBonusSalaryIds([]);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to apply bonus", variant: "destructive" });
+    },
+  });
 
   const updateSalaryMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/salaries/${id}`, data),
@@ -319,6 +342,23 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                   <SelectItem value="dueDate">Due Date</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                title="Generate Bonus"
+                onClick={() => {
+                  const currentMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+                  setBonusMonth(currentMonthStr);
+                  setBonusStep(1);
+                  setBonusType("Fixed");
+                  setBonusValue("");
+                  setBonusSalaryIds([]);
+                  setBonusDialogOpen(true);
+                }}
+                data-testid="button-generate-bonus"
+              >
+                <Gift className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -809,6 +849,188 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
               {useInstalments ? "Create Advance with Instalments" : "Record Advance"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== BONUS GENERATION DIALOG ===== */}
+      <Dialog open={bonusDialogOpen} onOpenChange={(open) => { if (!open) { setBonusDialogOpen(false); setBonusStep(1); } }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gift className="h-5 w-5 text-primary" />
+              {bonusStep === 1 ? "Generate Bonus" : "Select Employees"}
+            </DialogTitle>
+            <DialogDescription>
+              {bonusStep === 1
+                ? "Configure the bonus type, amount, and target month."
+                : "Choose which employees receive this bonus and confirm."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {bonusStep === 1 ? (
+            <div className="space-y-5 py-2">
+              <div className="space-y-2">
+                <Label>Target Month</Label>
+                <Input
+                  type="month"
+                  value={bonusMonth}
+                  onChange={e => setBonusMonth(e.target.value)}
+                  data-testid="input-bonus-month"
+                />
+                {bonusMonth && salaries.filter(s => s.month === bonusMonth).length === 0 && (
+                  <p className="text-xs text-amber-600">No salary records found for this month.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Bonus Type</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBonusType("Fixed")}
+                    className={`border rounded-lg p-4 text-left transition-all ${bonusType === "Fixed" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50"}`}
+                    data-testid="button-bonus-type-fixed"
+                  >
+                    <div className="font-semibold text-sm">Fixed Amount</div>
+                    <div className="text-xs text-muted-foreground mt-1">Same amount for every selected employee</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBonusType("Percentage")}
+                    className={`border rounded-lg p-4 text-left transition-all ${bonusType === "Percentage" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/50"}`}
+                    data-testid="button-bonus-type-percentage"
+                  >
+                    <div className="font-semibold text-sm">Percentage</div>
+                    <div className="text-xs text-muted-foreground mt-1">% of their total salary (varies per person)</div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{bonusType === "Fixed" ? `Bonus Amount (${cs})` : "Bonus Percentage (%)"}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step={bonusType === "Percentage" ? "0.1" : "1"}
+                  placeholder={bonusType === "Fixed" ? "e.g. 5000" : "e.g. 10"}
+                  value={bonusValue}
+                  onChange={e => setBonusValue(e.target.value)}
+                  data-testid="input-bonus-value"
+                />
+                {bonusType === "Percentage" && bonusValue && (
+                  <p className="text-xs text-muted-foreground">{bonusValue}% of each employee's total salary will be added as bonus.</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setBonusDialogOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={() => {
+                    const v = Number(bonusValue);
+                    if (!bonusMonth) { toast({ title: "Select a month", variant: "destructive" }); return; }
+                    if (!v || v <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+                    const monthSalaries = salaries.filter(s => s.month === bonusMonth);
+                    if (monthSalaries.length === 0) { toast({ title: "No salary records", description: "No employees have a salary record for this month.", variant: "destructive" }); return; }
+                    setBonusSalaryIds(monthSalaries.map(s => s.id));
+                    setBonusStep(2);
+                  }}
+                  data-testid="button-bonus-continue"
+                >
+                  Continue <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            (() => {
+              const monthSalaries = salaries.filter(s => s.month === bonusMonth);
+              const v = Number(bonusValue);
+              const allSelected = bonusSalaryIds.length === monthSalaries.length;
+              const totalBonus = monthSalaries
+                .filter(s => bonusSalaryIds.includes(s.id))
+                .reduce((sum, s) => sum + (bonusType === "Percentage" ? Math.round(s.netPayNum * v / 100) : Math.round(v)), 0);
+
+              return (
+                <div className="space-y-4 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      {bonusSalaryIds.length} of {monthSalaries.length} employees selected
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline underline-offset-2"
+                      onClick={() => {
+                        if (allSelected) setBonusSalaryIds([]);
+                        else setBonusSalaryIds(monthSalaries.map(s => s.id));
+                      }}
+                      data-testid="button-bonus-select-all"
+                    >
+                      {allSelected ? "Deselect All" : "Select All"}
+                    </button>
+                  </div>
+
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="w-10 p-3"></th>
+                          <th className="p-3 text-left font-medium">Employee</th>
+                          <th className="p-3 text-right font-medium">Salary</th>
+                          <th className="p-3 text-right font-medium text-green-700">Bonus</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthSalaries.map((s, idx) => {
+                          const bonusAmt = bonusType === "Percentage" ? Math.round(s.netPayNum * v / 100) : Math.round(v);
+                          const isSelected = bonusSalaryIds.includes(s.id);
+                          return (
+                            <tr key={s.id} className={`border-t transition-colors ${isSelected ? "bg-green-50/40" : "opacity-50"}`}>
+                              <td className="p-3">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setBonusSalaryIds(prev => [...prev, s.id]);
+                                    else setBonusSalaryIds(prev => prev.filter(id => id !== s.id));
+                                  }}
+                                  data-testid={`checkbox-bonus-employee-${s.staffId}`}
+                                />
+                              </td>
+                              <td className="p-3">
+                                <div className="font-medium">{s.name}</div>
+                                <div className="text-xs text-muted-foreground">{s.role}</div>
+                              </td>
+                              <td className="p-3 text-right">{cs}{s.netPayNum.toLocaleString()}</td>
+                              <td className="p-3 text-right font-semibold text-green-700">+{cs}{bonusAmt.toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {bonusSalaryIds.length > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex justify-between items-center">
+                      <span className="text-sm text-green-800 font-medium">Total Bonus Payout</span>
+                      <span className="text-green-700 font-bold text-lg">{cs}{totalBonus.toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between gap-2 pt-1">
+                    <Button variant="outline" onClick={() => setBonusStep(1)}>Back</Button>
+                    <Button
+                      disabled={bonusSalaryIds.length === 0 || bonusMutation.isPending}
+                      onClick={() => bonusMutation.mutate({ salaryIds: bonusSalaryIds, bonusType, bonusValue: Number(bonusValue) })}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="button-apply-bonus"
+                    >
+                      {bonusMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Apply Bonus to {bonusSalaryIds.length} Employee{bonusSalaryIds.length !== 1 ? "s" : ""}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()
+          )}
         </DialogContent>
       </Dialog>
     </AdminLayout>
