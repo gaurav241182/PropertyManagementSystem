@@ -1170,9 +1170,8 @@ export async function registerRoutes(
                 totalInst += Number(adv.instalmentAmount) || 0;
                 totalBal += Number(adv.remainingBalance) || 0;
               }
-              const newAdvanceAmount = Math.max(0, totalBal - totalInst);
               await storage.updateSalary(existingSalary.id, {
-                advanceAmount: String(newAdvanceAmount),
+                advanceAmount: String(totalBal),
                 instalmentDeduction: String(totalInst),
               } as any);
             }
@@ -1193,8 +1192,6 @@ export async function registerRoutes(
           totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
           totalRemainingBalance += Number(adv.remainingBalance) || 0;
         }
-        const remainingAdvanceAfterDeduction = Math.max(0, totalRemainingBalance - totalInstalmentDeduction);
-
         const salary = await storage.createSalary({
           staffId,
           month,
@@ -1203,7 +1200,7 @@ export async function registerRoutes(
           deductions: "0",
           welfareContribution: String(welfareContribution || 0),
           netPay: String(Number(netPay) + Number(bonus || 0)),
-          advanceAmount: String(remainingAdvanceAfterDeduction),
+          advanceAmount: String(totalRemainingBalance),
           instalmentDeduction: String(totalInstalmentDeduction),
           dueDate: dueDateStr,
           status: "Pending",
@@ -1430,6 +1427,9 @@ export async function registerRoutes(
     const record = await storage.getSalary(Number(req.params.id));
     const branchId = await getBranchIdValidated(req);
     if (!checkRecordScope(record, req, res, branchId)) return;
+    if (record) {
+      await storage.deleteStaffAdvancesByStaffId(record.staffId);
+    }
     await storage.deleteSalary(Number(req.params.id));
     res.status(204).send();
   });

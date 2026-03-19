@@ -439,7 +439,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                   )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" data-testid={`button-delete-salary-m-${salary.id}`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" disabled={salary.status === "Paid"} data-testid={`button-delete-salary-m-${salary.id}`}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -558,7 +558,7 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                         
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" data-testid={`button-delete-salary-${salary.id}`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" disabled={salary.status === "Paid"} data-testid={`button-delete-salary-${salary.id}`}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>

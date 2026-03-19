@@ -67,8 +67,6 @@ export async function runSalaryGenerationJob(
         totalInstalmentDeduction += Number(adv.instalmentAmount) || 0;
         totalRemainingBalance += Number(adv.remainingBalance) || 0;
       }
-      const remainingAdvanceAfterDeduction = Math.max(0, totalRemainingBalance - totalInstalmentDeduction);
-
       await storage.createSalary({
         staffId: emp.id,
         month,
@@ -77,7 +75,7 @@ export async function runSalaryGenerationJob(
         deductions: "0",
         welfareContribution: String(welfareAmount),
         netPay: String(totalSalary + bonusAmt),
-        advanceAmount: String(remainingAdvanceAfterDeduction),
+        advanceAmount: String(totalRemainingBalance),
         instalmentDeduction: String(totalInstalmentDeduction),
         dueDate: dueDateStr,
         status: "Pending",
