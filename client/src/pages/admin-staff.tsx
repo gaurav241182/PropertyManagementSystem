@@ -618,11 +618,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       ) : (
       <div className="space-y-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center justify-between mb-1">
             <h2 className="text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-page-title">Staff Management</h2>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={handleAdd} variant="outline" size="icon" title="Onboard Staff" data-testid="button-onboard-staff">
+                <Button onClick={handleAdd} size="icon" title="Onboard Staff" className="bg-black text-white hover:bg-black/80" data-testid="button-onboard-staff">
                   <UserPlus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -1258,57 +1258,105 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
         </Card>
 
         {inactiveStaff.length > 0 && (
-          <Card className="bg-muted/20 border-dashed">
-            <CardHeader>
-              <CardTitle className="text-muted-foreground flex items-center gap-2">
+          <>
+            {/* Mobile Card View for Inactive Staff */}
+            <div className="md:hidden space-y-3">
+              <h3 className="font-semibold text-base text-muted-foreground px-1 flex items-center gap-2">
                 <Ban className="h-4 w-4" /> Deactivated / Past Employees
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-muted-foreground">Employee</TableHead>
-                    <TableHead className="text-muted-foreground">Role</TableHead>
-                    <TableHead className="text-muted-foreground">Last Salary</TableHead>
-                    <TableHead className="text-muted-foreground">Joined</TableHead>
-                    <TableHead className="text-muted-foreground">Status</TableHead>
-                    <TableHead className="text-right text-muted-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="text-muted-foreground opacity-75">
-                  {inactiveStaff.map((employee) => (
-                    <TableRow key={employee.id} data-testid={`row-inactive-staff-${employee.id}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {employee.photo ? (
-                            <img src={employee.photo} alt="" className="h-8 w-8 rounded-full object-cover grayscale opacity-70" />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-muted opacity-70" />
-                          )}
-                          <span className="font-medium">{employee.name}</span>
+              </h3>
+              {inactiveStaff.map((employee) => {
+                const initials = employee.name
+                  ? employee.name.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase()
+                  : "?";
+                return (
+                  <div
+                    key={employee.id}
+                    data-testid={`card-inactive-staff-${employee.id}`}
+                    className="bg-muted/20 border border-dashed rounded-xl shadow-sm p-4 flex items-start gap-3 opacity-80"
+                  >
+                    <div className="flex-shrink-0">
+                      {employee.photo ? (
+                        <img src={employee.photo} alt="" className="h-11 w-11 rounded-full object-cover grayscale opacity-70" />
+                      ) : (
+                        <div className="h-11 w-11 rounded-full bg-muted text-muted-foreground font-bold flex items-center justify-center text-sm">
+                          {initials}
                         </div>
-                      </TableCell>
-                      <TableCell>{employee.role}</TableCell>
-                      <TableCell>{cs}{employee.salary}</TableCell>
-                      <TableCell>{employee.joined}</TableCell>
-                      <TableCell><Badge variant="secondary">{employee.status}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleActivateStaff(employee.id)}>
-                            <Power className="h-3 w-3 mr-1" /> Activate
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm text-muted-foreground truncate">{employee.name}</span>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">{employee.status}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{employee.role}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{cs}{employee.salary?.toLocaleString()}</div>
+                    </div>
+                    <div className="flex-shrink-0 flex items-center gap-1 ml-1">
+                      <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 text-xs px-2" onClick={() => handleActivateStaff(employee.id)} data-testid={`button-activate-staff-mobile-${employee.id}`}>
+                        <Power className="h-3 w-3 mr-1" /> Activate
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)} data-testid={`button-delete-inactive-staff-mobile-${employee.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View for Inactive Staff */}
+            <Card className="hidden md:block bg-muted/20 border-dashed">
+              <CardHeader>
+                <CardTitle className="text-muted-foreground flex items-center gap-2">
+                  <Ban className="h-4 w-4" /> Deactivated / Past Employees
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-muted-foreground">Employee</TableHead>
+                      <TableHead className="text-muted-foreground">Role</TableHead>
+                      <TableHead className="text-muted-foreground">Last Salary</TableHead>
+                      <TableHead className="text-muted-foreground">Joined</TableHead>
+                      <TableHead className="text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-right text-muted-foreground">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody className="text-muted-foreground opacity-75">
+                    {inactiveStaff.map((employee) => (
+                      <TableRow key={employee.id} data-testid={`row-inactive-staff-${employee.id}`}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {employee.photo ? (
+                              <img src={employee.photo} alt="" className="h-8 w-8 rounded-full object-cover grayscale opacity-70" />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-muted opacity-70" />
+                            )}
+                            <span className="font-medium">{employee.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{employee.role}</TableCell>
+                        <TableCell>{cs}{employee.salary}</TableCell>
+                        <TableCell>{employee.joined}</TableCell>
+                        <TableCell><Badge variant="secondary">{employee.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-8 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800" onClick={() => handleActivateStaff(employee.id)}>
+                              <Power className="h-3 w-3 mr-1" /> Activate
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
       )}
