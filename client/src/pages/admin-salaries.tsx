@@ -45,9 +45,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
     // (not a direct deduction), so only instalmentDeduction should reduce pending pay.
     const hasActiveInstalment = staffAdvancesData.some((a: any) => a.staffId === s.staffId && a.status === "Active");
     const pending = s.status === "Paid" ? 0
-      : instalmentDeduction > 0 ? Math.max(0, netPay - instalmentDeduction)
-      : hasActiveInstalment ? Math.max(0, netPay)
-      : Math.max(0, netPay - advanceAmount);
+      : instalmentDeduction > 0 ? Math.max(0, netPay - instalmentDeduction - welfareContrib)
+      : hasActiveInstalment ? Math.max(0, netPay - welfareContrib)
+      : Math.max(0, netPay - advanceAmount - welfareContrib);
     const dueDate = s.dueDate || getEndOfMonth(s.month);
     return {
       ...s,

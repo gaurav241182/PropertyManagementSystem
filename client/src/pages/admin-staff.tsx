@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut } from "lucide-react";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -259,6 +259,30 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const totalSalary = basicSalary + transport + hra + allowance;
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [settlementStaff, setSettlementStaff] = useState<any>(null);
+  const [settlementOpen, setSettlementOpen] = useState(false);
+  const [lastWorkDay, setLastWorkDay] = useState("");
+
+  const welfareSettingsParsed = (() => {
+    try { return JSON.parse((settingsData as any)?.welfareSettings || '{}'); } catch { return {}; }
+  })();
+  const welfareEnabled = welfareSettingsParsed?.enabled ?? false;
+  const firstYearRate = Number(welfareSettingsParsed?.firstYearAmount) || 0;
+  const afterFirstYearRate = Number(welfareSettingsParsed?.afterFirstYearAmount) || 0;
+
+  const settlementCalc = (() => {
+    if (!settlementStaff || !lastWorkDay) return null;
+    const joinDate = new Date(settlementStaff.joinDate || settlementStaff.joined);
+    const lastDay = new Date(lastWorkDay);
+    if (isNaN(joinDate.getTime()) || isNaN(lastDay.getTime()) || lastDay < joinDate) return null;
+    const totalMonths = (lastDay.getFullYear() - joinDate.getFullYear()) * 12 + (lastDay.getMonth() - joinDate.getMonth());
+    const months = Math.max(0, totalMonths);
+    const rate = months >= 12 ? afterFirstYearRate : firstYearRate;
+    const totalWelfare = months * rate;
+    const totalSalaryAmt = Number(settlementStaff.salary) || 0;
+    return { months, rate, totalWelfare, totalSalaryAmt };
+  })();
 
   useEffect(() => {
     if (dob) {
@@ -1080,6 +1104,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                         <Button variant="ghost" size="icon" title="View Details" onClick={() => handleView(employee)} data-testid={`button-view-staff-${employee.id}`}>
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" title="Final Settlement" className="text-orange-500 hover:text-orange-700 hover:bg-orange-50" onClick={e => { e.stopPropagation(); setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }} data-testid={`button-settlement-staff-${employee.id}`}>
+                          <LogOut className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" title="Deactivate Staff" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeactivateDialog(employee.id, employee.name)}>
                           <Ban className="h-4 w-4" />
                         </Button>
@@ -1293,6 +1320,85 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Final Settlement Dialog */}
+      <Dialog open={settlementOpen} onOpenChange={setSettlementOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-orange-500" />
+              Final Settlement
+            </DialogTitle>
+            <DialogDescription>
+              {settlementStaff ? `${settlementStaff.name} · ${settlementStaff.employeeId}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Last Working Day</Label>
+              <Input
+                type="date"
+                value={lastWorkDay}
+                min={settlementStaff?.joinDate || settlementStaff?.joined || ""}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={e => setLastWorkDay(e.target.value)}
+                data-testid="input-last-work-day"
+              />
+            </div>
+
+            {settlementCalc && (
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                <p className="text-sm font-semibold text-foreground">Settlement Summary</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Join Date</span>
+                    <span>{settlementStaff?.joinDate || settlementStaff?.joined}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last Working Day</span>
+                    <span>{lastWorkDay}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Months Worked</span>
+                    <span className="font-medium">{settlementCalc.months} month{settlementCalc.months !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Monthly Salary</span>
+                    <span>{cs}{Number(settlementStaff?.salary || 0).toLocaleString()}</span>
+                  </div>
+
+                  {welfareEnabled && (
+                    <>
+                      <div className="border-t pt-2 mt-1" />
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Welfare Rate</span>
+                        <span>{settlementCalc.months >= 12 ? "After 1 Year" : "1st Year"} — {cs}{settlementCalc.rate}/month</span>
+                      </div>
+                      <div className="flex justify-between font-medium text-teal-700">
+                        <span>Total Welfare Fund</span>
+                        <span>{cs}{settlementCalc.totalWelfare.toLocaleString()}</span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="border-t pt-2 mt-1" />
+                  <div className="flex justify-between text-base font-bold">
+                    <span>Total Settlement Amount</span>
+                    <span className="text-green-700">{cs}{(settlementCalc.totalWelfare).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!settlementCalc && lastWorkDay && (
+              <p className="text-sm text-destructive">Last working day must be on or after the join date.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettlementOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
