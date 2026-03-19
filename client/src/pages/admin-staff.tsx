@@ -263,6 +263,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [settlementStaff, setSettlementStaff] = useState<any>(null);
   const [settlementOpen, setSettlementOpen] = useState(false);
   const [lastWorkDay, setLastWorkDay] = useState("");
+  const [goodbyeConfirmMode, setGoodbyeConfirmMode] = useState(false);
+  const [goodbyePassword, setGoodbyePassword] = useState("");
+  const [goodbyePending, setGoodbyePending] = useState(false);
 
   const welfareSettingsParsed = (() => {
     try { return JSON.parse((settingsData as any)?.welfareSettings || '{}'); } catch { return {}; }
@@ -284,6 +287,41 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     const totalSalaryAmt = Number(settlementStaff.salary) || 0;
     return { months, rate, totalWelfare, totalSalaryAmt };
   })();
+
+  const handleSayGoodbye = async () => {
+    if (!settlementStaff || !settlementCalc || !goodbyePassword) return;
+    setGoodbyePending(true);
+    try {
+      const verifyRes = await apiRequest("POST", "/api/auth/verify-password", { password: goodbyePassword });
+      if (!verifyRes.ok) {
+        toast({ title: "Incorrect Password", description: "The password you entered is wrong.", variant: "destructive" });
+        setGoodbyePending(false);
+        return;
+      }
+      const [yr, mo] = lastWorkDay.split("-");
+      const settlementMonth = `${yr}-${mo}`;
+      await apiRequest("POST", "/api/salaries/generate", {
+        month: settlementMonth,
+        staffSalaries: [{
+          staffId: settlementStaff.id,
+          netPay: settlementCalc.totalWelfare,
+          bonus: 0,
+          welfareContribution: settlementCalc.totalWelfare,
+        }],
+      });
+      await apiRequest("POST", `/api/staff/${settlementStaff.id}/deactivate`, { password: goodbyePassword });
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
+      toast({ title: "Farewell!", description: `${settlementStaff.name}'s final settlement has been recorded and the employee has been deactivated.` });
+      setSettlementOpen(false);
+      setGoodbyeConfirmMode(false);
+      setGoodbyePassword("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setGoodbyePending(false);
+    }
+  };
 
   useEffect(() => {
     if (dob) {
@@ -1323,7 +1361,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
       </AlertDialog>
 
       {/* Final Settlement Dialog */}
-      <Dialog open={settlementOpen} onOpenChange={setSettlementOpen}>
+      <Dialog open={settlementOpen} onOpenChange={(open) => { setSettlementOpen(open); if (!open) { setGoodbyeConfirmMode(false); setGoodbyePassword(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1393,9 +1431,57 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             {!settlementCalc && lastWorkDay && (
               <p className="text-sm text-destructive">Last working day must be a future date after the employee's join date.</p>
             )}
+
+            {goodbyeConfirmMode && settlementCalc && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-destructive">This action cannot be undone</p>
+                    <p className="text-xs text-muted-foreground">
+                      This will create a final settlement salary record of <strong>{cs}{settlementCalc.totalWelfare.toLocaleString()}</strong> for <strong>{settlementStaff?.name}</strong> and permanently deactivate their account.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Enter your password to confirm</Label>
+                  <Input
+                    type="password"
+                    placeholder="Your login password"
+                    value={goodbyePassword}
+                    onChange={e => setGoodbyePassword(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && goodbyePassword) handleSayGoodbye(); }}
+                    data-testid="input-goodbye-password"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettlementOpen(false)}>Close</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setSettlementOpen(false); setGoodbyeConfirmMode(false); setGoodbyePassword(""); }}>Close</Button>
+            {!goodbyeConfirmMode ? (
+              <Button
+                variant="default"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={!settlementCalc}
+                onClick={() => setGoodbyeConfirmMode(true)}
+                data-testid="button-say-goodbye"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Say Goodbye
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                disabled={!goodbyePassword || goodbyePending}
+                onClick={handleSayGoodbye}
+                data-testid="button-confirm-goodbye"
+              >
+                {goodbyePending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Confirm & Farewell
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
