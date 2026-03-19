@@ -58,7 +58,7 @@ import { differenceInYears, parseISO } from "date-fns";
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant, currencySymbol } = useHotelSettings();
+  const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant, currencySymbol, formatDateTime, formatTime } = useHotelSettings();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const [isReversalDialogOpen, setIsReversalDialogOpen] = useState(false);
@@ -443,9 +443,9 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
     const totals = calculateTotals(booking, discount);
     const invoiceNo = (booking.bookingId || "").replace("BK", "INV");
     const nights = booking.nights || Math.ceil((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 3600 * 24));
-    const checkedInStr = booking.checkedInAt ? new Date(booking.checkedInAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
-    const checkedOutStr = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
-    const invoiceDate = booking.checkedOutAt ? new Date(booking.checkedOutAt).toLocaleDateString(undefined, { dateStyle: "long" }) : new Date().toLocaleDateString(undefined, { dateStyle: "long" });
+    const checkedInStr = booking.checkedInAt ? formatDateTime(new Date(booking.checkedInAt)) : "";
+    const checkedOutStr = booking.checkedOutAt ? formatDateTime(new Date(booking.checkedOutAt)) : "";
+    const invoiceDate = booking.checkedOutAt ? formatDateTime(new Date(booking.checkedOutAt)) : formatDateTime(new Date());
 
     const taxableBreakdown = totals.taxBreakdown.filter((t: any) => t.taxable);
     const taxableLabels = new Set(taxableBreakdown.map((t: any) => t.label));
@@ -1696,13 +1696,13 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">In:</span> {booking.checkIn}
                           {booking.checkedInAt && (
-                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedInAt)}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-muted-foreground">Out:</span> {booking.checkOut}
                           {booking.checkedOutAt && (
-                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                            <span className="text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedOutAt)}</span>
                           )}
                         </div>
                       </div>
@@ -1871,19 +1871,19 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                             <div className="flex flex-col text-sm space-y-1">
                               {booking.createdAt && (
                                 <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                  <Calendar className="h-3 w-3" /> Booked: {new Date(booking.createdAt).toLocaleDateString(undefined, { dateStyle: "short" })} {new Date(booking.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                  <Calendar className="h-3 w-3" /> Booked: {formatDateTime(booking.createdAt)}
                                 </span>
                               )}
                               <span className="flex items-center gap-1.5">
                                 In: {booking.checkIn}
                                 {booking.checkedInAt && (
-                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedInAt)}</span>
                                 )}
                               </span>
                               <span className="text-muted-foreground flex items-center gap-1.5">
                                 Out: {booking.checkOut}
                                 {booking.checkedOutAt && (
-                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {new Date(booking.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                                  <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" /> {formatTime(booking.checkedOutAt)}</span>
                                 )}
                               </span>
                             </div>
@@ -2147,7 +2147,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <div className="space-y-1">
                         <Label className="flex items-center gap-1"><Clock className="h-3 w-3" /> Check-In Time</Label>
                         <div className="font-medium text-sm text-green-700">
-                          {new Date(viewingBooking.checkedInAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                          {formatDateTime(viewingBooking.checkedInAt)}
                         </div>
                       </div>
                     )}
@@ -2155,7 +2155,7 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <div className="space-y-1">
                         <Label className="flex items-center gap-1"><Clock className="h-3 w-3" /> Check-Out Time</Label>
                         <div className="font-medium text-sm text-gray-600">
-                          {new Date(viewingBooking.checkedOutAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                          {formatDateTime(viewingBooking.checkedOutAt)}
                         </div>
                       </div>
                     )}
@@ -2385,10 +2385,10 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                      <p className="text-sm font-medium">{checkoutBooking.checkIn} to {checkoutBooking.checkOut}</p>
                      <p className="text-xs text-muted-foreground">{checkoutBooking.nights || Math.ceil((new Date(checkoutBooking.checkOut).getTime() - new Date(checkoutBooking.checkIn).getTime()) / (1000 * 3600 * 24))} Nights</p>
                      {checkoutBooking.checkedInAt && (
-                       <p className="text-xs text-green-600 mt-1 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> In: {new Date(checkoutBooking.checkedInAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</p>
+                       <p className="text-xs text-green-600 mt-1 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> In: {formatDateTime(checkoutBooking.checkedInAt)}</p>
                      )}
                      {checkoutBooking.checkedOutAt && (
-                       <p className="text-xs text-gray-500 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> Out: {new Date(checkoutBooking.checkedOutAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}</p>
+                       <p className="text-xs text-gray-500 flex items-center justify-end gap-1"><Clock className="h-3 w-3" /> Out: {formatDateTime(checkoutBooking.checkedOutAt)}</p>
                      )}
                    </div>
                 </div>

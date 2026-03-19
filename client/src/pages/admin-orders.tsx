@@ -86,7 +86,7 @@ interface ApiBooking {
 
 export default function AdminOrders({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
-  const { currencySymbol } = useHotelSettings();
+  const { currencySymbol, formatDateTime } = useHotelSettings();
 
   const { data: orders = [] } = useQuery<ApiOrder[]>({ queryKey: ['/api/orders'] });
   const { data: menuItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
@@ -310,7 +310,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
     if (diffMins <= 5 && diffMins >= -5) return "Serve Now";
     if (diffMins > 0 && diffMins <= 60) return `In ${diffMins} min`;
     if (diffMins > 60 && diffMins <= 180) return `In ${Math.round(diffMins / 60)}h ${diffMins % 60}m`;
-    return st.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return formatDateTime(st);
   };
 
   const filteredOrders = orders

@@ -18,9 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import AdminRooms from "@/pages/admin-rooms";
+import { TIMEZONE_OPTIONS, useHotelSettings } from "@/hooks/use-hotel-settings";
 
 export default function AdminSettings() {
   const { toast } = useToast();
+  const { formatTime } = useHotelSettings();
 
   const { data: roomTypesData, isLoading: roomTypesLoading } = useQuery<any[]>({ queryKey: ['/api/room-types'] });
   const { data: categoriesData, isLoading: categoriesLoading } = useQuery<any[]>({ queryKey: ['/api/categories'] });
@@ -57,6 +59,7 @@ export default function AdminSettings() {
   const facilities = facilitiesData || [];
 
   const currency = settingsData?.currency || "USD";
+  const timezone = settingsData?.timezone || "UTC";
   const taxes: any[] = (() => { try { return JSON.parse(settingsData?.taxes || '[]'); } catch { return []; } })();
   const priceRules: any[] = (() => { try { return JSON.parse(settingsData?.priceRules || '[]'); } catch { return []; } })();
   const coupons: any[] = (() => { try { return JSON.parse(settingsData?.coupons || '[]'); } catch { return []; } })();
@@ -648,6 +651,18 @@ export default function AdminSettings() {
     );
   };
 
+  const handleSaveTimezone = (newTimezone: string) => {
+    saveSettingMutation.mutate(
+      { timezone: newTimezone },
+      {
+        onSuccess: () => {
+          const label = TIMEZONE_OPTIONS.find(t => t.value === newTimezone)?.label || newTimezone;
+          toast({ title: "Settings Saved", description: `Timezone set to ${label}.` });
+        },
+      }
+    );
+  };
+
   const handleSaveCheckInOutTimes = () => {
     saveSettingMutation.mutate(
       { checkInTime: localCheckInTime, checkOutTime: localCheckOutTime },
@@ -798,16 +813,17 @@ export default function AdminSettings() {
                   </div>
                   <div className="space-y-2">
                     <Label>Timezone</Label>
-                    <Select defaultValue="utc-5">
+                    <Select value={timezone} onValueChange={(val) => handleSaveTimezone(val)}>
                       <SelectTrigger data-testid="select-timezone">
                         <SelectValue placeholder="Select Timezone" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="utc-5">Eastern Time (US & Canada)</SelectItem>
-                        <SelectItem value="utc+0">UTC</SelectItem>
-                        <SelectItem value="utc+5.5">IST (India Standard Time)</SelectItem>
+                        {TIMEZONE_OPTIONS.map(tz => (
+                          <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">All dates and times across the app will display in this timezone.</p>
                   </div>
                 </div>
                 <div className="pt-4">
@@ -2978,11 +2994,11 @@ export default function AdminSettings() {
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Check-in</Label>
-                        <p>{viewingArchived.checkIn}{viewingArchived.checkedInAt ? ` (${new Date(viewingArchived.checkedInAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })})` : ""}</p>
+                        <p>{viewingArchived.checkIn}{viewingArchived.checkedInAt ? ` (${formatTime(viewingArchived.checkedInAt)})` : ""}</p>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Check-out</Label>
-                        <p>{viewingArchived.checkOut}{viewingArchived.checkedOutAt ? ` (${new Date(viewingArchived.checkedOutAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })})` : ""}</p>
+                        <p>{viewingArchived.checkOut}{viewingArchived.checkedOutAt ? ` (${formatTime(viewingArchived.checkedOutAt)})` : ""}</p>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Nights</Label>
