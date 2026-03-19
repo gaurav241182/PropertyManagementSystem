@@ -8,7 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { differenceInYears, isSameMonth, parseISO } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -619,7 +625,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleAdd} data-testid="button-onboard-staff">
+              <Button onClick={handleAdd} className="w-full sm:w-auto" data-testid="button-onboard-staff">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Onboard Staff
               </Button>
@@ -1090,26 +1096,100 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           </DialogContent>
         </Dialog>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-3 md:gap-6">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active Staff</CardTitle>
+            <CardHeader className="pb-2 pt-4 px-4 md:px-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                Active Staff
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-active-staff-count">{activeStaff.length}</div>
+            <CardContent className="px-4 md:px-6 pb-4">
+              <div className="text-xl md:text-2xl font-bold" data-testid="text-active-staff-count">{activeStaff.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Payroll</CardTitle>
+            <CardHeader className="pb-2 pt-4 px-4 md:px-6">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-amber-600" />
+                Monthly Payroll
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600" data-testid="text-pending-salaries">{cs}{activeStaff.reduce((sum, s) => sum + s.salary, 0).toLocaleString()}</div>
+            <CardContent className="px-4 md:px-6 pb-4">
+              <div className="text-xl md:text-2xl font-bold text-amber-600" data-testid="text-pending-salaries">{cs}{activeStaff.reduce((sum, s) => sum + s.salary, 0).toLocaleString()}</div>
             </CardContent>
           </Card>
         </div>
 
-        <Card>
+        {/* Mobile Card View - visible only on small screens */}
+        <div className="md:hidden space-y-3">
+          <h3 className="font-semibold text-base text-primary px-1">Active Staff Directory</h3>
+          {activeStaff.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground text-sm">No active staff members found.</div>
+          )}
+          {activeStaff.map((employee) => {
+            const initials = employee.name
+              ? employee.name.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase()
+              : "?";
+            return (
+              <div
+                key={employee.id}
+                data-testid={`card-staff-${employee.id}`}
+                className="bg-card border rounded-xl shadow-sm p-4 flex items-start gap-3 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => handleView(employee)}
+              >
+                <div className="flex-shrink-0">
+                  {employee.photo ? (
+                    <img src={employee.photo} alt="" className="h-11 w-11 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-11 w-11 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm">
+                      {initials}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-sm truncate" data-testid={`text-staff-name-${employee.id}`}>{employee.name}</span>
+                    <Badge variant="outline" className="font-mono text-[10px] shrink-0">{employee.employeeId}</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{employee.role}</div>
+                  <div className="text-sm font-semibold text-amber-600 mt-1">{cs}{employee.salary?.toLocaleString()}</div>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1 ml-1" onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="View" onClick={() => handleView(employee)} data-testid={`button-view-staff-mobile-${employee.id}`}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Generate Salary" onClick={() => openGenerateSalary(employee)} data-testid={`button-salary-staff-mobile-${employee.id}`}>
+                    <Calculator className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-more-staff-mobile-${employee.id}`}>
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }} data-testid={`menu-settlement-staff-mobile-${employee.id}`}>
+                        <LogOut className="h-4 w-4 mr-2 text-orange-500" /> Final Settlement
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openDeactivateDialog(employee.id, employee.name)} data-testid={`menu-deactivate-staff-mobile-${employee.id}`}>
+                        <Ban className="h-4 w-4 mr-2 text-red-500" /> Deactivate
+                      </DropdownMenuItem>
+                      {role === "owner" && (
+                        <DropdownMenuItem onClick={() => openDeleteDialog(employee.id, employee.name)} className="text-destructive" data-testid={`menu-delete-staff-mobile-${employee.id}`}>
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Table View - hidden on mobile */}
+        <Card className="hidden md:block">
           <CardHeader>
             <CardTitle>Active Staff Directory</CardTitle>
           </CardHeader>
