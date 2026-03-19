@@ -1843,16 +1843,15 @@ export default function AdminSettings() {
           {/* Room Types Configuration */}
           <TabsContent value="roomtypes" className="mt-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Room Types Configuration</CardTitle>
-                  <CardDescription>Define the types of rooms available in your hotel. These settings will appear when adding new rooms.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <CardTitle className="text-base whitespace-nowrap">Room Types</CardTitle>
+                  <CardDescription className="text-xs truncate hidden sm:block">Define room types used when adding rooms.</CardDescription>
                 </div>
                 <Dialog open={isRoomTypeDialogOpen} onOpenChange={setIsRoomTypeDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Room Type
+                    <Button size="icon" className="h-8 w-8 shrink-0" data-testid="button-add-roomtype">
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
