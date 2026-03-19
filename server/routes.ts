@@ -1360,14 +1360,19 @@ export async function registerRoutes(
       const numInstalments = Number(numberOfInstalments);
       const instalmentAmount = Math.round((advanceNum / numInstalments) * 100) / 100;
 
+      // First instalment is already applied to the current salary,
+      // so start tracking from the remaining instalments and balance.
+      const remainingAfterFirst = numInstalments - 1;
+      const balanceAfterFirst = Math.max(0, advanceNum - instalmentAmount);
+
       await storage.createStaffAdvance({
         staffId: salary.staffId,
         totalAmount: String(advanceNum),
         instalmentAmount: String(instalmentAmount),
         totalInstalments: numInstalments,
-        remainingInstalments: numInstalments,
-        remainingBalance: String(advanceNum),
-        status: "Active",
+        remainingInstalments: remainingAfterFirst,
+        remainingBalance: String(balanceAfterFirst),
+        status: remainingAfterFirst <= 0 ? "Completed" : "Active",
         startMonth: salary.month,
         hotelId,
         branchId,
