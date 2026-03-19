@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown, Gift, ChevronRight, Users } from "lucide-react";
+import { DollarSign, CheckCircle2, Clock, CalendarDays, Filter, Undo, Trash2, Loader2, Banknote, Search, ArrowUpDown, Gift, ChevronRight, Users, FileDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useHotelSettings } from "@/hooks/use-hotel-settings";
+import { downloadSalarySlip } from "@/lib/salary-slip";
 
 function getEndOfMonth(monthStr: string): string {
   if (!monthStr) return "-";
@@ -31,6 +32,12 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
   const { currencySymbol: cs } = useHotelSettings();
   const { data: salariesData = [], isLoading: salariesLoading } = useQuery<any[]>({ queryKey: ['/api/salaries'] });
   const { data: staffData = [], isLoading: staffLoading } = useQuery<any[]>({ queryKey: ['/api/staff'] });
+  const { data: user } = useQuery<any>({ queryKey: ['/api/auth/me'] });
+  const { data: hotelsData = [] } = useQuery<any[]>({ queryKey: ['/api/hotels'] });
+  const { data: branchesData = [] } = useQuery<any[]>({ queryKey: ['/api/branches'] });
+
+  const currentHotel = hotelsData.find((h: any) => h.id === user?.hotelId);
+  const currentBranch = branchesData.find((b: any) => b.id === user?.branchId);
 
   const staffMap = new Map(staffData.map((s: any) => [s.id, s]));
 
@@ -292,6 +299,42 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
 
   const months = Array.from(new Set(salaries.map(s => s.month)));
   const hasAnyWelfare = filteredSalaries.some(s => s.welfareContrib > 0);
+
+  const handleDownloadSlip = (salary: any) => {
+    downloadSalarySlip(
+      {
+        id: salary.id,
+        name: salary.name,
+        employeeId: salary.employeeId,
+        role: salary.role,
+        staffJoinDate: salary.staffJoinDate,
+        month: salary.month,
+        status: salary.status,
+        staffBasicPay: salary.staffBasicPay,
+        staffHra: salary.staffHra,
+        staffTransport: salary.staffTransport,
+        staffAllowance: salary.staffAllowance,
+        bonus: Number(salary.bonus) || 0,
+        netPayNum: salary.netPayNum,
+        welfareContrib: salary.welfareContrib,
+        instalmentDeduction: salary.instalmentDeduction,
+        advanceNum: salary.advanceNum,
+        pending: salary.pending,
+        proRateDays: salary.proRateDays ? Number(salary.proRateDays) : null,
+        totalDaysInMonth: salary.totalDaysInMonth ? Number(salary.totalDaysInMonth) : null,
+      },
+      {
+        name: currentHotel?.name || "Hotel",
+        city: currentHotel?.city || "",
+        country: currentHotel?.country || "",
+        ownerPhone: currentHotel?.ownerPhone || "",
+        taxId: currentHotel?.taxId || "",
+        branchName: currentBranch?.name || "",
+        branchAddress: currentBranch?.address || "",
+      },
+      cs
+    );
+  };
 
   const SalaryBreakdown = ({ salary, side = "bottom" }: { salary: any; side?: "bottom" | "top" }) => {
     const basicPay = salary.staffBasicPay;
@@ -637,6 +680,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                       Revert
                     </Button>
                   )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleDownloadSlip(salary)} title="Download Salary Slip" data-testid={`button-slip-m-${salary.id}`}>
+                    <FileDown className="h-4 w-4" />
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" disabled={salary.status === "Paid"} data-testid={`button-delete-salary-m-${salary.id}`}>
@@ -766,7 +812,9 @@ export default function AdminSalaries({ role = "owner" }: { role?: "owner" | "ma
                             Revert
                           </Button>
                         )}
-                        
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleDownloadSlip(salary)} title="Download Salary Slip" data-testid={`button-slip-${salary.id}`}>
+                          <FileDown className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" disabled={salary.status === "Paid"} data-testid={`button-delete-salary-${salary.id}`}>
