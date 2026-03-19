@@ -1749,10 +1749,15 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
                       <div className="px-4 py-2 border-t flex items-center justify-between gap-2 bg-muted/20">
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="flex items-center gap-1.5 cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors" data-testid={`button-balance-mobile-${booking.id}`}>
-                              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">Balance:</span>
-                              <span className={`font-bold text-sm ${totals.due > 0 ? "text-red-600" : "text-green-600"}`}>{cs}{totals.due.toFixed(2)}</span>
+                            <button className="flex flex-col items-start cursor-pointer hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors" data-testid={`button-balance-mobile-${booking.id}`}>
+                              <div className="flex items-center gap-1.5">
+                                <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Balance:</span>
+                                <span className={`font-bold text-sm ${totals.due > 0 ? "text-red-600" : "text-green-600"}`}>{cs}{totals.due.toFixed(2)}</span>
+                              </div>
+                              {booking.charges.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground pl-5">{booking.charges.length} extra charge{booking.charges.length !== 1 ? "s" : ""}</span>
+                              )}
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-72 p-0" align="start" side="top">
