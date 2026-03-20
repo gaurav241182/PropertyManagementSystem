@@ -38,7 +38,10 @@ import {
   Phone,
   Globe,
   Calendar,
-  User
+  User,
+  FileText,
+  X,
+  Download
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -91,6 +94,21 @@ export default function PlatformHotels() {
   const [editBranches, setEditBranches] = useState(INITIAL_BRANCHES);
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
   const editLogoInputRef = useRef<HTMLInputElement>(null);
+
+  type OwnerDoc = { id: string; label: string; fileName: string; url: string };
+  const [ownerDocuments, setOwnerDocuments] = useState<OwnerDoc[]>([]);
+  const [editOwnerDocuments, setEditOwnerDocuments] = useState<OwnerDoc[]>([]);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const editDocInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDocLabel, setPendingDocLabel] = useState("Registration / Business License");
+  const [editPendingDocLabel, setEditPendingDocLabel] = useState("Registration / Business License");
+
+  const DOC_LABELS = [
+    "Registration / Business License",
+    "Owner ID Proof (Passport / National ID)",
+    "Tax Certificate",
+    "Other Document",
+  ];
 
   const { data: hotels = [], isLoading } = useQuery<Hotel[]>({ queryKey: ["/api/hotels"] });
   const { data: allBranchesData = [], isLoading: branchesLoading } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
@@ -178,7 +196,61 @@ export default function PlatformHotels() {
     setBranches([{ name: "", city: "", address: "" }]);
     setLogoPreview(null);
     setLogoFileName("");
+    setOwnerDocuments([]);
+    setPendingDocLabel("Registration / Business License");
     setDialogOpen(false);
+  };
+
+  const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|gif|pdf|doc|docx)$/i)) {
+      toast({ title: "Invalid File", description: "Please upload an image, PDF, or document file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File Too Large", description: "Document must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const doc: { id: string; label: string; fileName: string; url: string } = {
+        id: Date.now().toString(),
+        label: pendingDocLabel,
+        fileName: file.name,
+        url: ev.target?.result as string,
+      };
+      setOwnerDocuments(prev => [...prev, doc]);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleEditDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|gif|pdf|doc|docx)$/i)) {
+      toast({ title: "Invalid File", description: "Please upload an image, PDF, or document file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File Too Large", description: "Document must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const doc: { id: string; label: string; fileName: string; url: string } = {
+        id: Date.now().toString(),
+        label: editPendingDocLabel,
+        fileName: file.name,
+        url: ev.target?.result as string,
+      };
+      setEditOwnerDocuments(prev => [...prev, doc]);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const updateField = (field: string, value: string) => {
@@ -261,6 +333,7 @@ export default function PlatformHotels() {
       branchesData: validBranches,
       customDomain: form.customDomain,
       fromEmail: form.fromEmail,
+      ownerDocuments: JSON.stringify(ownerDocuments),
     });
   };
 
@@ -306,6 +379,12 @@ export default function PlatformHotels() {
       setEditBranches(jsonBranches.length > 0 ? jsonBranches : [{ name: "", city: "", address: "" }]);
     }
     setEditLogoPreview(hotel.logoUrl || null);
+    try {
+      const docs = JSON.parse((hotel as Hotel & { ownerDocuments?: string }).ownerDocuments || "[]");
+      setEditOwnerDocuments(Array.isArray(docs) ? docs : []);
+    } catch {
+      setEditOwnerDocuments([]);
+    }
     setEditDialogOpen(true);
   };
 
@@ -349,6 +428,7 @@ export default function PlatformHotels() {
         fromEmail: editForm.fromEmail,
         logoUrl: editLogoPreview || "",
         branches: JSON.stringify(validBranches),
+        ownerDocuments: JSON.stringify(editOwnerDocuments),
       }
     });
     try {
@@ -555,6 +635,76 @@ export default function PlatformHotels() {
                           onChange={(e) => updateField("ownerIdNumber", e.target.value)}
                           data-testid="input-owner-id"
                         />
+                      </div>
+
+                      <div className="border-t pt-4 space-y-3">
+                        <div>
+                          <h4 className="text-sm font-medium flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            Owner Documents <span className="text-xs text-muted-foreground font-normal ml-1">(Optional)</span>
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-0.5">Upload registration licence, owner ID proof, tax certificate, or other relevant documents.</p>
+                        </div>
+
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-xs">Document Type</Label>
+                            <Select value={pendingDocLabel} onValueChange={setPendingDocLabel}>
+                              <SelectTrigger className="h-9" data-testid="select-doc-label">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {DOC_LABELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <input
+                            ref={docInputRef}
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={handleDocUpload}
+                            data-testid="input-doc-upload"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => docInputRef.current?.click()}
+                            data-testid="button-upload-doc"
+                          >
+                            <Upload className="h-3.5 w-3.5 mr-1.5" />
+                            Upload File
+                          </Button>
+                        </div>
+
+                        {ownerDocuments.length > 0 && (
+                          <div className="space-y-2">
+                            {ownerDocuments.map(doc => (
+                              <div key={doc.id} className="flex items-center gap-2 p-2.5 border rounded-lg bg-muted/20">
+                                <FileText className="h-4 w-4 text-primary shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{doc.label}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{doc.fileName}</p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                  onClick={() => setOwnerDocuments(prev => prev.filter(d => d.id !== doc.id))}
+                                  data-testid={`button-remove-doc-${doc.id}`}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {ownerDocuments.length === 0 && (
+                          <p className="text-xs text-muted-foreground italic">No documents uploaded yet.</p>
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -986,6 +1136,40 @@ export default function PlatformHotels() {
                         </div>
                       )}
                     </div>
+
+                    {(() => {
+                      let docs: { id: string; label: string; fileName: string; url: string }[] = [];
+                      try { docs = JSON.parse((viewHotel as Hotel & { ownerDocuments?: string }).ownerDocuments || "[]"); } catch {}
+                      if (!Array.isArray(docs) || docs.length === 0) return null;
+                      return (
+                        <div className="mt-4 pt-4 border-t">
+                          <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5" />
+                            Uploaded Documents ({docs.length})
+                          </h5>
+                          <div className="space-y-2">
+                            {docs.map(doc => (
+                              <div key={doc.id} className="flex items-center gap-2 p-2.5 border rounded-lg bg-muted/20">
+                                <FileText className="h-4 w-4 text-primary shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">{doc.label}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{doc.fileName}</p>
+                                </div>
+                                <a
+                                  href={doc.url}
+                                  download={doc.fileName}
+                                  className="text-muted-foreground hover:text-primary transition-colors"
+                                  title="Download"
+                                  data-testid={`button-download-doc-${doc.id}`}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="border-t pt-4">
@@ -1159,6 +1343,70 @@ export default function PlatformHotels() {
                       <Label>ID Number</Label>
                       <Input value={editForm.ownerIdNumber} onChange={(e) => setEditForm(p => ({ ...p, ownerIdNumber: e.target.value }))} />
                     </div>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-3 mt-4">
+                    <div>
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        Owner Documents <span className="text-xs text-muted-foreground font-normal ml-1">(Optional)</span>
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">Registration licence, owner ID proof, tax certificate, or other relevant documents.</p>
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">Document Type</Label>
+                        <Select value={editPendingDocLabel} onValueChange={setEditPendingDocLabel}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DOC_LABELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <input
+                        ref={editDocInputRef}
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={handleEditDocUpload}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        onClick={() => editDocInputRef.current?.click()}
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1.5" />
+                        Upload File
+                      </Button>
+                    </div>
+                    {editOwnerDocuments.length > 0 ? (
+                      <div className="space-y-2">
+                        {editOwnerDocuments.map(doc => (
+                          <div key={doc.id} className="flex items-center gap-2 p-2.5 border rounded-lg bg-muted/20">
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{doc.label}</p>
+                              <p className="text-xs text-muted-foreground truncate">{doc.fileName}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => setEditOwnerDocuments(prev => prev.filter(d => d.id !== doc.id))}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">No documents uploaded yet.</p>
+                    )}
                   </div>
                 </div>
 

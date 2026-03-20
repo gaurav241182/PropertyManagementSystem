@@ -23,6 +23,7 @@ export const hotels = pgTable("hotels", {
   status: text("status").notNull().default("Active"),
   customDomain: text("custom_domain").default(""),
   fromEmail: text("from_email").default(""),
+  ownerDocuments: text("owner_documents").default("[]"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
