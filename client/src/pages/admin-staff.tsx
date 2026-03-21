@@ -83,6 +83,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const { data: settingsData = {} } = useQuery<Record<string, string>>({ queryKey: ['/api/settings'] });
   const { data: hotelsData = [] } = useQuery<any[]>({ queryKey: ['/api/hotels'] });
   const { data: branchesData = [] } = useQuery<any[]>({ queryKey: ['/api/branches'] });
+  const { data: hotelRoles = [] } = useQuery<any[]>({ queryKey: ['/api/hotel-roles'] });
 
   const currency = (settingsData as Record<string, string>)?.currency || "USD";
   const cs = getCurrencySymbol(currency);
@@ -244,7 +245,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [policeVerification, setPoliceVerification] = useState(false);
   const [welfareFund, setWelfareFund] = useState(false);
   const [bonus, setBonus] = useState(0);
-  const [staffRole, setStaffRole] = useState("Staff");
+  const [staffRole, setStaffRole] = useState("");
   const [nationality, setNationality] = useState("");
   const [state, setState] = useState("");
   const [countryCode, setCountryCode] = useState("+1");
@@ -377,7 +378,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setFirstName(names[0] || "");
     setLastName(names.slice(1).join(" ") || "");
     setEmployeeId(emp.employeeId || "");
-    setStaffRole(emp.role || "Staff");
+    setStaffRole(emp.role || "");
     setEmail(emp.email || "");
     setPhone((emp.phone || "").replace(/^\+\d{1,3}/, ""));
     setCountryCode(emp.countryCode || "+1");
@@ -424,7 +425,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setFirstName(""); setLastName("");
     setEmployeeId(getNextEmployeeId(empIdPrefix, staffData));
     setBasicSalary(0); setTransport(0); setHra(0); setAllowance(0);
-    setStaffRole("Staff"); setGender(""); setDob(""); setNationality(""); setState("");
+    setStaffRole(""); setGender(""); setDob(""); setNationality(""); setState("");
     setCity(""); setAddress(""); setPhone(""); setEmail(""); setCountryCode("+1");
     setJoiningDate(""); setWelfareFund(false); setBonus(0); setPoliceVerification(false);
     setEmergencyName(""); setEmergencyRelation(""); setEmergencyPhone("");
@@ -982,12 +983,13 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       <Select value={staffRole} onValueChange={setStaffRole}>
                         <SelectTrigger className={formErrors.staffRole ? "border-red-500" : ""} data-testid="select-role"><SelectValue placeholder="Select Role" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Manager">Manager</SelectItem>
-                          <SelectItem value="Receptionist">Receptionist</SelectItem>
-                          <SelectItem value="Kitchen">Kitchen / Chef</SelectItem>
-                          <SelectItem value="Housekeeping">Housekeeping</SelectItem>
-                          <SelectItem value="Security">Security</SelectItem>
-                          <SelectItem value="Staff">General Staff</SelectItem>
+                          {hotelRoles.length > 0 ? (
+                            hotelRoles.map((r: any) => (
+                              <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No roles defined. Add roles in Settings → Roles & Permissions.</div>
+                          )}
                         </SelectContent>
                       </Select>
                       <FieldError field="staffRole" />
