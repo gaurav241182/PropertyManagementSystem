@@ -80,12 +80,21 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Your hotel account has been archived. Please contact support." });
       }
     }
+    let permissions = null;
+    if (user.hotelRoleId) {
+      const hotelRole = await storage.getHotelRole(user.hotelRoleId);
+      if (hotelRole) {
+        try { permissions = JSON.parse(hotelRole.permissions); } catch { permissions = null; }
+      }
+    }
     req.session.user = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       hotelId: user.hotelId,
+      hotelRoleId: user.hotelRoleId ?? null,
+      permissions,
     };
     await storage.updatePlatformUser(user.id, { lastLogin: new Date() } as any);
     res.json({
@@ -94,6 +103,8 @@ export async function registerRoutes(
       email: user.email,
       role: user.role,
       hotelId: user.hotelId,
+      hotelRoleId: user.hotelRoleId ?? null,
+      permissions,
     });
   });
 
@@ -1819,6 +1830,84 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  });
+
+  // ============= HOTEL ROLES (RBAC) =============
+  app.get("/api/hotel-roles", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const hotelId = getHotelId(req) || (req.query.hotelId ? Number(req.query.hotelId) : null);
+    if (!hotelId) return res.status(400).json({ message: "Hotel ID required" });
+    const roles = await storage.getHotelRoles(hotelId);
+    res.json(roles);
+  });
+
+  app.post("/api/hotel-roles", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const hotelId = getHotelId(req);
+    if (!hotelId) return res.status(400).json({ message: "Hotel ID required" });
+    const { name, description, permissions } = req.body;
+    if (!name) return res.status(400).json({ message: "Role name is required" });
+    const role = await storage.createHotelRole({
+      hotelId,
+      name,
+      description: description || "",
+      permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions || {}),
+    });
+    res.json(role);
+  });
+
+  app.put("/api/hotel-roles/:id", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const id = Number(req.params.id);
+    const hotelId = getHotelId(req);
+    const role = await storage.getHotelRole(id);
+    if (!role) return res.status(404).json({ message: "Role not found" });
+    if (hotelId && role.hotelId !== hotelId) return res.status(403).json({ message: "Access denied" });
+    const { name, description, permissions } = req.body;
+    const updated = await storage.updateHotelRole(id, {
+      ...(name !== undefined && { name }),
+      ...(description !== undefined && { description }),
+      ...(permissions !== undefined && { permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions) }),
+    });
+    res.json(updated);
+  });
+
+  app.delete("/api/hotel-roles/:id", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const id = Number(req.params.id);
+    const hotelId = getHotelId(req);
+    const role = await storage.getHotelRole(id);
+    if (!role) return res.status(404).json({ message: "Role not found" });
+    if (hotelId && role.hotelId !== hotelId) return res.status(403).json({ message: "Access denied" });
+    await storage.deleteHotelRole(id);
+    res.json({ message: "Role deleted" });
+  });
+
+  app.patch("/api/hotel-roles/:id/assign-user", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const roleId = Number(req.params.id);
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ message: "User ID required" });
+    const hotelId = getHotelId(req);
+    const role = await storage.getHotelRole(roleId);
+    if (!role) return res.status(404).json({ message: "Role not found" });
+    if (hotelId && role.hotelId !== hotelId) return res.status(403).json({ message: "Access denied" });
+    await storage.updatePlatformUser(userId, { hotelRoleId: roleId } as any);
+    res.json({ message: "Role assigned" });
+  });
+
+  app.patch("/api/platform-users/:id/hotel-role", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Not authenticated" });
+    const userId = Number(req.params.id);
+    const { hotelRoleId } = req.body;
+    const hotelId = getHotelId(req);
+    if (hotelRoleId !== null && hotelRoleId !== undefined) {
+      const role = await storage.getHotelRole(hotelRoleId);
+      if (!role) return res.status(404).json({ message: "Role not found" });
+      if (hotelId && role.hotelId !== hotelId) return res.status(403).json({ message: "Access denied" });
+    }
+    await storage.updatePlatformUser(userId, { hotelRoleId: hotelRoleId ?? null } as any);
+    res.json({ message: "Hotel role updated" });
   });
 
   return httpServer;

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import AdminRooms from "@/pages/admin-rooms";
 import { TIMEZONE_OPTIONS, useHotelSettings, getCurrencySymbol } from "@/hooks/use-hotel-settings";
 import { Power } from "lucide-react";
+import RolesPermissionsTab from "@/components/settings/RolesPermissionsTab";
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -824,7 +825,7 @@ export default function AdminSettings() {
               <TabsTrigger value="categories" className="text-xs sm:text-sm whitespace-nowrap">Categories</TabsTrigger>
               <TabsTrigger value="facilities" className="text-xs sm:text-sm whitespace-nowrap">Facilities</TabsTrigger>
               <TabsTrigger value="hr" className="text-xs sm:text-sm whitespace-nowrap">HR & Payroll</TabsTrigger>
-
+              <TabsTrigger value="roles" className="text-xs sm:text-sm whitespace-nowrap">Roles & Permissions</TabsTrigger>
               <TabsTrigger value="communication" className="text-xs sm:text-sm whitespace-nowrap">Communication</TabsTrigger>
               <TabsTrigger value="invoice" className="text-xs sm:text-sm whitespace-nowrap">Invoice & Taxes</TabsTrigger>
               <TabsTrigger value="archival" className="text-xs sm:text-sm whitespace-nowrap">Archival</TabsTrigger>
@@ -2878,6 +2879,11 @@ export default function AdminSettings() {
             </Dialog>
           </TabsContent>
           
+          {/* Roles & Permissions */}
+          <TabsContent value="roles" className="mt-6">
+            <RolesPermissionsTab />
+          </TabsContent>
+
           {/* Archival */}
           <TabsContent value="archival" className="mt-6 space-y-6">
             <Card>

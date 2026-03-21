@@ -78,6 +78,21 @@ export async function runMigrations() {
       created_at timestamp DEFAULT now()
     )
   `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS hotel_roles (
+      id serial PRIMARY KEY,
+      hotel_id integer NOT NULL,
+      name text NOT NULL,
+      description text NOT NULL DEFAULT '',
+      permissions text NOT NULL DEFAULT '{}',
+      created_at timestamp DEFAULT now()
+    )
+  `);
+
+  await client.query(`
+    ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS hotel_role_id integer
+  `);
   } finally {
     client.release();
   }

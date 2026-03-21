@@ -53,6 +53,7 @@ export const platformUsers = pgTable("platform_users", {
   password: text("password").notNull().default("password123"),
   role: text("role").notNull().default("staff"),
   hotelId: integer("hotel_id"),
+  hotelRoleId: integer("hotel_role_id"),
   status: text("status").notNull().default("Active"),
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -454,6 +455,20 @@ export const salarySchedulerLogs = pgTable("salary_scheduler_logs", {
 export const insertSalarySchedulerLogSchema = createInsertSchema(salarySchedulerLogs).omit({ id: true, createdAt: true });
 export type InsertSalarySchedulerLog = z.infer<typeof insertSalarySchedulerLogSchema>;
 export type SalarySchedulerLog = typeof salarySchedulerLogs.$inferSelect;
+
+// ============= HOTEL ROLES (RBAC) =============
+export const hotelRoles = pgTable("hotel_roles", {
+  id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  permissions: text("permissions").notNull().default("{}"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertHotelRoleSchema = createInsertSchema(hotelRoles).omit({ id: true, createdAt: true });
+export type InsertHotelRole = z.infer<typeof insertHotelRoleSchema>;
+export type HotelRole = typeof hotelRoles.$inferSelect;
 
 // ============= PASSWORD RESET TOKENS =============
 export const passwordResetTokens = pgTable("password_reset_tokens", {

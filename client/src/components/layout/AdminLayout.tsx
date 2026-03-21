@@ -3,6 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
+import type { ModuleKey } from "@/lib/permissions";
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -46,26 +48,26 @@ import type { Hotel as HotelType, Branch } from "@shared/schema";
 
 const ROLE_NAV_ITEMS = {
   owner: [
-    { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/admin/bookings", icon: CalendarDays, label: "Bookings" },
-    { href: "/admin/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing" },
-    { href: "/admin/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" },
-    { href: "/admin/staff", icon: Users, label: "Staff Management" },
-    { href: "/admin/expenses", icon: Receipt, label: "Expenses & Purchases" },
-    { href: "/admin/salaries", icon: DollarSign, label: "Salaries" },
-    { href: "/admin/sales", icon: ShoppingBag, label: "Revenue" },
-    { href: "/admin/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
-    { href: "/admin/reports", icon: FileBarChart, label: "Reports" },
-    { href: "/admin/settings", icon: Settings, label: "Settings" },
+    { href: "/admin", icon: LayoutDashboard, label: "Dashboard", module: "dashboard" as ModuleKey },
+    { href: "/admin/bookings", icon: CalendarDays, label: "Bookings", module: "bookings" as ModuleKey },
+    { href: "/admin/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing", module: "inventory" as ModuleKey },
+    { href: "/admin/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)", module: "orders" as ModuleKey },
+    { href: "/admin/staff", icon: Users, label: "Staff Management", module: "staff" as ModuleKey },
+    { href: "/admin/expenses", icon: Receipt, label: "Expenses & Purchases", module: "expenses" as ModuleKey },
+    { href: "/admin/salaries", icon: DollarSign, label: "Salaries", module: "salaries" as ModuleKey },
+    { href: "/admin/sales", icon: ShoppingBag, label: "Revenue", module: "revenue" as ModuleKey },
+    { href: "/admin/restaurant-menu", icon: ChefHat, label: "Restaurant Menu", module: "restaurant" as ModuleKey },
+    { href: "/admin/reports", icon: FileBarChart, label: "Reports", module: "reports" as ModuleKey },
+    { href: "/admin/settings", icon: Settings, label: "Settings", module: "settings" as ModuleKey },
   ],
   manager: [
-    { href: "/manager", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/manager/bookings", icon: CalendarDays, label: "Bookings" },
-    { href: "/manager/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing" },
-    { href: "/manager/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)" },
-    { href: "/manager/staff", icon: Users, label: "Staff Management" },
-    { href: "/manager/expenses", icon: Receipt, label: "Expenses" },
-    { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu" },
+    { href: "/manager", icon: LayoutDashboard, label: "Dashboard", module: "dashboard" as ModuleKey },
+    { href: "/manager/bookings", icon: CalendarDays, label: "Bookings", module: "bookings" as ModuleKey },
+    { href: "/manager/inventory-pricing", icon: CalendarRange, label: "Inventory & Pricing", module: "inventory" as ModuleKey },
+    { href: "/manager/orders", icon: UtensilsCrossed, label: "Orders (Kitchen)", module: "orders" as ModuleKey },
+    { href: "/manager/staff", icon: Users, label: "Staff Management", module: "staff" as ModuleKey },
+    { href: "/manager/expenses", icon: Receipt, label: "Expenses", module: "expenses" as ModuleKey },
+    { href: "/manager/restaurant-menu", icon: ChefHat, label: "Restaurant Menu", module: "restaurant" as ModuleKey },
   ]
 };
 
@@ -73,7 +75,15 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
-  const navItems = ROLE_NAV_ITEMS[role];
+  const { canView } = usePermissions();
+
+  const baseNavItems = user?.role === "staff"
+    ? ROLE_NAV_ITEMS["manager"]
+    : ROLE_NAV_ITEMS[role];
+
+  const navItems = (user?.role === "staff" && user?.permissions)
+    ? baseNavItems.filter(item => canView(item.module))
+    : baseNavItems;
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showHotelDetails, setShowHotelDetails] = useState(false);
 

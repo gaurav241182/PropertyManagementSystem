@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -63,6 +64,7 @@ import { differenceInYears, parseISO } from "date-fns";
 export default function AdminBookings({ role = "owner" }: { role?: "owner" | "manager" | "receptionist" }) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { canCreate, canDelete } = usePermissions();
   const { checkInTimeFormatted, checkOutTimeFormatted, ageRuleAdult, ageRuleChild, ageRuleInfant, currencySymbol, formatDateTime, formatTime } = useHotelSettings();
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -1137,16 +1139,20 @@ export default function AdminBookings({ role = "owner" }: { role?: "owner" | "ma
             <Button variant="outline" size="icon" className="h-9 w-9 flex sm:hidden" onClick={handleSync} disabled={isSyncing} title="Sync Platforms">
               {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
-            <Button size="icon" className="h-9 w-9 flex sm:hidden" onClick={() => setIsNewReservationOpen(true)} title="New Reservation" data-testid="button-new-reservation-mobile">
-              <Plus className="h-4 w-4" />
-            </Button>
+            {canCreate("bookings") && (
+              <Button size="icon" className="h-9 w-9 flex sm:hidden" onClick={() => setIsNewReservationOpen(true)} title="New Reservation" data-testid="button-new-reservation-mobile">
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
             <Dialog open={isNewReservationOpen} onOpenChange={handleReservationDialogClose}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="hidden sm:flex" data-testid="button-new-reservation">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  New Reservation
-                </Button>
-              </DialogTrigger>
+              {canCreate("bookings") && (
+                <DialogTrigger asChild>
+                  <Button size="sm" className="hidden sm:flex" data-testid="button-new-reservation">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    New Reservation
+                  </Button>
+                </DialogTrigger>
+              )}
               <DialogContent className="sm:max-w-[850px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>New Reservation</DialogTitle>

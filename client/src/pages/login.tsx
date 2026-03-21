@@ -41,7 +41,7 @@ export default function Login() {
   function redirectUser(role: string) {
     if (role === "super_admin") setLocation("/platform/dashboard");
     else if (role === "owner") setLocation("/admin");
-    else if (role === "manager") setLocation("/manager");
+    else if (role === "manager" || role === "staff") setLocation("/manager");
   }
 
   const handleLogin = async (e: React.FormEvent) => {

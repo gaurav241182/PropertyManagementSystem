@@ -71,7 +71,7 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
 
 function ManagerRoute({ component: Component }: { component: React.ComponentType }) {
   return (
-    <RequireAuth allowedRoles={["super_admin", "owner", "manager"]}>
+    <RequireAuth allowedRoles={["super_admin", "owner", "manager", "staff"]}>
       <Component />
     </RequireAuth>
   );

@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useHotelSettings } from "@/hooks/use-hotel-settings";
+import { usePermissions } from "@/hooks/use-permissions";
 
 type OrderStatus = "Pending" | "Accepted" | "Fulfilled" | "Cancelled";
 type OrderType = "Food" | "Facility";
@@ -87,6 +88,7 @@ interface ApiBooking {
 export default function AdminOrders({ role = "owner" }: { role?: "owner" | "manager" }) {
   const { toast } = useToast();
   const { currencySymbol, formatDateTime } = useHotelSettings();
+  const { canCreate, canDelete } = usePermissions();
 
   const { data: orders = [] } = useQuery<ApiOrder[]>({ queryKey: ['/api/orders'] });
   const { data: menuItems = [] } = useQuery<ApiMenuItem[]>({ queryKey: ['/api/menu-items'] });
@@ -427,11 +429,13 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
             <p className="text-muted-foreground">Manage food and facility orders for active guests.</p>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary text-primary-foreground">
-                <Plus className="mr-2 h-4 w-4" /> Create Order
-              </Button>
-            </DialogTrigger>
+            {canCreate("orders") && (
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-primary-foreground">
+                  <Plus className="mr-2 h-4 w-4" /> Create Order
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Order</DialogTitle>
@@ -751,9 +755,11 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                         <Archive className="h-3 w-3" />
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => { setDeletingOrder(order); setDeletePassword(""); setIsDeleteDialogOpen(true); }} data-testid={`button-delete-order-${order.id}`}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    {canDelete("orders") && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:bg-red-50 hover:text-red-600" onClick={() => { setDeletingOrder(order); setDeletePassword(""); setIsDeleteDialogOpen(true); }} data-testid={`button-delete-order-${order.id}`}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 

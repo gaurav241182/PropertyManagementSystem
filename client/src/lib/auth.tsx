@@ -2,12 +2,16 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useLocation } from "wouter";
 import { apiRequest } from "./queryClient";
 
+import type { Permissions } from "./permissions";
+
 interface AuthUser {
   id: number;
   name: string;
   email: string;
   role: string;
   hotelId: number | null;
+  hotelRoleId?: number | null;
+  permissions?: Permissions | null;
 }
 
 interface AuthContextType {

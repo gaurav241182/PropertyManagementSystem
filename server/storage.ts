@@ -4,6 +4,7 @@ import {
   hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
   bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches, staffAdvances,
+  hotelRoles,
   passwordResetTokens, type PasswordResetToken,
   type InsertHotel, type Hotel,
   type InsertPlatformUser, type PlatformUser,
@@ -27,6 +28,7 @@ import {
   type InsertSalarySchedulerLog, type SalarySchedulerLog,
   type InsertBranch, type Branch,
   type InsertStaffAdvance, type StaffAdvance,
+  type InsertHotelRole, type HotelRole,
 } from "@shared/schema";
 
 function buildScopeConditions(hotelIdCol: Column, branchIdCol: Column, hotelId: number | null | undefined, branchId: number | null | undefined) {
@@ -186,6 +188,12 @@ export interface IStorage {
   updateSalarySchedulerLog(id: number, data: Partial<InsertSalarySchedulerLog>): Promise<SalarySchedulerLog | undefined>;
 
   getCheckedOutBookingsInRange(startDate: string, endDate: string, hotelId?: number | null, branchId?: number | null): Promise<Booking[]>;
+
+  getHotelRoles(hotelId: number): Promise<HotelRole[]>;
+  getHotelRole(id: number): Promise<HotelRole | undefined>;
+  createHotelRole(data: InsertHotelRole): Promise<HotelRole>;
+  updateHotelRole(id: number, data: Partial<InsertHotelRole>): Promise<HotelRole | undefined>;
+  deleteHotelRole(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -905,6 +913,29 @@ export class DatabaseStorage implements IStorage {
     if (hotelId) conditions.push(eq(bookings.hotelId, hotelId));
     if (branchId) conditions.push(eq(bookings.branchId, branchId));
     return db.select().from(bookings).where(and(...conditions)).orderBy(bookings.checkOut);
+  }
+
+  async getHotelRoles(hotelId: number): Promise<HotelRole[]> {
+    return db.select().from(hotelRoles).where(eq(hotelRoles.hotelId, hotelId)).orderBy(hotelRoles.name);
+  }
+
+  async getHotelRole(id: number): Promise<HotelRole | undefined> {
+    const [result] = await db.select().from(hotelRoles).where(eq(hotelRoles.id, id));
+    return result;
+  }
+
+  async createHotelRole(data: InsertHotelRole): Promise<HotelRole> {
+    const [result] = await db.insert(hotelRoles).values(data).returning();
+    return result;
+  }
+
+  async updateHotelRole(id: number, data: Partial<InsertHotelRole>): Promise<HotelRole | undefined> {
+    const [result] = await db.update(hotelRoles).set(data).where(eq(hotelRoles.id, id)).returning();
+    return result;
+  }
+
+  async deleteHotelRole(id: number): Promise<void> {
+    await db.delete(hotelRoles).where(eq(hotelRoles.id, id));
   }
 }
 

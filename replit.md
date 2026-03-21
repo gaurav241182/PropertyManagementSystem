@@ -31,7 +31,7 @@ client/src/components/ - Reusable UI components
 - Complex settings (taxes, templates, discount rules) stored as JSON strings in settings table
 
 ## Database Tables
-hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, categories, menu_items, menus, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing, room_blocks, invoice_scheduler_logs, staff_advances
+hotels, platform_users, hotel_roles, branches, rooms, room_types, bookings, staff, expenses, categories, menu_items, menus, facilities, orders, order_items, settings, salaries, booking_charges, room_pricing, room_blocks, invoice_scheduler_logs, staff_advances, password_reset_tokens
 
 ## Branch-Level Data Isolation
 - `branches` table: id, hotelId, name, city, address
@@ -224,6 +224,22 @@ hotels, platform_users, branches, rooms, room_types, bookings, staff, expenses, 
   - Salary table updated with EMI Deduction and Net Payable columns
   - API: GET /api/staff-advances, GET /api/staff-advances/:staffId
   - POST /api/salaries/:id/advance accepts optional `useInstalments` and `numberOfInstalments` params
+
+- 2026-03-21: **Role-Based Access Control (RBAC)** — Hotel owners can create custom roles with granular module permissions
+  - New `hotel_roles` table: id, hotelId, name, description, permissions (JSON)
+  - `hotel_role_id` column added to `platform_users` table to link staff to a custom role
+  - Modules: dashboard, bookings, inventory, orders, staff, expenses, salaries, revenue, restaurant, reports, settings
+  - Permissions per module: view, create, edit, delete (boolean flags)
+  - `client/src/lib/permissions.ts`: MODULE_KEYS, MODULE_LABELS, permission types and helper functions
+  - `client/src/hooks/use-permissions.ts`: `usePermissions()` hook returning canView/canCreate/canEdit/canDelete per module
+  - `client/src/components/ui/PermissionGate.tsx`: gate component to hide UI based on permissions
+  - Owner/super_admin roles bypass RBAC and always have full access
+  - Staff users are filtered by `hotelRoleId`; login redirects staff to `/manager/*` routes
+  - Sidebar nav items filtered by view permissions for staff users
+  - Settings → Roles & Permissions tab: create/edit/delete roles, permission matrix UI, assign roles to users
+  - API: GET/POST /api/hotel-roles, GET/PATCH/DELETE /api/hotel-roles/:id, GET /api/hotel-staff-users
+  - `admin-bookings.tsx`: New Reservation button hidden if canCreate("bookings") = false
+  - `admin-orders.tsx`: Create Order and Delete Order buttons hidden based on canCreate/canDelete("orders")
 
 ## Multi-Tenancy Architecture
 - Each hotel's data is isolated by `hotel_id` column on every data table

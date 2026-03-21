@@ -21,6 +21,8 @@ declare module "express-session" {
       email: string;
       role: string;
       hotelId: number | null;
+      hotelRoleId?: number | null;
+      permissions?: Record<string, any> | null;
     };
   }
 }
