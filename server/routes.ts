@@ -1231,7 +1231,8 @@ export async function registerRoutes(
           continue;
         }
         const staffMember = await storage.getStaffMember(staffId);
-        if (!staffMember || staffMember.status !== "active") continue;
+        if (!staffMember) continue;
+        if (!isFinalSettlement && staffMember.status !== "active") continue;
         const [year, mon] = month.split("-").map(Number);
         const lastDay = new Date(year, mon, 0);
         const dueDateStr = lastDay.toISOString().split("T")[0];

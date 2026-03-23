@@ -276,6 +276,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
   const [settlementStaff, setSettlementStaff] = useState<any>(null);
   const [settlementOpen, setSettlementOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [lastWorkDay, setLastWorkDay] = useState("");
   const [goodbyeConfirmMode, setGoodbyeConfirmMode] = useState(false);
   const [goodbyePassword, setGoodbyePassword] = useState("");
@@ -292,8 +293,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     if (!settlementStaff || !lastWorkDay) return null;
     const joinDate = new Date(settlementStaff.joinDate || settlementStaff.joined);
     const lastDay = new Date(lastWorkDay);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    if (isNaN(joinDate.getTime()) || isNaN(lastDay.getTime()) || lastDay <= today || lastDay < joinDate) return null;
+    if (isNaN(joinDate.getTime()) || isNaN(lastDay.getTime()) || lastDay < joinDate) return null;
     const totalMonths = (lastDay.getFullYear() - joinDate.getFullYear()) * 12 + (lastDay.getMonth() - joinDate.getMonth());
     const months = Math.max(0, totalMonths);
     const rate = months >= 12 ? afterFirstYearRate : firstYearRate;
@@ -334,10 +334,12 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           paidDate: lastWorkDay,
         }],
       });
-      await apiRequest("POST", `/api/staff/${settlementStaff.id}/deactivate`, { password: goodbyePassword });
+      if (settlementStaff.status !== "Inactive") {
+        await apiRequest("POST", `/api/staff/${settlementStaff.id}/deactivate`, { password: goodbyePassword });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
       queryClient.invalidateQueries({ queryKey: ['/api/salaries'] });
-      toast({ title: "Farewell!", description: `${settlementStaff.name}'s final settlement has been recorded and the employee has been deactivated.` });
+      toast({ title: "Settlement Complete!", description: settlementStaff.status === "Inactive" ? `${settlementStaff.name}'s final settlement salary has been recorded.` : `${settlementStaff.name}'s final settlement has been recorded and the employee has been archived.` });
       setSettlementOpen(false);
       setGoodbyeConfirmMode(false);
       setGoodbyePassword("");
@@ -626,6 +628,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   };
 
   const activeStaff = staff.filter(s => s.status !== "Inactive");
+  const archivedStaff = staff.filter(s => s.status === "Inactive");
   const isViewMode = dialogMode === "view";
   const isEditable = dialogMode === "edit" || dialogMode === "add";
 
@@ -1324,6 +1327,38 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
           })}
         </div>
 
+        {/* Archived Staff - Mobile */}
+        {archivedStaff.length > 0 && (
+          <div className="md:hidden space-y-2">
+            <button
+              className="flex items-center gap-2 text-sm font-semibold text-muted-foreground px-1 w-full"
+              onClick={() => setShowArchived(v => !v)}
+              data-testid="button-toggle-archived-mobile"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Archived Staff ({archivedStaff.length})
+              <span className="ml-auto">{showArchived ? "▲" : "▼"}</span>
+            </button>
+            {showArchived && archivedStaff.map((employee) => (
+              <div key={employee.id} className="bg-muted/50 border rounded-xl p-3 flex items-center justify-between gap-3" data-testid={`card-archived-staff-${employee.id}`}>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{employee.name}</p>
+                  <p className="text-xs text-muted-foreground">{employee.role}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-orange-600 border-orange-300 hover:bg-orange-50 shrink-0 text-xs h-7 px-2"
+                  onClick={() => { setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }}
+                  data-testid={`button-settlement-archived-${employee.id}`}
+                >
+                  <LogOut className="h-3.5 w-3.5 mr-1" /> Settlement
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Desktop Table View - hidden on mobile */}
         <Card className="hidden md:block">
           <CardHeader>
@@ -1394,6 +1429,74 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             </Table>
           </CardContent>
         </Card>
+
+        {/* Archived Staff - Desktop */}
+        {archivedStaff.length > 0 && (
+          <Card className="hidden md:block">
+            <CardHeader className="cursor-pointer select-none" onClick={() => setShowArchived(v => !v)}>
+              <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+                <Archive className="h-4 w-4" />
+                Archived Staff ({archivedStaff.length})
+                <span className="ml-auto text-sm font-normal">{showArchived ? "Hide" : "Show"}</span>
+              </CardTitle>
+            </CardHeader>
+            {showArchived && (
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Employee ID</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Salary</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {archivedStaff.map((employee) => (
+                      <TableRow key={employee.id} data-testid={`row-archived-staff-${employee.id}`} className="opacity-70">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {employee.photo ? (
+                              <img src={employee.photo} alt="" className="h-8 w-8 rounded-full object-cover grayscale" />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-muted" />
+                            )}
+                            <span className="font-medium">{employee.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className="font-mono text-xs">{employee.employeeId}</Badge></TableCell>
+                        <TableCell>{employee.role}</TableCell>
+                        <TableCell>{cs}{employee.salary}</TableCell>
+                        <TableCell>{employee.joined}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2 text-xs gap-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+                              onClick={() => { setSettlementStaff(employee); setLastWorkDay(""); setSettlementOpen(true); }}
+                              data-testid={`button-settlement-archived-${employee.id}`}
+                              title="Generate Final Settlement"
+                            >
+                              <LogOut className="h-3.5 w-3.5" /> Settlement
+                            </Button>
+                            {role === "owner" && (
+                              <Button variant="ghost" size="icon" title="Delete Permanent" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDeleteDialog(employee.id, employee.name)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            )}
+          </Card>
+        )}
 
       </div>
       )}
@@ -1652,7 +1755,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
             )}
 
             {!settlementCalc && lastWorkDay && (
-              <p className="text-sm text-destructive">Last working day must be a future date after the employee's join date.</p>
+              <p className="text-sm text-destructive">Last working day must be on or after the employee's join date.</p>
             )}
 
             {goodbyeConfirmMode && settlementCalc && (
@@ -1662,7 +1765,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-destructive">This action cannot be undone</p>
                     <p className="text-xs text-muted-foreground">
-                      This will create a final settlement salary record of <strong>{cs}{settlementCalc.totalWelfare.toLocaleString()}</strong> for <strong>{settlementStaff?.name}</strong> and permanently deactivate their account.
+                      {settlementStaff?.status === "Inactive"
+                        ? <>This will create a final settlement salary record of <strong>{cs}{settlementCalc.totalWelfare.toLocaleString()}</strong> for <strong>{settlementStaff?.name}</strong>. The employee is already archived.</>
+                        : <>This will create a final settlement salary record of <strong>{cs}{settlementCalc.totalWelfare.toLocaleString()}</strong> for <strong>{settlementStaff?.name}</strong> and permanently archive their account.</>
+                      }
                     </p>
                   </div>
                 </div>
