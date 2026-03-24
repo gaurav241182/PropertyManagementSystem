@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Utensils, Plus, Filter, Clock, CheckCircle, ChefHat, Pencil, Trash2, Archive } from "lucide-react";
+import { Utensils, Plus, Filter, Clock, CheckCircle, ChefHat, Pencil, Trash2, Archive, Search } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -217,6 +217,8 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
   const [editServingTimeOption, setEditServingTimeOption] = useState("now");
   const [editServingTimeCustom, setEditServingTimeCustom] = useState("");
   const [editItems, setEditItems] = useState<{ itemName: string; price: string; quantity: number }[]>([]);
+
+  const [itemSearch, setItemSearch] = useState("");
 
   const [deletingOrder, setDeletingOrder] = useState<ApiOrder | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -462,54 +464,85 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                   </Select>
                 </div>
 
-                <Tabs defaultValue="Food" onValueChange={(val) => setNewOrder({...newOrder, type: val as OrderType, items: []})}>
+                <Tabs defaultValue="Food" onValueChange={(val) => { setNewOrder({...newOrder, type: val as OrderType, items: []}); setItemSearch(""); }}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="Food">Food & Beverage</TabsTrigger>
                     <TabsTrigger value="Facility">Facilities</TabsTrigger>
                   </TabsList>
+
+                  <div className="mt-3 relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search items..."
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      className="pl-8 h-8 text-sm"
+                      data-testid="input-item-search"
+                    />
+                  </div>
                   
-                  <div className="mt-4 border rounded-md p-4 h-60 overflow-y-auto">
-                    <TabsContent value="Food" className="mt-0 space-y-2">
-                      {activeMenus.length > 0 && (
-                        <>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-1 border-b flex items-center gap-1">
-                            <ChefHat className="h-3 w-3" /> Menus & Buffets
-                          </p>
-                          {activeMenus.map((menu: ApiMenu) => (
-                            <div key={`menu-${menu.id}`} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg bg-primary/5">
-                              <div>
-                                <p className="font-medium flex items-center gap-1">
-                                  <ChefHat className="h-3.5 w-3.5 text-primary" />
-                                  {menu.name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{currencySymbol}{menu.price} &middot; {menu.type}</p>
+                  <div className="mt-2 border rounded-md h-64 overflow-y-auto">
+                    <TabsContent value="Food" className="mt-0">
+                      {(() => {
+                        const q = itemSearch.toLowerCase();
+                        const filteredMenus = activeMenus.filter((m: ApiMenu) => m.name.toLowerCase().includes(q));
+                        const filteredItems = menuItems.filter((item: ApiMenuItem) => item.available && item.name.toLowerCase().includes(q));
+                        return (
+                          <>
+                            {filteredMenus.length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 bg-muted/40 border-b flex items-center gap-1">
+                                  <ChefHat className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Menus & Buffets</span>
+                                </div>
+                                {filteredMenus.map((menu: ApiMenu) => (
+                                  <div key={`menu-${menu.id}`} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/40 border-b last:border-b-0">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <ChefHat className="h-3 w-3 text-primary shrink-0" />
+                                      <span className="text-sm font-medium truncate">{menu.name}</span>
+                                      <span className="text-xs text-muted-foreground shrink-0">{currencySymbol}{menu.price}</span>
+                                      <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded shrink-0">{menu.type}</span>
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-6 text-xs px-2 ml-2 shrink-0" onClick={() => addItemToOrder(`menu-${menu.id}`)} data-testid={`button-add-menu-order-${menu.id}`}>Add</Button>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                            {filteredItems.length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 bg-muted/40 border-b flex items-center gap-1">
+                                  <Utensils className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Individual Items</span>
+                                </div>
+                                {filteredItems.map((item: ApiMenuItem) => (
+                                  <div key={item.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/40 border-b last:border-b-0">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-sm truncate">{item.name}</span>
+                                      <span className="text-xs text-muted-foreground shrink-0">{currencySymbol}{item.price}</span>
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-6 text-xs px-2 ml-2 shrink-0" onClick={() => addItemToOrder(item.id.toString())} data-testid={`button-add-item-order-${item.id}`}>Add</Button>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                            {filteredMenus.length === 0 && filteredItems.length === 0 && (
+                              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm gap-1">
+                                <Search className="h-5 w-5" />
+                                No items match "{itemSearch}"
                               </div>
-                              <Button size="sm" variant="outline" onClick={() => addItemToOrder(`menu-${menu.id}`)} data-testid={`button-add-menu-order-${menu.id}`}>Add</Button>
-                            </div>
-                          ))}
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pb-1 pt-2 border-b flex items-center gap-1">
-                            <Utensils className="h-3 w-3" /> Individual Items
-                          </p>
-                        </>
-                      )}
-                      {menuItems.filter((item: ApiMenuItem) => item.available).map((item: ApiMenuItem) => (
-                        <div key={item.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">{currencySymbol}{item.price}</p>
-                          </div>
-                          <Button size="sm" variant="outline" onClick={() => addItemToOrder(item.id.toString())}>Add</Button>
-                        </div>
-                      ))}
+                            )}
+                          </>
+                        );
+                      })()}
                     </TabsContent>
-                    <TabsContent value="Facility" className="mt-0 space-y-2">
-                      {facilityItems.filter((item: ApiFacility) => item.active).map((item: ApiFacility) => (
-                        <div key={item.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">{currencySymbol}{item.price} / {item.unit}</p>
+                    <TabsContent value="Facility" className="mt-0">
+                      {facilityItems.filter((item: ApiFacility) => item.active && item.name.toLowerCase().includes(itemSearch.toLowerCase())).map((item: ApiFacility) => (
+                        <div key={item.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/40 border-b last:border-b-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm truncate">{item.name}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{currencySymbol}{item.price} / {item.unit}</span>
                           </div>
-                          <Button size="sm" variant="outline" onClick={() => addItemToOrder(item.id.toString())}>Add</Button>
+                          <Button size="sm" variant="outline" className="h-6 text-xs px-2 ml-2 shrink-0" onClick={() => addItemToOrder(item.id.toString())} data-testid={`button-add-facility-order-${item.id}`}>Add</Button>
                         </div>
                       ))}
                     </TabsContent>
