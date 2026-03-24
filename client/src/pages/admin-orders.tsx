@@ -455,7 +455,7 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                     <SelectContent>
                       {activeBookings.map((booking: ApiBooking) => (
                         <SelectItem key={booking.bookingId} value={booking.bookingId}>
-                          {booking.guestName} ({booking.bookingId})
+                          {booking.guestName} · Room {booking.roomNumber || booking.roomId} ({booking.bookingId})
                         </SelectItem>
                       ))}
                     </SelectContent>
