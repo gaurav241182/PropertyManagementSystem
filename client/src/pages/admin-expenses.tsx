@@ -194,9 +194,18 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
               {hasFile ? <Download className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
             </Button>
             {hasFile && (
-              <span className="text-[9px] text-green-600 max-w-[60px] truncate leading-tight" title={(expense as any).receiptFileName}>
-                {(expense as any).receiptFileName}
-              </span>
+              <div className="flex items-center gap-0.5">
+                <span className="text-[9px] text-green-600 max-w-[50px] truncate leading-tight" title={(expense as any).receiptFileName}>
+                  {(expense as any).receiptFileName}
+                </span>
+                <button
+                  className="text-red-400 hover:text-red-600 shrink-0"
+                  title="Remove file"
+                  onClick={() => onUpdate(expense.id, { hasReceipt: false, receiptFileName: null, receiptFile: null })}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
             )}
             {!hasFile && (
               <button
