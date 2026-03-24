@@ -706,8 +706,9 @@ export default function AdminOrders({ role = "owner" }: { role?: "owner" | "mana
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-mono text-[11px] font-semibold text-muted-foreground shrink-0">{order.orderId}</span>
                     <span className="text-[11px] text-muted-foreground">·</span>
-                    <span className="text-[11px] font-semibold truncate">
-                      {order.guestName} <span className="font-normal text-muted-foreground">R{order.roomNumber}</span>
+                    <span className="text-[11px] font-semibold truncate">{order.guestName}</span>
+                    <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 text-primary text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                      Rm {order.roomNumber}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">

@@ -20,6 +20,20 @@ const FALLBACK_CATEGORY_SUBS: Record<string, string[]> = {
   "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
 };
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "application/pdf"];
+const ALLOWED_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.gif,.pdf";
+
+function validateFile(file: File): string | null {
+  if (file.size > MAX_FILE_SIZE) {
+    return `"${file.name}" exceeds the 5 MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
+  }
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return `"${file.name}" is not a supported format. Please use PDF, JPEG, PNG, WebP, or GIF.`;
+  }
+  return null;
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -47,6 +61,7 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
   categoryItems: Record<string, Record<string, string[]>>;
   taxableTypes: Set<string>;
 }) {
+  const { toast } = useToast();
   const isTaxableCategory = (cat: string) => taxableTypes.has(cat);
   const [localItem, setLocalItem] = useState(expense.item);
   const [localQty, setLocalQty] = useState(expense.qty);
@@ -82,6 +97,12 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
   const handleRowFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const err = validateFile(file);
+    if (err) {
+      toast({ title: "File not accepted", description: err, variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
     setUploading(true);
     try {
       const base64 = await fileToBase64(file);
@@ -152,7 +173,7 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
         <Input type="number" value={localTotal} readOnly className="h-8 w-full bg-muted/20 font-bold" placeholder="0" data-testid={`input-total-${expense.id}`} />
       </TableCell>
       <TableCell className="p-2 text-center">
-        <input type="file" ref={rowFileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleRowFileChange} />
+        <input type="file" ref={rowFileInputRef} className="hidden" accept={ALLOWED_EXTENSIONS} onChange={handleRowFileChange} />
         {isTaxableCategory(expense.category) && (
           <div className="flex flex-col items-center gap-0.5">
             <Button
@@ -346,11 +367,23 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   const handleBulkFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+    const errors: string[] = [];
+    const validFiles: File[] = [];
     for (const file of files) {
+      const err = validateFile(file);
+      if (err) errors.push(err);
+      else validFiles.push(file);
+    }
+    if (errors.length > 0) {
+      toast({ title: "Some files were rejected", description: errors.join(" "), variant: "destructive" });
+    }
+    for (const file of validFiles) {
       const base64 = await fileToBase64(file);
       await addDailyFileMutation.mutateAsync({ recordDate, fileName: file.name, fileType: file.type || "application/octet-stream", fileData: base64 });
     }
-    toast({ title: "Files Uploaded", description: `${files.length} file(s) saved for ${recordDate}.` });
+    if (validFiles.length > 0) {
+      toast({ title: "Files Uploaded", description: `${validFiles.length} file(s) saved for ${recordDate}.` });
+    }
     e.target.value = "";
   };
 
@@ -407,7 +440,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                       type="file"
                       ref={bulkFileInputRef}
                       className="hidden"
-                      accept="image/*,application/pdf"
+                      accept={ALLOWED_EXTENSIONS}
                       multiple
                       onChange={handleBulkFileChange}
                     />
