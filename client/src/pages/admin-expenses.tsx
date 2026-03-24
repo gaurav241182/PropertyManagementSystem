@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Save, FileSpreadsheet, Upload } from "lucide-react";
+import { Plus, Trash2, Save, FileSpreadsheet, Upload, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,7 +20,8 @@ const FALLBACK_CATEGORY_SUBS: Record<string, string[]> = {
   "Other": ["Marketing", "Stationery", "Travel", "Miscellaneous"]
 };
 
-function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySubs, categoryItems, taxableTypes }: {
+function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, categorySubs, categoryItems, taxableTypes }: {
+  serialNo: number;
   expense: Expense;
   role: string;
   onUpdate: (id: number, data: Record<string, any>) => void;
@@ -36,6 +36,8 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
   const [localQty, setLocalQty] = useState(expense.qty);
   const [localPrice, setLocalPrice] = useState(String(expense.price));
   const [localTotal, setLocalTotal] = useState(String(expense.total));
+  const [attachedFile, setAttachedFile] = useState<string | null>(null);
+  const rowFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalItem(expense.item);
@@ -63,8 +65,20 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
     onUpdate(expense.id, updateData);
   };
 
+  const handleRowFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachedFile(file.name);
+      onUpdate(expense.id, { hasReceipt: true });
+    }
+    e.target.value = "";
+  };
+
   return (
     <TableRow className="hover:bg-muted/10">
+      <TableCell className="p-2 text-center text-xs text-muted-foreground font-medium w-10">
+        {serialNo}
+      </TableCell>
       <TableCell className="p-2">
         <Input
           type="date"
@@ -80,7 +94,7 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
       </TableCell>
       <TableCell className="p-2">
         <Select
-          value={expense.category}
+          value={expense.category || ""}
           onValueChange={(val) => {
             onUpdate(expense.id, { category: val, subCategory: categorySubs[val]?.[0] || "" });
           }}
@@ -97,7 +111,7 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
       </TableCell>
       <TableCell className="p-2">
         <Select
-          value={expense.subCategory}
+          value={expense.subCategory || ""}
           onValueChange={(val) => { setLocalItem(""); onUpdate(expense.id, { subCategory: val, item: "" }); }}
         >
           <SelectTrigger className="h-8 w-full" data-testid={`select-subcategory-${expense.id}`}>
@@ -170,10 +184,29 @@ function ExpenseRow({ expense, role, onUpdate, onDelete, isDeleting, categorySub
         />
       </TableCell>
       <TableCell className="p-2 text-center">
+        <input
+          type="file"
+          ref={rowFileInputRef}
+          className="hidden"
+          accept="image/*,application/pdf"
+          onChange={handleRowFileChange}
+        />
         {isTaxableCategory(expense.category) && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary bg-primary/10 hover:bg-primary/20" title="Upload Tax Invoice" data-testid={`button-upload-receipt-${expense.id}`}>
-            <Upload className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-col items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${attachedFile || expense.hasReceipt ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-primary bg-primary/10 hover:bg-primary/20'}`}
+              title={attachedFile ? `Attached: ${attachedFile}` : "Upload Tax Invoice"}
+              onClick={() => rowFileInputRef.current?.click()}
+              data-testid={`button-upload-receipt-${expense.id}`}
+            >
+              {attachedFile || expense.hasReceipt ? <Paperclip className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+            </Button>
+            {attachedFile && (
+              <span className="text-[9px] text-green-600 max-w-[60px] truncate leading-tight">{attachedFile}</span>
+            )}
+          </div>
         )}
       </TableCell>
       <TableCell className="p-2">
@@ -217,6 +250,9 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   const { toast } = useToast();
 
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [displayOrder, setDisplayOrder] = useState<number[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
     queryKey: ['/api/expenses'],
@@ -225,6 +261,21 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
   });
+
+  useEffect(() => {
+    setDisplayOrder(prev => {
+      const existingIds = new Set(prev);
+      const newIds = expenses.map(e => e.id).filter(id => !existingIds.has(id));
+      const currentIds = new Set(expenses.map(e => e.id));
+      const filtered = prev.filter(id => currentIds.has(id));
+      return [...filtered, ...newIds];
+    });
+  }, [expenses]);
+
+  const orderedExpenses = useMemo(() => {
+    const expenseMap = new Map(expenses.map(e => [e.id, e]));
+    return displayOrder.map(id => expenseMap.get(id)).filter(Boolean) as Expense[];
+  }, [displayOrder, expenses]);
 
   const categorySubs = useMemo(() => {
     if (categories.length === 0) return FALLBACK_CATEGORY_SUBS;
@@ -301,8 +352,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   });
 
   const visibleExpenses = role === "owner"
-    ? expenses
-    : expenses.filter(e => e.recordDate === filterDate);
+    ? orderedExpenses
+    : orderedExpenses.filter(e => e.recordDate === filterDate);
 
   const totalAmount = visibleExpenses.reduce((sum, e) => sum + (parseFloat(e.total as string) || 0), 0);
 
@@ -312,8 +363,8 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
     addExpenseMutation.mutate({
       date: dateToUse,
       recordDate: dateToUse,
-      category: Object.keys(categorySubs)[0] || "Grocery",
-      subCategory: categorySubs[Object.keys(categorySubs)[0]]?.[0] || "",
+      category: "",
+      subCategory: "",
       item: "",
       qty: "1",
       price: "0",
@@ -330,6 +381,15 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
   const handleDelete = useCallback((id: number) => {
     deleteExpenseMutation.mutate(id);
   }, []);
+
+  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setBulkFiles(prev => [...prev, ...files]);
+      toast({ title: "Files Attached", description: `${files.length} file(s) added successfully.` });
+    }
+    e.target.value = "";
+  };
 
   if (expensesLoading) {
     return (
@@ -379,10 +439,26 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                    <div className="flex flex-col items-end gap-1">
                       <span className="text-sm font-medium text-muted-foreground">Daily Receipts</span>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8" data-testid="button-upload-files">
+                        <input
+                          type="file"
+                          ref={bulkFileInputRef}
+                          className="hidden"
+                          accept="image/*,application/pdf"
+                          multiple
+                          onChange={handleBulkFileChange}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => bulkFileInputRef.current?.click()}
+                          data-testid="button-upload-files"
+                        >
                           <Upload className="mr-2 h-3.5 w-3.5" /> Upload Files
                         </Button>
-                        <span className="text-xs text-muted-foreground">0 files attached</span>
+                        <span className="text-xs text-muted-foreground">
+                          {bulkFiles.length > 0 ? `${bulkFiles.length} file(s) attached` : "0 files attached"}
+                        </span>
                       </div>
                    </div>
                    <div className="h-10 w-px bg-border hidden md:block"></div>
@@ -405,6 +481,7 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                   <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="w-[40px] text-center">#</TableHead>
                       <TableHead className="w-[130px]">Purchase Date</TableHead>
                       <TableHead className="w-[140px]">Category</TableHead>
                       <TableHead className="w-[140px]">Sub-Category</TableHead>
@@ -418,9 +495,10 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {expenses.map((expense) => (
+                    {visibleExpenses.map((expense, index) => (
                       <ExpenseRow
                         key={expense.id}
+                        serialNo={index + 1}
                         expense={expense}
                         role={role}
                         onUpdate={handleUpdate}
@@ -431,6 +509,13 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                         taxableTypes={taxableTypes}
                       />
                     ))}
+                    {visibleExpenses.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                          No expenses yet. Click "Add Line Item" to get started.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
