@@ -851,7 +851,13 @@ export async function registerRoutes(
     const record = await storage.getExpense(Number(req.params.id));
     const branchId = await getBranchIdValidated(req);
     if (!checkRecordScope(record, req, res, branchId)) return;
-    const data = await storage.updateExpense(Number(req.params.id), req.body);
+    const body = { ...req.body };
+    for (const numField of ["price", "total", "qty"]) {
+      if (numField in body && (body[numField] === "" || body[numField] === null)) {
+        body[numField] = numField === "qty" ? "1" : "0";
+      }
+    }
+    const data = await storage.updateExpense(Number(req.params.id), body);
     res.json(data);
   });
 

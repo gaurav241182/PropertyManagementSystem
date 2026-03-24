@@ -63,33 +63,41 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
 }) {
   const { toast } = useToast();
   const isTaxableCategory = (cat: string) => taxableTypes.has(cat);
+  const fmtNum = (v: string | number) => {
+    const n = parseFloat(String(v));
+    return isNaN(n) ? "" : String(n);
+  };
+
   const [localItem, setLocalItem] = useState(expense.item);
   const [localQty, setLocalQty] = useState(expense.qty);
-  const [localPrice, setLocalPrice] = useState(String(expense.price));
-  const [localTotal, setLocalTotal] = useState(String(expense.total));
+  const [localPrice, setLocalPrice] = useState(fmtNum(expense.price));
+  const [localTotal, setLocalTotal] = useState(fmtNum(expense.total));
   const [uploading, setUploading] = useState(false);
   const rowFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalItem(expense.item);
     setLocalQty(expense.qty);
-    setLocalPrice(String(expense.price));
-    setLocalTotal(String(expense.total));
+    setLocalPrice(fmtNum(expense.price));
+    setLocalTotal(fmtNum(expense.total));
   }, [expense.item, expense.qty, expense.price, expense.total]);
 
   const handleBlur = (field: string, value: string) => {
     const currentVal = field === 'item' ? expense.item
       : field === 'qty' ? expense.qty
-      : field === 'price' ? String(expense.price)
-      : String(expense.total);
+      : field === 'price' ? fmtNum(expense.price)
+      : fmtNum(expense.total);
     if (value === currentVal) return;
-    const updateData: Record<string, any> = { [field]: value };
+    const cleanVal = (field === 'price' || field === 'qty') ? fmtNum(value) || "0" : value;
+    const updateData: Record<string, any> = { [field]: cleanVal };
     if (field === 'price' || field === 'qty') {
-      const p = field === 'price' ? parseFloat(value) || 0 : parseFloat(String(expense.price)) || 0;
-      const q = field === 'qty' ? parseFloat(value) || 1 : parseFloat(expense.qty) || 1;
-      const newTotal = String(p * q);
+      const p = field === 'price' ? parseFloat(cleanVal) || 0 : parseFloat(fmtNum(expense.price)) || 0;
+      const q = field === 'qty' ? parseFloat(cleanVal) || 1 : parseFloat(expense.qty) || 1;
+      const newTotal = fmtNum(p * q);
       updateData.total = newTotal;
       setLocalTotal(newTotal);
+      if (field === 'price') setLocalPrice(cleanVal);
+      if (field === 'qty') setLocalQty(cleanVal);
     }
     onUpdate(expense.id, updateData);
   };
@@ -545,20 +553,33 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed w-full">
+                <colgroup>
+                  <col className="w-[40px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[140px]" />
+                  <col style={{minWidth: "180px"}} />
+                  <col className="w-[110px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[50px]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-[40px] text-center">#</TableHead>
-                    <TableHead className="w-[130px]">Purchase Date</TableHead>
-                    <TableHead className="w-[140px]">Category</TableHead>
-                    <TableHead className="w-[140px]">Sub-Category</TableHead>
-                    <TableHead className="min-w-[200px]">Item Name</TableHead>
-                    <TableHead className="w-[90px]">Qty</TableHead>
-                    <TableHead className="w-[120px]">Price</TableHead>
-                    <TableHead className="w-[120px]">Total</TableHead>
-                    <TableHead className="w-[80px]">Receipt</TableHead>
-                    <TableHead className="w-[130px]">Status</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="text-center">#</TableHead>
+                    <TableHead>Purchase Date</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Sub-Category</TableHead>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Receipt</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
