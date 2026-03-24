@@ -164,13 +164,41 @@ function ExpenseRow({ serialNo, expense, role, onUpdate, onDelete, isDeleting, c
         )}
       </TableCell>
       <TableCell className="p-2">
-        <Input value={localQty} onChange={(e) => setLocalQty(e.target.value)} onBlur={() => handleBlur('qty', localQty)} className="h-8 w-full" placeholder="1" data-testid={`input-qty-${expense.id}`} />
+        <Input
+          value={localQty}
+          inputMode="numeric"
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, "");
+            setLocalQty(v);
+          }}
+          onBlur={() => handleBlur('qty', localQty)}
+          className="h-8 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          placeholder="1"
+          data-testid={`input-qty-${expense.id}`}
+        />
       </TableCell>
       <TableCell className="p-2">
-        <Input type="number" value={localPrice} onChange={(e) => setLocalPrice(e.target.value)} onBlur={() => handleBlur('price', localPrice)} className="h-8 w-full" placeholder="0" data-testid={`input-price-${expense.id}`} />
+        <Input
+          value={localPrice}
+          inputMode="decimal"
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9.]/g, "").replace(/^(\d*\.?\d{0,2}).*$/, "$1");
+            setLocalPrice(v);
+          }}
+          onBlur={() => handleBlur('price', localPrice)}
+          className="h-8 w-full [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          placeholder="0.00"
+          data-testid={`input-price-${expense.id}`}
+        />
       </TableCell>
       <TableCell className="p-2">
-        <Input type="number" value={localTotal} readOnly className="h-8 w-full bg-muted/20 font-bold" placeholder="0" data-testid={`input-total-${expense.id}`} />
+        <Input
+          value={localTotal}
+          readOnly
+          className="h-8 w-full bg-muted/20 font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          placeholder="0.00"
+          data-testid={`input-total-${expense.id}`}
+        />
       </TableCell>
       <TableCell className="p-2 text-center">
         <input type="file" ref={rowFileInputRef} className="hidden" accept={ALLOWED_EXTENSIONS} onChange={handleRowFileChange} />
@@ -525,9 +553,9 @@ export default function AdminExpenses({ role = "owner" }: { role?: "owner" | "ma
                     <TableHead className="w-[140px]">Category</TableHead>
                     <TableHead className="w-[140px]">Sub-Category</TableHead>
                     <TableHead className="min-w-[200px]">Item Name</TableHead>
-                    <TableHead className="w-[80px]">Qty</TableHead>
-                    <TableHead className="w-[100px]">Price</TableHead>
-                    <TableHead className="w-[100px]">Total</TableHead>
+                    <TableHead className="w-[90px]">Qty</TableHead>
+                    <TableHead className="w-[120px]">Price</TableHead>
+                    <TableHead className="w-[120px]">Total</TableHead>
                     <TableHead className="w-[80px]">Receipt</TableHead>
                     <TableHead className="w-[130px]">Status</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
