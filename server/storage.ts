@@ -1,7 +1,7 @@
 import { eq, desc, and, gte, lte, lt, gt, ne, or, inArray, notInArray, isNull, type Column } from "drizzle-orm";
 import { db } from "./db";
 import {
-  hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, categories,
+  hotels, platformUsers, roomTypes, rooms, bookings, staff, expenses, expenseDailyFiles, categories,
   menuItems, menus, facilities, orders, orderItems, settings, salaries,
   bookingCharges, roomPricing, roomBlocks, invoiceSchedulerLogs, salarySchedulerLogs, branches, staffAdvances,
   hotelRoles,
@@ -13,6 +13,7 @@ import {
   type InsertBooking, type Booking,
   type InsertStaff, type Staff,
   type InsertExpense, type Expense,
+  type InsertExpenseDailyFile, type ExpenseDailyFile,
   type InsertCategory, type Category,
   type InsertMenuItem, type MenuItem,
   type InsertMenu, type Menu,
@@ -101,6 +102,10 @@ export interface IStorage {
   createExpense(data: InsertExpense): Promise<Expense>;
   updateExpense(id: number, data: Partial<InsertExpense>): Promise<Expense | undefined>;
   deleteExpense(id: number): Promise<void>;
+
+  getExpenseDailyFiles(hotelId?: number | null, branchId?: number | null, recordDate?: string): Promise<ExpenseDailyFile[]>;
+  createExpenseDailyFile(data: InsertExpenseDailyFile): Promise<ExpenseDailyFile>;
+  deleteExpenseDailyFile(id: number): Promise<void>;
 
   getCategories(hotelId?: number | null, branchId?: number | null): Promise<Category[]>;
   getCategory(id: number): Promise<Category | undefined>;
@@ -508,6 +513,22 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteExpense(id: number): Promise<void> {
     await db.delete(expenses).where(eq(expenses.id, id));
+  }
+
+  async getExpenseDailyFiles(hotelId?: number | null, branchId?: number | null, recordDate?: string): Promise<ExpenseDailyFile[]> {
+    const conditions = buildScopeConditions(expenseDailyFiles.hotelId, expenseDailyFiles.branchId, hotelId, branchId);
+    if (recordDate) conditions.push(eq(expenseDailyFiles.recordDate, recordDate));
+    if (conditions.length > 0) {
+      return db.select().from(expenseDailyFiles).where(and(...conditions)).orderBy(desc(expenseDailyFiles.createdAt));
+    }
+    return db.select().from(expenseDailyFiles).orderBy(desc(expenseDailyFiles.createdAt));
+  }
+  async createExpenseDailyFile(data: InsertExpenseDailyFile): Promise<ExpenseDailyFile> {
+    const [result] = await db.insert(expenseDailyFiles).values(data).returning();
+    return result;
+  }
+  async deleteExpenseDailyFile(id: number): Promise<void> {
+    await db.delete(expenseDailyFiles).where(eq(expenseDailyFiles.id, id));
   }
 
   async getCategories(hotelId?: number | null, branchId?: number | null): Promise<Category[]> {

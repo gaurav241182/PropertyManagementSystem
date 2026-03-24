@@ -863,6 +863,27 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ============= EXPENSE DAILY FILES =============
+  app.get("/api/expense-daily-files", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const recordDate = req.query.recordDate as string | undefined;
+    const data = await storage.getExpenseDailyFiles(hotelId, branchId, recordDate);
+    res.json(data);
+  });
+
+  app.post("/api/expense-daily-files", async (req, res) => {
+    const hotelId = getHotelId(req);
+    const branchId = await getBranchIdValidated(req);
+    const data = await storage.createExpenseDailyFile({ ...req.body, hotelId, branchId });
+    res.status(201).json(data);
+  });
+
+  app.delete("/api/expense-daily-files/:id", async (req, res) => {
+    await storage.deleteExpenseDailyFile(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ============= CATEGORIES =============
   app.get("/api/categories", async (req, res) => {
     const hotelId = getHotelId(req);

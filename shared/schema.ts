@@ -193,12 +193,29 @@ export const expenses = pgTable("expenses", {
   total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("Pending"),
   hasReceipt: boolean("has_receipt").notNull().default(false),
+  receiptFileName: text("receipt_file_name"),
+  receiptFile: text("receipt_file"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type Expense = typeof expenses.$inferSelect;
+
+export const expenseDailyFiles = pgTable("expense_daily_files", {
+  id: serial("id").primaryKey(),
+  hotelId: integer("hotel_id"),
+  branchId: integer("branch_id"),
+  recordDate: date("record_date").notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull().default("application/octet-stream"),
+  fileData: text("file_data").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertExpenseDailyFileSchema = createInsertSchema(expenseDailyFiles).omit({ id: true, createdAt: true });
+export type InsertExpenseDailyFile = z.infer<typeof insertExpenseDailyFileSchema>;
+export type ExpenseDailyFile = typeof expenseDailyFiles.$inferSelect;
 
 // ============= CATEGORIES (Expense/Inventory) =============
 export const categories = pgTable("categories", {
