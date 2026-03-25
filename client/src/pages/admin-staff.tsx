@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, Calculator, LogOut, MoreVertical, Users, DollarSign, Archive, FileText, Upload, Download, X } from "lucide-react";
+import { UserPlus, Edit, Power, Ban, Trash2, AlertTriangle, Loader2, Camera, Eye, EyeOff, Calculator, LogOut, MoreVertical, Users, DollarSign, Archive, FileText, Upload, Download, X, KeyRound, Wifi } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +84,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const { data: hotelsData = [] } = useQuery<any[]>({ queryKey: ['/api/hotels'] });
   const { data: branchesData = [] } = useQuery<any[]>({ queryKey: ['/api/branches'] });
   const { data: hotelRoles = [] } = useQuery<any[]>({ queryKey: ['/api/hotel-roles'] });
+  const { data: platformUsers = [] } = useQuery<any[]>({ queryKey: ['/api/platform-users'] });
 
   const currency = (settingsData as Record<string, string>)?.currency || "USD";
   const cs = getCurrencySymbol(currency);
@@ -150,6 +151,17 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     mutationFn: (data: any) => apiRequest("POST", "/api/platform-users", data),
     onError: (error: any) => {
       toast({ title: "Login creation failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updatePlatformUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/platform-users/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-users'] });
+      toast({ title: "Login Updated", description: "Staff login credentials have been updated." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Login Update Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -266,6 +278,10 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const idDocumentInputRef = useRef<HTMLInputElement>(null);
   const [createLogin, setCreateLogin] = useState(false);
   const [loginPassword, setLoginPassword] = useState("");
+  const [staffPlatformUser, setStaffPlatformUser] = useState<any>(null);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPasswordEdit, setLoginPasswordEdit] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [basicSalary, setBasicSalary] = useState(0);
   const [transport, setTransport] = useState(0);
   const [hra, setHra] = useState(0);
@@ -408,6 +424,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setIdDocumentName(emp.idDocumentName || "");
     setCreateLogin(false);
     setLoginPassword("");
+    const pu = (platformUsers as any[]).find((u: any) => u.email && emp.email && u.email.toLowerCase() === emp.email.toLowerCase());
+    setStaffPlatformUser(pu || null);
+    setLoginUsername(pu?.email || emp.email || "");
+    setLoginPasswordEdit("");
+    setShowLoginPassword(false);
     setFormErrors({});
   };
 
@@ -614,6 +635,18 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
     if (editingStaff) {
       updateStaffMutation.mutate({ id: editingStaff.id, data: staffPayload });
+      if (staffPlatformUser && role === "owner") {
+        const loginChanges: any = {};
+        if (loginUsername.trim() && loginUsername.trim() !== staffPlatformUser.email) {
+          loginChanges.email = loginUsername.trim();
+        }
+        if (loginPasswordEdit.trim().length >= 6) {
+          loginChanges.password = loginPasswordEdit.trim();
+        }
+        if (Object.keys(loginChanges).length > 0) {
+          updatePlatformUserMutation.mutate({ id: staffPlatformUser.id, data: loginChanges });
+        }
+      }
     } else {
       addStaffMutation.mutate(staffPayload);
       if (createLogin && email.trim() && loginPassword) {
@@ -631,6 +664,12 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const archivedStaff = staff.filter(s => s.status === "Inactive");
   const isViewMode = dialogMode === "view";
   const isEditable = dialogMode === "edit" || dialogMode === "add";
+
+  const staffLoginEmails = useMemo(() => {
+    const emails = new Set<string>();
+    (platformUsers as any[]).forEach((u: any) => { if (u.email) emails.add(u.email.toLowerCase()); });
+    return emails;
+  }, [platformUsers]);
 
   const openDeleteDialog = async (staffId: number, staffName?: string) => {
     setStaffToDelete(staffId);
@@ -820,6 +859,49 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       </div>
                     )}
                   </div>
+
+                  {role === "owner" && (
+                    <div className="space-y-3 pt-2 border-t mt-2">
+                      <h3 className="font-medium flex items-center gap-2 text-primary">
+                        <KeyRound className="h-4 w-4" /> Login Access
+                      </h3>
+                      {staffPlatformUser ? (
+                        <div className="bg-blue-50 p-4 rounded-md border border-blue-100 space-y-3">
+                          <div className="flex items-center gap-2 text-xs text-blue-700 font-medium mb-1">
+                            <Wifi className="h-3.5 w-3.5" /> This staff member has system login access
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-blue-700">Username (Email)</Label>
+                              <div className="text-sm font-medium bg-white border rounded px-3 py-2 text-blue-900" data-testid="view-login-username">{staffPlatformUser.email}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-blue-700">Password</Label>
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-medium bg-white border rounded px-3 py-2 text-blue-900 flex-1 font-mono tracking-widest" data-testid="view-login-password">
+                                  {showLoginPassword ? (staffPlatformUser.password || "—") : "••••••••"}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0"
+                                  onClick={() => setShowLoginPassword(v => !v)}
+                                  data-testid="button-toggle-password-view"
+                                >
+                                  {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-blue-600">Switch to edit mode to change login credentials.</p>
+                        </div>
+                      ) : (
+                        <div className="border border-dashed rounded-lg p-3 text-center text-muted-foreground text-sm">
+                          No system login assigned to this staff member.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1151,6 +1233,57 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                     )}
                   </div>
                 )}
+
+                {dialogMode === "edit" && role === "owner" && staffPlatformUser && (
+                  <div className="space-y-4 pt-2 border-t mt-2">
+                    <div>
+                      <h3 className="font-medium flex items-center gap-2 text-primary">
+                        <KeyRound className="h-4 w-4" /> Login Credentials
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1">Update username or password. Leave password blank to keep unchanged.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-md border border-blue-100">
+                      <div className="space-y-2">
+                        <Label className="text-blue-700">Username (Email)</Label>
+                        <Input
+                          type="email"
+                          value={loginUsername}
+                          onChange={e => setLoginUsername(e.target.value)}
+                          className="bg-white"
+                          data-testid="input-edit-login-username"
+                          placeholder="staff@example.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-blue-700">New Password</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type={showLoginPassword ? "text" : "password"}
+                            value={loginPasswordEdit}
+                            onChange={e => setLoginPasswordEdit(e.target.value)}
+                            className="bg-white flex-1"
+                            data-testid="input-edit-login-password"
+                            placeholder="Min 6 chars, blank to keep"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 shrink-0"
+                            onClick={() => setShowLoginPassword(v => !v)}
+                            data-testid="button-toggle-password-edit"
+                          >
+                            {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        {loginPasswordEdit && loginPasswordEdit.length < 6 && (
+                          <p className="text-red-500 text-xs">Password must be at least 6 characters</p>
+                        )}
+                      </div>
+                      <p className="text-xs text-blue-600 col-span-2">Only changed fields will be saved. Leave password empty to keep the existing one.</p>
+                    </div>
+                  </div>
+                )}
               </div>
               )}
 
@@ -1285,7 +1418,14 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm truncate" data-testid={`text-staff-name-${employee.id}`}>{employee.name}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-semibold text-sm truncate" data-testid={`text-staff-name-${employee.id}`}>{employee.name}</span>
+                      {employee.email && staffLoginEmails.has(employee.email.toLowerCase()) && (
+                        <span title="Has system login" className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 shrink-0 select-none" data-testid={`badge-login-mobile-${employee.id}`}>
+                          <KeyRound className="h-2.5 w-2.5" />
+                        </span>
+                      )}
+                    </div>
                     <Badge variant="outline" className="font-mono text-[10px] shrink-0">{employee.employeeId}</Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">{employee.role}</div>
@@ -1388,6 +1528,11 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <div className="h-8 w-8 rounded-full bg-muted" />
                         )}
                         <span className="font-medium">{employee.name}</span>
+                        {employee.email && staffLoginEmails.has(employee.email.toLowerCase()) && (
+                          <span title="Has system login" className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 select-none" data-testid={`badge-login-${employee.id}`}>
+                            <KeyRound className="h-2.5 w-2.5" /> Login
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell><Badge variant="outline" className="font-mono text-xs">{employee.employeeId}</Badge></TableCell>
