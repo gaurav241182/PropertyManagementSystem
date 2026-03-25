@@ -149,6 +149,9 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
   const createUserMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/platform-users", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-users'] });
+    },
     onError: (error: any) => {
       toast({ title: "Login creation failed", description: error.message, variant: "destructive" });
     },
