@@ -585,9 +585,13 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     if (!staffRole) errors.staffRole = "Job role is required";
     if (!joiningDate) errors.joiningDate = "Joining date is required";
     if (totalSalary <= 0) errors.salary = "Salary must be greater than 0";
-    if (createLogin) {
+    if (createLogin && dialogMode === "add") {
       if (!email.trim()) errors.email = "Email is required for login creation";
       if (!loginPassword || loginPassword.length < 6) errors.loginPassword = "Password must be at least 6 characters";
+    }
+    if (createLogin && dialogMode === "edit" && !staffPlatformUser) {
+      if (!loginUsername.trim()) errors.loginUsername = "Email is required to create a login";
+      if (!loginPasswordEdit || loginPasswordEdit.length < 6) errors.loginPasswordEdit = "Password must be at least 6 characters";
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
