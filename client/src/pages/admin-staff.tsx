@@ -168,6 +168,21 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     },
   });
 
+  const deletePlatformUserMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/platform-users/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-users'] });
+      setStaffPlatformUser(null);
+      setLoginUsername("");
+      setLoginPasswordEdit("");
+      setConfirmDisableLogin(false);
+      toast({ title: "Login Disabled", description: "System login has been removed for this employee." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [isGenerateSalaryOpen, setIsGenerateSalaryOpen] = useState(false);
   const [generateStaff, setGenerateStaff] = useState<any>(null);
   const [generateMonth, setGenerateMonth] = useState(() => {
@@ -285,6 +300,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPasswordEdit, setLoginPasswordEdit] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [confirmDisableLogin, setConfirmDisableLogin] = useState(false);
   const [basicSalary, setBasicSalary] = useState(0);
   const [transport, setTransport] = useState(0);
   const [hra, setHra] = useState(0);
@@ -432,6 +448,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
     setLoginUsername(pu?.email || emp.email || "");
     setLoginPasswordEdit("");
     setShowLoginPassword(false);
+    setConfirmDisableLogin(false);
     setFormErrors({});
   };
 
@@ -1317,12 +1334,52 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
                 {dialogMode === "edit" && role === "owner" && staffPlatformUser && (
                   <div className="space-y-4 pt-2 border-t mt-2">
-                    <div>
-                      <h3 className="font-medium flex items-center gap-2 text-primary">
-                        <KeyRound className="h-4 w-4" /> Login Credentials
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">Update username or password. Leave password blank to keep unchanged.</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2 text-primary">
+                          <KeyRound className="h-4 w-4" /> Login Credentials
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">Update username or password. Leave password blank to keep unchanged.</p>
+                      </div>
+                      {!confirmDisableLogin ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10 shrink-0 text-xs"
+                          onClick={() => setConfirmDisableLogin(true)}
+                          data-testid="button-disable-login"
+                        >
+                          <Ban className="h-3.5 w-3.5 mr-1" /> Disable Login
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-destructive font-medium">Remove login access?</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="text-xs h-7 px-2"
+                            disabled={deletePlatformUserMutation.isPending}
+                            onClick={() => deletePlatformUserMutation.mutate(staffPlatformUser.id)}
+                            data-testid="button-confirm-disable-login"
+                          >
+                            {deletePlatformUserMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes, Remove"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-7 px-2"
+                            onClick={() => setConfirmDisableLogin(false)}
+                            data-testid="button-cancel-disable-login"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
                     </div>
+                    {!confirmDisableLogin && (
                     <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-md border border-blue-100">
                       <div className="space-y-2">
                         <Label className="text-blue-700">Username (Email)</Label>
@@ -1363,6 +1420,7 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                       </div>
                       <p className="text-xs text-blue-600 col-span-2">Only changed fields will be saved. Leave password empty to keep the existing one.</p>
                     </div>
+                    )}
                   </div>
                 )}
               </div>
