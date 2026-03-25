@@ -591,13 +591,21 @@ export default function AdminExpenses() {
       )}
 
       <div className="space-y-4">
-        {/* Page header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        {/* Page header — sticky so action buttons are always reachable */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6 pt-3 pb-3 border-b mb-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-expenses-title">Expenses & Purchases</h2>
             <p className="text-sm text-muted-foreground">Manage daily expenditures.</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
+            {hasCreateAccess && (
+              <Button variant="outline" onClick={handleAddRow} disabled={addExp.isPending}
+                title="Add Line Item" data-testid="button-add-expense"
+                className="h-9 w-10 p-0 sm:w-auto sm:px-4 flex-none">
+                <Plus className="h-4 w-4 shrink-0 sm:mr-2"/>
+                <span className="hidden sm:inline">Add</span>
+              </Button>
+            )}
             {hasEditAccess && (
               <Button variant="outline" onClick={handleSave} data-testid="button-save-expenses"
                 title="Save" className="h-9 w-10 p-0 sm:w-auto sm:px-4 flex-none">
@@ -610,7 +618,7 @@ export default function AdminExpenses() {
                 title={`Submit for Approval${pendingCount>0?` (${pendingCount})`:""}`}
                 className="h-9 flex-1 sm:flex-none sm:px-4 p-0 font-semibold">
                 <SendHorizonal className="h-4 w-4 shrink-0 sm:mr-2"/>
-                <span className="hidden sm:inline">Submit for Approval{pendingCount>0?` (${pendingCount})`:""}</span>
+                <span className="hidden sm:inline">Submit{pendingCount>0?` (${pendingCount})`:""}</span>
                 {pendingCount>0 && <span className="inline sm:hidden text-[11px] font-bold ml-1">({pendingCount})</span>}
               </Button>
             )}
@@ -691,11 +699,6 @@ export default function AdminExpenses() {
                   <button className="text-xs text-muted-foreground underline" onClick={()=>setSelectedIds(new Set())}>Clear</button>
                 </div>
               ) : <div/>}
-              {hasCreateAccess && (
-                <Button onClick={handleAddRow} disabled={addExp.isPending} className="h-8 text-sm font-semibold shadow-sm" data-testid="button-add-expense">
-                  <Plus className="mr-1.5 h-4 w-4"/>Add Line Item
-                </Button>
-              )}
             </div>
 
             {/* ── Filter/Sort bar ── */}
