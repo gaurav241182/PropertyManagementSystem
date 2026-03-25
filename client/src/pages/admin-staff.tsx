@@ -635,16 +635,35 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
 
     if (editingStaff) {
       updateStaffMutation.mutate({ id: editingStaff.id, data: staffPayload });
-      if (staffPlatformUser && role === "owner") {
-        const loginChanges: any = {};
-        if (loginUsername.trim() && loginUsername.trim() !== staffPlatformUser.email) {
-          loginChanges.email = loginUsername.trim();
-        }
-        if (loginPasswordEdit.trim().length >= 6) {
-          loginChanges.password = loginPasswordEdit.trim();
-        }
-        if (Object.keys(loginChanges).length > 0) {
-          updatePlatformUserMutation.mutate({ id: staffPlatformUser.id, data: loginChanges });
+      if (role === "owner") {
+        if (staffPlatformUser) {
+          const loginChanges: any = {};
+          if (loginUsername.trim() && loginUsername.trim() !== staffPlatformUser.email) {
+            loginChanges.email = loginUsername.trim();
+          }
+          if (loginPasswordEdit.trim().length >= 6) {
+            loginChanges.password = loginPasswordEdit.trim();
+          }
+          if (Object.keys(loginChanges).length > 0) {
+            updatePlatformUserMutation.mutate({ id: staffPlatformUser.id, data: loginChanges });
+          }
+        } else if (createLogin) {
+          if (!loginUsername.trim()) {
+            toast({ title: "Validation Error", description: "Email is required to create a login.", variant: "destructive" });
+            return;
+          }
+          if (!loginPasswordEdit || loginPasswordEdit.length < 6) {
+            toast({ title: "Validation Error", description: "Password must be at least 6 characters.", variant: "destructive" });
+            return;
+          }
+          createUserMutation.mutate({
+            name: `${firstName} ${lastName}`.trim(),
+            email: loginUsername.trim(),
+            password: loginPasswordEdit,
+            role: "staff",
+            hotelId: user?.hotelId || currentHotel?.id || null,
+            status: "Active",
+          });
         }
       }
     } else {
@@ -1229,6 +1248,61 @@ export default function AdminStaff({ role = "owner" }: { role?: "owner" | "manag
                           <FieldError field="loginPassword" />
                         </div>
                         <p className="text-xs text-blue-600 col-span-2">This employee will be able to log in with their email and the password set above.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {dialogMode === "edit" && role === "owner" && !staffPlatformUser && (
+                  <div className="space-y-4 pt-2 border-t mt-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2 text-primary">
+                          <KeyRound className="h-4 w-4" /> Login Access
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">Create a system login for this employee</p>
+                      </div>
+                      <Switch checked={createLogin} onCheckedChange={setCreateLogin} data-testid="switch-create-login-edit" />
+                    </div>
+                    {createLogin && (
+                      <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-md border border-blue-100">
+                        <div className="space-y-2">
+                          <Label className="text-blue-700">Login ID (Email) <Req /></Label>
+                          <Input
+                            type="email"
+                            placeholder="staff@example.com"
+                            value={loginUsername}
+                            onChange={e => setLoginUsername(e.target.value)}
+                            className={`bg-white ${formErrors.loginUsername ? "border-red-500" : ""}`}
+                            data-testid="input-edit-new-login-username"
+                          />
+                          {formErrors.loginUsername && <p className="text-red-500 text-xs">{formErrors.loginUsername}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-blue-700">Password <Req /></Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type={showLoginPassword ? "text" : "password"}
+                              placeholder="Minimum 6 characters"
+                              value={loginPasswordEdit}
+                              onChange={e => setLoginPasswordEdit(e.target.value)}
+                              className={`bg-white flex-1 ${formErrors.loginPasswordEdit ? "border-red-500" : ""}`}
+                              data-testid="input-edit-new-login-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 shrink-0"
+                              onClick={() => setShowLoginPassword(v => !v)}
+                              data-testid="button-toggle-new-password-edit"
+                            >
+                              {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          {formErrors.loginPasswordEdit && <p className="text-red-500 text-xs">{formErrors.loginPasswordEdit}</p>}
+                        </div>
+                        <p className="text-xs text-blue-600 col-span-2">This employee will be able to log in with the credentials above.</p>
                       </div>
                     )}
                   </div>
