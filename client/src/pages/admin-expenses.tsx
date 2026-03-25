@@ -416,8 +416,8 @@ function MobileExpenseCard({ expense, serialNo, isOwner, hasEditAccess, onUpdate
 /* ─── Filter / Sort bar ─── */
 type SortKey = "none"|"date-asc"|"date-desc"|"amount-asc"|"amount-desc";
 
-function FilterSortBar({ filterStatus, setFilterStatus, sortKey, setSortKey }: {
-  filterStatus:string; setFilterStatus:(s:string)=>void; sortKey:SortKey; setSortKey:(s:SortKey)=>void;
+function FilterSortBar({ filterStatus, setFilterStatus }: {
+  filterStatus:string; setFilterStatus:(s:string)=>void;
 }) {
   const chips = [
     {label:"All",       active:"bg-primary text-primary-foreground", idle:"border-border text-foreground hover:bg-muted"},
@@ -427,26 +427,13 @@ function FilterSortBar({ filterStatus, setFilterStatus, sortKey, setSortKey }: {
     {label:"Rejected",  active:"bg-red-500 text-white",              idle:"border-red-200 text-red-700 hover:bg-red-50"},
   ];
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b bg-muted/5">
-      <div className="flex items-center gap-1 flex-wrap">
-        {chips.map(({label,active,idle})=>(
-          <button key={label} onClick={()=>setFilterStatus(label)}
-            className={`h-6 px-2.5 text-[11px] font-medium rounded-full border transition-colors ${filterStatus===label?active:idle}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="ml-auto flex items-center gap-1">
-        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground"/>
-        <select value={sortKey} onChange={e=>setSortKey(e.target.value as SortKey)}
-          className="text-xs border rounded px-1.5 py-0.5 bg-background h-6 focus:outline-none focus:ring-1 focus:ring-primary">
-          <option value="none">Default</option>
-          <option value="date-asc">Date ↑</option>
-          <option value="date-desc">Date ↓</option>
-          <option value="amount-asc">Amount ↑</option>
-          <option value="amount-desc">Amount ↓</option>
-        </select>
-      </div>
+    <div className="flex flex-wrap items-center gap-1 px-3 py-2 border-b bg-muted/5">
+      {chips.map(({label,active,idle})=>(
+        <button key={label} onClick={()=>setFilterStatus(label)}
+          className={`h-6 px-2.5 text-[11px] font-medium rounded-full border transition-colors ${filterStatus===label?active:idle}`}>
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -622,6 +609,17 @@ export default function AdminExpenses() {
                 {pendingCount>0 && <span className="inline sm:hidden text-[11px] font-bold ml-1">({pendingCount})</span>}
               </Button>
             )}
+            <div className="flex items-center gap-1 shrink-0">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground"/>
+              <select value={sortKey} onChange={e=>setSortKey(e.target.value as SortKey)}
+                className="text-xs border rounded px-1.5 py-0.5 bg-background h-9 focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="none">Sort</option>
+                <option value="date-asc">Date ↑</option>
+                <option value="date-desc">Date ↓</option>
+                <option value="amount-asc">Amount ↑</option>
+                <option value="amount-desc">Amount ↓</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -702,7 +700,7 @@ export default function AdminExpenses() {
             </div>
 
             {/* ── Filter/Sort bar ── */}
-            <FilterSortBar filterStatus={filterStatus} setFilterStatus={setFilterStatus} sortKey={sortKey} setSortKey={setSortKey}/>
+            <FilterSortBar filterStatus={filterStatus} setFilterStatus={setFilterStatus}/>
 
             {/* ── Mobile card view ── */}
             <div className="block md:hidden">
