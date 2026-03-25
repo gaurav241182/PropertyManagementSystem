@@ -282,15 +282,17 @@ function ExpenseRow({ serialNo, expense, isOwner, hasEditAccess, onUpdate, onDel
         <input type="file" ref={fileRef} className="hidden" accept={ALLOWED_EXTENSIONS} onChange={onFile}/>
         {isTax(expense.category) && (
           <div className="flex flex-col items-center gap-0.5">
-            <button className={`h-7 w-7 flex items-center justify-center rounded ${hasFile?"text-green-600 bg-green-50 hover:bg-green-100":"text-primary bg-primary/10 hover:bg-primary/20"}`}
-              title={hasFile?`Download ${(expense as any).receiptFileName}`:"Upload receipt"}
-              onClick={()=>{ if(hasFile&&(expense as any).receiptFile) downloadBase64File((expense as any).receiptFile,(expense as any).receiptFileName); else fileRef.current?.click(); }}
-              disabled={uploading}>
-              {hasFile?<Download className="h-3.5 w-3.5"/>:<Upload className="h-3.5 w-3.5"/>}
-            </button>
+            {(hasFile || canEdit) && (
+              <button className={`h-7 w-7 flex items-center justify-center rounded ${hasFile?"text-green-600 bg-green-50 hover:bg-green-100":"text-primary bg-primary/10 hover:bg-primary/20"}`}
+                title={hasFile?`Download ${(expense as any).receiptFileName}`:"Upload receipt"}
+                onClick={()=>{ if(hasFile&&(expense as any).receiptFile) downloadBase64File((expense as any).receiptFile,(expense as any).receiptFileName); else if(canEdit) fileRef.current?.click(); }}
+                disabled={uploading || (!hasFile && !canEdit)}>
+                {hasFile?<Download className="h-3.5 w-3.5"/>:<Upload className="h-3.5 w-3.5"/>}
+              </button>
+            )}
             {hasFile && <div className="flex items-center gap-0.5">
               <span className="text-[9px] text-green-600 max-w-[50px] truncate" title={(expense as any).receiptFileName}>{(expense as any).receiptFileName}</span>
-              {!locked && <button className="text-red-400 hover:text-red-600" onClick={()=>onUpdate(expense.id,{hasReceipt:false,receiptFileName:null,receiptFile:null})}><X className="h-2.5 w-2.5"/></button>}
+              {canEdit && <button className="text-red-400 hover:text-red-600" onClick={()=>onUpdate(expense.id,{hasReceipt:false,receiptFileName:null,receiptFile:null})}><X className="h-2.5 w-2.5"/></button>}
             </div>}
           </div>
         )}
@@ -624,13 +626,15 @@ export default function AdminExpenses() {
               <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Record Date:</span>
               <Input type="date" value={recordDate} onChange={e=>setRecordDate(e.target.value)} className="h-8 bg-background flex-1 sm:flex-none sm:w-40" data-testid="input-record-date"/>
             </div>
-            <div className="flex items-center gap-2 mb-3">
-              <input type="file" ref={bulkFileRef} className="hidden" accept={ALLOWED_EXTENSIONS} multiple onChange={handleBulkFileChange}/>
-              <Button variant="outline" size="sm" className="h-8" onClick={()=>bulkFileRef.current?.click()} disabled={addFile.isPending} data-testid="button-upload-files">
-                <Upload className="mr-1.5 h-3.5 w-3.5"/>{addFile.isPending?"Uploading…":"Upload Daily Receipts"}
-              </Button>
-              <span className="text-xs text-muted-foreground">{dailyFiles.length>0?`${dailyFiles.length} file(s)`:"No files"}</span>
-            </div>
+            {hasEditAccess && (
+              <div className="flex items-center gap-2 mb-3">
+                <input type="file" ref={bulkFileRef} className="hidden" accept={ALLOWED_EXTENSIONS} multiple onChange={handleBulkFileChange}/>
+                <Button variant="outline" size="sm" className="h-8" onClick={()=>bulkFileRef.current?.click()} disabled={addFile.isPending} data-testid="button-upload-files">
+                  <Upload className="mr-1.5 h-3.5 w-3.5"/>{addFile.isPending?"Uploading…":"Upload Daily Receipts"}
+                </Button>
+                <span className="text-xs text-muted-foreground">{dailyFiles.length>0?`${dailyFiles.length} file(s)`:"No files"}</span>
+              </div>
+            )}
             {dailyFiles.length>0 && (
               <div className="pb-3 border-t pt-2">
                 <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Uploaded for {recordDate}</p>
