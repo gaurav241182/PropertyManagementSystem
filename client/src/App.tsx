@@ -33,7 +33,7 @@ import ResetPassword from "@/pages/reset-password";
 
 // Wrappers to satisfy wouter's Route component type
 const OwnerStaff = () => <AdminStaff role="owner" />;
-const OwnerExpenses = () => <AdminExpenses role="owner" />;
+const OwnerExpenses = () => <AdminExpenses />;
 const OwnerBookings = () => <AdminBookings role="owner" />;
 const OwnerRooms = () => <AdminRooms role="owner" />;
 const OwnerInventoryPricing = () => <AdminInventoryPricing role="owner" />;
@@ -44,7 +44,7 @@ const OwnerSales = () => <AdminSales role="owner" />;
 const OwnerOrders = () => <AdminOrders role="owner" />;
 
 const ManagerStaff = () => <AdminStaff role="manager" />;
-const ManagerExpenses = () => <AdminExpenses role="manager" />;
+const ManagerExpenses = () => <AdminExpenses />;
 const ManagerBookings = () => <AdminBookings role="manager" />;
 const ManagerRooms = () => <AdminRooms role="manager" />;
 const ManagerInventoryPricing = () => <AdminInventoryPricing role="manager" />;
