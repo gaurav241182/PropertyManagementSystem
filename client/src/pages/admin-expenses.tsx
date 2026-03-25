@@ -70,7 +70,16 @@ function StatusBadge({ status }: { status: string }) {
 function RowStatusActions({ status, isOwner, onChange }: {
   status: string; isOwner: boolean; onChange: (s: string) => void;
 }) {
-  if (status === "Pending") return null; // Pending rows use Submit for Approval, no inline status change
+  // Pending rows — owner can still mark directly; others use the Submit flow
+  if (status === "Pending") {
+    if (!isOwner) return null;
+    return (
+      <div className="flex items-center gap-0.5">
+        <button onClick={() => onChange("Paid")}     title="Mark as Paid"    className="h-6 w-6 rounded flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors"><CheckCheck className="h-3.5 w-3.5"/></button>
+        <button onClick={() => onChange("Rejected")} title="Mark as Rejected" className="h-6 w-6 rounded flex items-center justify-center text-red-600   hover:bg-red-100   transition-colors"><Ban       className="h-3.5 w-3.5"/></button>
+      </div>
+    );
+  }
 
   if (status === "Submitted") {
     if (isOwner) return (
