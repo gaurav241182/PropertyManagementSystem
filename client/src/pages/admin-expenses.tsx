@@ -59,6 +59,11 @@ function downloadBase64File(data: string, name: string) {
 function fmtNum(v: string|number) { const n=parseFloat(String(v)); return isNaN(n)?"":String(n); }
 function isEmptyRow(e: Expense)     { return !e.category && !e.item && (parseFloat(String(e.price))||0)===0; }
 function isZeroPriceRow(e: Expense) { return !isEmptyRow(e) && (parseFloat(String(e.price))||0)===0; }
+function isMissingRequired(e: Expense, categorySubs: Record<string,string[]>) {
+  if (isEmptyRow(e)) return false;
+  const subOpts = e.category ? (categorySubs[e.category]||[]) : [];
+  return !e.date || !e.category || (subOpts.length > 0 && !e.subCategory);
+}
 
 /* ─── Status badge (read-only display) ─── */
 function StatusBadge({ status }: { status: string }) {
@@ -155,12 +160,13 @@ function useRowState(expense: Expense, onUpdate: (id:number, d:Record<string,any
 }
 
 /* ─── Approval summary dialog ─── */
-function ApprovalSummaryDialog({ expenses, recordDate, onConfirm, onClose }: {
-  expenses: Expense[]; recordDate: string; onConfirm: ()=>void; onClose: ()=>void;
+function ApprovalSummaryDialog({ expenses, recordDate, categorySubs, onConfirm, onClose }: {
+  expenses: Expense[]; recordDate: string; categorySubs: Record<string,string[]>; onConfirm: ()=>void; onClose: ()=>void;
 }) {
-  const toSubmit     = expenses.filter(e => e.status==="Pending" && !isEmptyRow(e));
+  const toSubmit       = expenses.filter(e => e.status==="Pending" && !isEmptyRow(e));
   const zeroPriceItems = toSubmit.filter(isZeroPriceRow);
-  const totalAmount  = toSubmit.reduce((s,e) => s+(parseFloat(String(e.total))||0), 0);
+  const missingReqItems = toSubmit.filter(e => isMissingRequired(e, categorySubs));
+  const totalAmount    = toSubmit.reduce((s,e) => s+(parseFloat(String(e.total))||0), 0);
   const catBreakdown = toSubmit.reduce((acc,e) => {
     const c = e.category||"Uncategorized";
     if (!acc[c]) acc[c]={count:0,total:0};
@@ -180,6 +186,12 @@ function ApprovalSummaryDialog({ expenses, recordDate, onConfirm, onClose }: {
             <div><p className="text-xs text-muted-foreground">Record Date</p><p className="text-sm font-semibold">{recordDate}</p></div>
             <div className="text-right"><p className="text-xs text-muted-foreground">{toSubmit.length} item{toSubmit.length!==1?"s":""}</p><p className="text-2xl font-bold text-primary">{totalAmount.toLocaleString()}</p></div>
           </div>
+          {missingReqItems.length>0 && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0"/>
+              <div><p className="text-xs font-semibold text-red-700">Required fields missing</p><p className="text-xs text-red-600">{missingReqItems.length} item(s) are missing Date, Category or Sub-Category. Please fill them in before submitting.</p></div>
+            </div>
+          )}
           {zeroPriceItems.length>0 && (
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
               <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0"/>
@@ -230,6 +242,10 @@ function ExpenseRow({ serialNo, expense, isOwner, hasEditAccess, onUpdate, onDel
   const isTax      = (cat:string) => taxableTypes.has(cat);
   const hasFile    = !!(expense as any).receiptFileName;
   const zeroPWarn  = isZeroPriceRow(expense);
+  const subOpts    = expense.category ? (categorySubs[expense.category]||[]) : [];
+  const missingDate    = !isEmptyRow(expense) && !expense.date;
+  const missingCat     = !isEmptyRow(expense) && !expense.category;
+  const missingSubCat  = !isEmptyRow(expense) && !!expense.category && subOpts.length > 0 && !expense.subCategory;
   const num = "h-7 w-full text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
   const rowBg = expense.status==="Paid"      ? "bg-green-50/30"
@@ -253,16 +269,16 @@ function ExpenseRow({ serialNo, expense, isOwner, hasEditAccess, onUpdate, onDel
       <TableCell className="p-1 text-center text-xs text-muted-foreground font-medium">
         {locked ? <Lock className="h-3 w-3 mx-auto text-muted-foreground"/> : serialNo}
       </TableCell>
-      <TableCell className="p-1"><Input type="date" defaultValue={expense.date} onBlur={e=>{if(canEdit&&e.target.value!==expense.date)onUpdate(expense.id,{date:e.target.value});}} className="h-7 w-full text-sm" disabled={!canEdit}/></TableCell>
+      <TableCell className="p-1"><Input type="date" defaultValue={expense.date} onBlur={e=>{if(canEdit&&e.target.value!==expense.date)onUpdate(expense.id,{date:e.target.value});}} className={`h-7 w-full text-sm ${missingDate?"border-red-400 bg-red-50":""}`} disabled={!canEdit}/></TableCell>
       <TableCell className="p-1">
         <Select value={expense.category||""} onValueChange={v=>{if(canEdit)onUpdate(expense.id,{category:v,subCategory:categorySubs[v]?.[0]||""}); }} disabled={!canEdit}>
-          <SelectTrigger className="h-7 w-full text-sm" disabled={!canEdit}><SelectValue placeholder="Select"/></SelectTrigger>
+          <SelectTrigger className={`h-7 w-full text-sm ${missingCat?"border-red-400 bg-red-50":""}`} disabled={!canEdit}><SelectValue placeholder="Select"/></SelectTrigger>
           <SelectContent>{Object.keys(categorySubs).map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
       <TableCell className="p-1">
         <Select value={expense.subCategory||""} onValueChange={v=>{if(canEdit){setLocalItem("");onUpdate(expense.id,{subCategory:v,item:""});}}} disabled={!canEdit}>
-          <SelectTrigger className="h-7 w-full text-sm" disabled={!canEdit}><SelectValue placeholder="Select"/></SelectTrigger>
+          <SelectTrigger className={`h-7 w-full text-sm ${missingSubCat?"border-red-400 bg-red-50":""}`} disabled={!canEdit}><SelectValue placeholder="Select"/></SelectTrigger>
           <SelectContent>{(categorySubs[expense.category]||[]).map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
         </Select>
       </TableCell>
@@ -277,7 +293,7 @@ function ExpenseRow({ serialNo, expense, isOwner, hasEditAccess, onUpdate, onDel
       </TableCell>
       <TableCell className="p-1"><Input value={localQty} inputMode="numeric" onChange={e=>{if(canEdit)setLocalQty(e.target.value.replace(/[^0-9]/g,""));}} onBlur={()=>canEdit&&handleBlur("qty",localQty)} className={num} placeholder="1" disabled={!canEdit}/></TableCell>
       <TableCell className="p-1"><Input value={localPrice} inputMode="decimal" onChange={e=>{if(canEdit)setLocalPrice(e.target.value.replace(/[^0-9.]/g,"").replace(/^(\d*\.?\d{0,2}).*$/,"$1"));}} onBlur={()=>canEdit&&handleBlur("price",localPrice)} className={`${num} ${zeroPWarn?"border-amber-400 bg-amber-50":""}`} placeholder="0.00" disabled={!canEdit}/></TableCell>
-      <TableCell className="p-1"><Input value={localTotal} readOnly className={`${num} bg-muted/20 font-bold`} placeholder="0.00"/></TableCell>
+      <TableCell className="p-1"><Input value={localTotal} readOnly className={`${num} bg-muted/40 text-muted-foreground cursor-default`} placeholder="0.00" tabIndex={-1}/></TableCell>
       <TableCell className="p-1 text-center">
         <input type="file" ref={fileRef} className="hidden" accept={ALLOWED_EXTENSIONS} onChange={onFile}/>
         {isTax(expense.category) && (
@@ -326,6 +342,10 @@ function MobileExpenseCard({ expense, serialNo, isOwner, hasEditAccess, onUpdate
   const isTax     = (cat:string) => taxableTypes.has(cat);
   const hasFile   = !!(expense as any).receiptFileName;
   const zeroPWarn = isZeroPriceRow(expense);
+  const subOpts   = expense.category ? (categorySubs[expense.category]||[]) : [];
+  const missingDate   = !isEmptyRow(expense) && !expense.date;
+  const missingCat    = !isEmptyRow(expense) && !expense.category;
+  const missingSubCat = !isEmptyRow(expense) && !!expense.category && subOpts.length > 0 && !expense.subCategory;
   const num = "h-9 w-full text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
   const cardBg = MOBILE_CARD_BG[expense.status]||"bg-muted/10 border-border";
 
@@ -359,22 +379,22 @@ function MobileExpenseCard({ expense, serialNo, isOwner, hasEditAccess, onUpdate
       <div className={`p-3 space-y-2.5 ${!canEdit?"opacity-60 pointer-events-none":""}`}>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Date</label>
-            <Input type="date" defaultValue={expense.date} onBlur={e=>{if(e.target.value!==expense.date)onUpdate(expense.id,{date:e.target.value});}} className="h-9 w-full text-sm" disabled={!canEdit}/>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Date <span className="text-red-500">*</span></label>
+            <Input type="date" defaultValue={expense.date} onBlur={e=>{if(e.target.value!==expense.date)onUpdate(expense.id,{date:e.target.value});}} className={`h-9 w-full text-sm ${missingDate?"border-red-400 bg-red-50":""}`} disabled={!canEdit}/>
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Category</label>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Category <span className="text-red-500">*</span></label>
             <Select value={expense.category||""} onValueChange={v=>onUpdate(expense.id,{category:v,subCategory:categorySubs[v]?.[0]||""})} disabled={!canEdit}>
-              <SelectTrigger className="h-9 w-full text-sm"><SelectValue placeholder="Select"/></SelectTrigger>
+              <SelectTrigger className={`h-9 w-full text-sm ${missingCat?"border-red-400 bg-red-50":""}`}><SelectValue placeholder="Select"/></SelectTrigger>
               <SelectContent>{Object.keys(categorySubs).map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Sub-Category</label>
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Sub-Category {subOpts.length>0 && <span className="text-red-500">*</span>}</label>
             <Select value={expense.subCategory||""} onValueChange={v=>{setLocalItem("");onUpdate(expense.id,{subCategory:v,item:""}); }} disabled={!canEdit}>
-              <SelectTrigger className="h-9 w-full text-sm"><SelectValue placeholder="Select"/></SelectTrigger>
+              <SelectTrigger className={`h-9 w-full text-sm ${missingSubCat?"border-red-400 bg-red-50":""}`}><SelectValue placeholder="Select"/></SelectTrigger>
               <SelectContent>{(categorySubs[expense.category]||[]).map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -392,7 +412,7 @@ function MobileExpenseCard({ expense, serialNo, isOwner, hasEditAccess, onUpdate
         <div className="grid grid-cols-3 gap-2">
           <div><label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Qty</label><Input value={localQty} inputMode="numeric" onChange={e=>setLocalQty(e.target.value.replace(/[^0-9]/g,""))} onBlur={()=>handleBlur("qty",localQty)} className={num} placeholder="1" disabled={!canEdit}/></div>
           <div><label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Price</label><Input value={localPrice} inputMode="decimal" onChange={e=>setLocalPrice(e.target.value.replace(/[^0-9.]/g,"").replace(/^(\d*\.?\d{0,2}).*$/,"$1"))} onBlur={()=>handleBlur("price",localPrice)} className={`${num} ${zeroPWarn?"border-amber-400":""}`} placeholder="0.00" disabled={!canEdit}/></div>
-          <div><label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Total</label><Input value={localTotal} readOnly className={`${num} bg-white/60 font-bold`} placeholder="0.00"/></div>
+          <div><label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide block mb-1">Total</label><Input value={localTotal} readOnly className={`${num} bg-muted/40 text-muted-foreground cursor-default`} placeholder="0.00" tabIndex={-1}/></div>
         </div>
         {isTax(expense.category) && (
           <div>
@@ -538,6 +558,8 @@ export default function AdminExpenses() {
   const allDesktopSelected = selectableDesktop.length>0 && selectableDesktop.every(e=>selectedIds.has(e.id));
 
   const handleSave = async () => {
+    const missing=baseExpenses.filter(e=>e.status==="Pending"&&isMissingRequired(e,categorySubs));
+    if(missing.length>0){toast({title:"Required fields missing",description:`${missing.length} row(s) are missing Date, Category or Sub-Category.`,variant:"destructive"});return;}
     const empty=baseExpenses.filter(isEmptyRow);
     if(empty.length>0){ await Promise.all(empty.map(e=>deleteExp.mutateAsync(e.id))); toast({title:`${empty.length} empty row(s) removed`}); }
     else toast({title:"Saved",description:"Pending entries saved."});
@@ -546,6 +568,8 @@ export default function AdminExpenses() {
   const handleSubmitApproval = () => {
     const toSubmit=baseExpenses.filter(e=>e.status==="Pending"&&!isEmptyRow(e));
     if(toSubmit.length===0){toast({title:"Nothing to submit",description:"Add some entries first.",variant:"destructive"});return;}
+    const missing=toSubmit.filter(e=>isMissingRequired(e,categorySubs));
+    if(missing.length>0){toast({title:"Required fields missing",description:`${missing.length} row(s) are missing Date, Category or Sub-Category. Please complete them before submitting.`,variant:"destructive"});return;}
     setShowApprovalDialog(true);
   };
 
@@ -574,7 +598,7 @@ export default function AdminExpenses() {
   return (
     <AdminLayout>
       {showApprovalDialog && (
-        <ApprovalSummaryDialog expenses={baseExpenses} recordDate={recordDate} onConfirm={confirmSubmitApproval} onClose={()=>setShowApprovalDialog(false)}/>
+        <ApprovalSummaryDialog expenses={baseExpenses} recordDate={recordDate} categorySubs={categorySubs} onConfirm={confirmSubmitApproval} onClose={()=>setShowApprovalDialog(false)}/>
       )}
 
       <div className="space-y-4">
