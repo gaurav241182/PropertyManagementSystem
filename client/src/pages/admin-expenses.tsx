@@ -597,16 +597,21 @@ export default function AdminExpenses() {
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-serif text-primary" data-testid="text-expenses-title">Expenses & Purchases</h2>
             <p className="text-sm text-muted-foreground">Manage daily expenditures.</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+          <div className="flex gap-2 w-full sm:w-auto">
             {hasEditAccess && (
-              <Button variant="outline" onClick={handleSave} data-testid="button-save-expenses" className="flex-1 sm:flex-none">
-                <Save className="mr-2 h-4 w-4"/>Save
+              <Button variant="outline" onClick={handleSave} data-testid="button-save-expenses"
+                title="Save" className="h-9 w-10 p-0 sm:w-auto sm:px-4 flex-none">
+                <Save className="h-4 w-4 shrink-0 sm:mr-2"/>
+                <span className="hidden sm:inline">Save</span>
               </Button>
             )}
             {hasEditAccess && (
-              <Button onClick={handleSubmitApproval} disabled={pendingCount===0} className="flex-1 sm:flex-none font-semibold" data-testid="button-submit-approval">
-                <SendHorizonal className="mr-2 h-4 w-4"/>
-                Submit for Approval{pendingCount>0?` (${pendingCount})`:""}
+              <Button onClick={handleSubmitApproval} disabled={pendingCount===0} data-testid="button-submit-approval"
+                title={`Submit for Approval${pendingCount>0?` (${pendingCount})`:""}`}
+                className="h-9 flex-1 sm:flex-none sm:px-4 p-0 font-semibold">
+                <SendHorizonal className="h-4 w-4 shrink-0 sm:mr-2"/>
+                <span className="hidden sm:inline">Submit for Approval{pendingCount>0?` (${pendingCount})`:""}</span>
+                {pendingCount>0 && <span className="inline sm:hidden text-[11px] font-bold ml-1">({pendingCount})</span>}
               </Button>
             )}
           </div>
@@ -624,17 +629,20 @@ export default function AdminExpenses() {
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Record Date:</span>
-              <Input type="date" value={recordDate} onChange={e=>setRecordDate(e.target.value)} className="h-8 bg-background flex-1 sm:flex-none sm:w-40" data-testid="input-record-date"/>
+              <Input type="date" value={recordDate} onChange={e=>setRecordDate(e.target.value)} className="h-8 bg-background w-[126px] sm:w-40" data-testid="input-record-date"/>
+              {hasEditAccess && (
+                <>
+                  <input type="file" ref={bulkFileRef} className="hidden" accept={ALLOWED_EXTENSIONS} multiple onChange={handleBulkFileChange}/>
+                  <Button variant="outline" size="sm" title="Upload Daily Receipts"
+                    className="h-8 w-8 p-0 sm:w-auto sm:px-3 flex-none shrink-0"
+                    onClick={()=>bulkFileRef.current?.click()} disabled={addFile.isPending} data-testid="button-upload-files">
+                    <Upload className="h-3.5 w-3.5 shrink-0 sm:mr-1.5"/>
+                    <span className="hidden sm:inline">{addFile.isPending?"Uploading…":"Upload Daily Receipts"}</span>
+                  </Button>
+                  {dailyFiles.length>0 && <span className="text-xs text-muted-foreground shrink-0">{dailyFiles.length} file{dailyFiles.length!==1?"s":""}</span>}
+                </>
+              )}
             </div>
-            {hasEditAccess && (
-              <div className="flex items-center gap-2 mb-3">
-                <input type="file" ref={bulkFileRef} className="hidden" accept={ALLOWED_EXTENSIONS} multiple onChange={handleBulkFileChange}/>
-                <Button variant="outline" size="sm" className="h-8" onClick={()=>bulkFileRef.current?.click()} disabled={addFile.isPending} data-testid="button-upload-files">
-                  <Upload className="mr-1.5 h-3.5 w-3.5"/>{addFile.isPending?"Uploading…":"Upload Daily Receipts"}
-                </Button>
-                <span className="text-xs text-muted-foreground">{dailyFiles.length>0?`${dailyFiles.length} file(s)`:"No files"}</span>
-              </div>
-            )}
             {dailyFiles.length>0 && (
               <div className="pb-3 border-t pt-2">
                 <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Uploaded for {recordDate}</p>
