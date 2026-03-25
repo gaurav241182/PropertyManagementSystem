@@ -70,6 +70,40 @@ const INITIAL_FORM = {
   fromEmail: "",
 };
 
+const INITIAL_ERRORS: Record<string, string> = {};
+
+function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+function validatePhone(phone: string): boolean {
+  return /^[+\d][\d\s\-().]{5,19}$/.test(phone.trim());
+}
+function validateName(name: string): boolean {
+  return /^[a-zA-Z\s'\-.,&()]+$/.test(name.trim());
+}
+function validateDob(dob: string): { valid: boolean; message: string } {
+  const d = new Date(dob);
+  const today = new Date();
+  if (isNaN(d.getTime())) return { valid: false, message: "Invalid date." };
+  if (d >= today) return { valid: false, message: "Date of birth cannot be a future date." };
+  const age = today.getFullYear() - d.getFullYear() - (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
+  if (age < 18) return { valid: false, message: "Owner must be at least 18 years old." };
+  if (age > 100) return { valid: false, message: "Please enter a valid date of birth." };
+  return { valid: true, message: "" };
+}
+function validateDomain(domain: string): boolean {
+  return /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(domain.trim());
+}
+function validateNumeric(val: string): boolean {
+  return /^\d+(\.\d+)?$/.test(val.trim()) && Number(val) >= 0;
+}
+function validateAdminLogin(login: string): boolean {
+  return /^[a-zA-Z0-9_]{3,}$/.test(login.trim());
+}
+function validateCity(city: string): boolean {
+  return /^[a-zA-Z\s'\-,.]+$/.test(city.trim());
+}
+
 const INITIAL_BRANCHES: { id?: number; name: string; city: string; address: string }[] = [{ name: "", city: "", address: "" }];
 
 export default function PlatformHotels() {
@@ -79,6 +113,7 @@ export default function PlatformHotels() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>(INITIAL_ERRORS);
   const [branches, setBranches] = useState(INITIAL_BRANCHES);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState("");
@@ -193,6 +228,7 @@ export default function PlatformHotels() {
 
   const resetAndClose = () => {
     setForm(INITIAL_FORM);
+    setFormErrors(INITIAL_ERRORS);
     setBranches([{ name: "", city: "", address: "" }]);
     setLogoPreview(null);
     setLogoFileName("");
@@ -291,29 +327,72 @@ export default function PlatformHotels() {
   };
 
   const handleSubmit = () => {
+    const errors: Record<string, string> = {};
+
     if (!form.name.trim()) {
-      toast({ title: "Missing Required Field", description: "Hotel Brand Name is required.", variant: "destructive" });
-      return;
+      errors.name = "Hotel Brand Name is required.";
     }
+
+    if (form.monthlyCharges.trim() && !validateNumeric(form.monthlyCharges)) {
+      errors.monthlyCharges = "Monthly charges must be a valid number (e.g. 4999).";
+    }
+
+    if (form.city.trim() && !validateCity(form.city)) {
+      errors.city = "City should contain only letters and spaces.";
+    }
+
+    if (form.customDomain.trim() && !validateDomain(form.customDomain)) {
+      errors.customDomain = "Please enter a valid domain (e.g. hotelname.com).";
+    }
+
+    if (form.fromEmail.trim() && !validateEmail(form.fromEmail)) {
+      errors.fromEmail = "Please enter a valid email address.";
+    }
+
     if (!form.ownerName.trim()) {
-      toast({ title: "Missing Required Field", description: "Owner Full Name is required.", variant: "destructive" });
-      return;
+      errors.ownerName = "Owner Full Name is required.";
+    } else if (!validateName(form.ownerName)) {
+      errors.ownerName = "Name should contain only letters, spaces, and basic punctuation.";
     }
+
     if (!form.ownerEmail.trim()) {
-      toast({ title: "Missing Required Field", description: "Owner Email Address is required.", variant: "destructive" });
-      return;
+      errors.ownerEmail = "Owner Email Address is required.";
+    } else if (!validateEmail(form.ownerEmail)) {
+      errors.ownerEmail = "Please enter a valid email address.";
     }
-    if (!form.adminLogin.trim()) {
-      toast({ title: "Missing Required Field", description: "Admin Login ID is required.", variant: "destructive" });
-      return;
+
+    if (form.ownerPhone.trim() && !validatePhone(form.ownerPhone)) {
+      errors.ownerPhone = "Enter a valid phone number (e.g. +1 555 000-0000).";
+    }
+
+    if (form.ownerDob.trim()) {
+      const dobCheck = validateDob(form.ownerDob);
+      if (!dobCheck.valid) errors.ownerDob = dobCheck.message;
     }
 
     const validBranches = branches.filter(b => b.name.trim());
     if (validBranches.length === 0) {
-      toast({ title: "Missing Required Field", description: "At least one branch with a name is required.", variant: "destructive" });
+      errors.branches = "At least one branch with a name is required.";
+    }
+
+    if (!form.adminLogin.trim()) {
+      errors.adminLogin = "Admin Login ID is required.";
+    } else if (!validateAdminLogin(form.adminLogin)) {
+      errors.adminLogin = "Login ID must be at least 3 characters: letters, numbers, or underscores only.";
+    }
+
+    if (form.adminPassword.trim() && form.adminPassword.length < 6) {
+      errors.adminPassword = "Password must be at least 6 characters.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      const firstError = Object.values(errors)[0];
+      toast({ title: "Validation Error", description: firstError, variant: "destructive" });
       return;
     }
 
+    setFormErrors({});
     createMutation.mutate({
       name: form.name,
       plan: form.plan || "custom",
@@ -502,9 +581,11 @@ export default function PlatformHotels() {
                           <Input 
                             placeholder="e.g. Grand Plaza Hotels" 
                             value={form.name}
-                            onChange={(e) => updateField("name", e.target.value)}
+                            onChange={(e) => { updateField("name", e.target.value); setFormErrors(p => ({ ...p, name: "" })); }}
+                            className={formErrors.name ? "border-red-500" : ""}
                             data-testid="input-hotel-name"
                           />
+                          {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
                           {logoFileName && (
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <ImageIcon className="h-3 w-3" /> {logoFileName}
@@ -515,9 +596,11 @@ export default function PlatformHotels() {
                             type="text" 
                             placeholder="e.g. 4999" 
                             value={form.monthlyCharges}
-                            onChange={(e) => updateField("monthlyCharges", e.target.value)}
+                            onChange={(e) => { updateField("monthlyCharges", e.target.value); setFormErrors(p => ({ ...p, monthlyCharges: "" })); }}
+                            className={formErrors.monthlyCharges ? "border-red-500" : ""}
                             data-testid="input-monthly-charges"
                           />
+                          {formErrors.monthlyCharges && <p className="text-xs text-red-500">{formErrors.monthlyCharges}</p>}
                         </div>
                       </div>
 
@@ -541,9 +624,11 @@ export default function PlatformHotels() {
                           <Input 
                             placeholder="e.g. New York" 
                             value={form.city}
-                            onChange={(e) => updateField("city", e.target.value)}
+                            onChange={(e) => { updateField("city", e.target.value); setFormErrors(p => ({ ...p, city: "" })); }}
+                            className={formErrors.city ? "border-red-500" : ""}
                             data-testid="input-city"
                           />
+                          {formErrors.city && <p className="text-xs text-red-500">{formErrors.city}</p>}
                         </div>
                       </div>
 
@@ -562,10 +647,12 @@ export default function PlatformHotels() {
                         <Input 
                           placeholder="e.g. hotelname.com or stay.hotelname.com" 
                           value={form.customDomain}
-                          onChange={(e) => updateField("customDomain", e.target.value)}
+                          onChange={(e) => { updateField("customDomain", e.target.value); setFormErrors(p => ({ ...p, customDomain: "" })); }}
+                          className={formErrors.customDomain ? "border-red-500" : ""}
                           data-testid="input-custom-domain"
                         />
-                        <p className="text-xs text-muted-foreground">Used for white-label deployments so the PMS can run under the hotel's own domain.</p>
+                        {formErrors.customDomain && <p className="text-xs text-red-500">{formErrors.customDomain}</p>}
+                        {!formErrors.customDomain && <p className="text-xs text-muted-foreground">Used for white-label deployments so the PMS can run under the hotel's own domain.</p>}
                       </div>
 
                       <div className="space-y-2">
@@ -574,10 +661,12 @@ export default function PlatformHotels() {
                           type="email" 
                           placeholder="e.g. reservations@hotelname.com" 
                           value={form.fromEmail}
-                          onChange={(e) => updateField("fromEmail", e.target.value)}
+                          onChange={(e) => { updateField("fromEmail", e.target.value); setFormErrors(p => ({ ...p, fromEmail: "" })); }}
+                          className={formErrors.fromEmail ? "border-red-500" : ""}
                           data-testid="input-from-email"
                         />
-                        <p className="text-xs text-muted-foreground">This email address will be used as the sender address when sending invoices and notifications through the email service (Resend). Domain verification may be required in the future.</p>
+                        {formErrors.fromEmail && <p className="text-xs text-red-500">{formErrors.fromEmail}</p>}
+                        {!formErrors.fromEmail && <p className="text-xs text-muted-foreground">This email address will be used as the sender address when sending invoices and notifications through the email service (Resend). Domain verification may be required in the future.</p>}
                       </div>
                     </div>
                   </TabsContent>
@@ -590,18 +679,23 @@ export default function PlatformHotels() {
                           <Input 
                             placeholder="John Doe" 
                             value={form.ownerName}
-                            onChange={(e) => updateField("ownerName", e.target.value)}
+                            onChange={(e) => { updateField("ownerName", e.target.value); setFormErrors(p => ({ ...p, ownerName: "" })); }}
+                            className={formErrors.ownerName ? "border-red-500" : ""}
                             data-testid="input-owner-name"
                           />
+                          {formErrors.ownerName && <p className="text-xs text-red-500">{formErrors.ownerName}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Date of Birth</Label>
                           <Input 
                             type="date" 
                             value={form.ownerDob}
-                            onChange={(e) => updateField("ownerDob", e.target.value)}
+                            max={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => { updateField("ownerDob", e.target.value); setFormErrors(p => ({ ...p, ownerDob: "" })); }}
+                            className={formErrors.ownerDob ? "border-red-500" : ""}
                             data-testid="input-owner-dob"
                           />
+                          {formErrors.ownerDob && <p className="text-xs text-red-500">{formErrors.ownerDob}</p>}
                         </div>
                       </div>
 
@@ -612,9 +706,11 @@ export default function PlatformHotels() {
                             type="email" 
                             placeholder="owner@example.com" 
                             value={form.ownerEmail}
-                            onChange={(e) => updateField("ownerEmail", e.target.value)}
+                            onChange={(e) => { updateField("ownerEmail", e.target.value); setFormErrors(p => ({ ...p, ownerEmail: "" })); }}
+                            className={formErrors.ownerEmail ? "border-red-500" : ""}
                             data-testid="input-owner-email"
                           />
+                          {formErrors.ownerEmail && <p className="text-xs text-red-500">{formErrors.ownerEmail}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Phone Number</Label>
@@ -622,9 +718,11 @@ export default function PlatformHotels() {
                             type="tel" 
                             placeholder="+1 (555) 000-0000" 
                             value={form.ownerPhone}
-                            onChange={(e) => updateField("ownerPhone", e.target.value)}
+                            onChange={(e) => { updateField("ownerPhone", e.target.value); setFormErrors(p => ({ ...p, ownerPhone: "" })); }}
+                            className={formErrors.ownerPhone ? "border-red-500" : ""}
                             data-testid="input-owner-phone"
                           />
+                          {formErrors.ownerPhone && <p className="text-xs text-red-500">{formErrors.ownerPhone}</p>}
                         </div>
                       </div>
 
@@ -721,6 +819,7 @@ export default function PlatformHotels() {
                           <Plus className="h-3 w-3 mr-1" /> Add Branch
                         </Button>
                       </div>
+                      {formErrors.branches && <p className="text-xs text-red-500">{formErrors.branches}</p>}
 
                       {branches.map((branch, index) => (
                         <div key={index} className="p-4 border rounded-lg bg-muted/10 space-y-3 relative group">
@@ -781,9 +880,12 @@ export default function PlatformHotels() {
                             <Input 
                               placeholder="admin_username" 
                               value={form.adminLogin}
-                              onChange={(e) => updateField("adminLogin", e.target.value)}
+                              onChange={(e) => { updateField("adminLogin", e.target.value); setFormErrors(p => ({ ...p, adminLogin: "" })); }}
+                              className={formErrors.adminLogin ? "border-red-500" : ""}
                               data-testid="input-admin-login"
                             />
+                            {formErrors.adminLogin && <p className="text-xs text-red-500">{formErrors.adminLogin}</p>}
+                            {!formErrors.adminLogin && <p className="text-xs text-muted-foreground">Letters, numbers, underscores only (min. 3 characters).</p>}
                           </div>
                           <div className="space-y-2">
                             <Label>Initial Password</Label>
@@ -791,9 +893,12 @@ export default function PlatformHotels() {
                               type="password" 
                               placeholder="••••••••" 
                               value={form.adminPassword}
-                              onChange={(e) => updateField("adminPassword", e.target.value)}
+                              onChange={(e) => { updateField("adminPassword", e.target.value); setFormErrors(p => ({ ...p, adminPassword: "" })); }}
+                              className={formErrors.adminPassword ? "border-red-500" : ""}
                               data-testid="input-admin-password"
                             />
+                            {formErrors.adminPassword && <p className="text-xs text-red-500">{formErrors.adminPassword}</p>}
+                            {!formErrors.adminPassword && <p className="text-xs text-muted-foreground">Minimum 6 characters.</p>}
                           </div>
                         </div>
                       </div>
