@@ -635,7 +635,7 @@ export default function AdminExpenses() {
             </div>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Record Date:</span>
-              <Input type="date" value={recordDate} onChange={e=>setRecordDate(e.target.value)} className="h-8 bg-background w-[126px] sm:w-40" data-testid="input-record-date"/>
+              <Input type="date" value={recordDate} onChange={e=>setRecordDate(e.target.value)} className="h-8 bg-background w-[148px] sm:w-40" data-testid="input-record-date"/>
               {hasEditAccess && (
                 <>
                   <input type="file" ref={bulkFileRef} className="hidden" accept={ALLOWED_EXTENSIONS} multiple onChange={handleBulkFileChange}/>
@@ -645,7 +645,6 @@ export default function AdminExpenses() {
                     <Upload className="h-3.5 w-3.5 shrink-0 sm:mr-1.5"/>
                     <span className="hidden sm:inline">{addFile.isPending?"Uploading…":"Upload Daily Receipts"}</span>
                   </Button>
-                  {dailyFiles.length>0 && <span className="text-xs text-muted-foreground shrink-0">{dailyFiles.length} file{dailyFiles.length!==1?"s":""}</span>}
                 </>
               )}
             </div>
