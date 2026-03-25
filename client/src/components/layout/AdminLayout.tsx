@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -102,12 +102,25 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
       ? hotelsData.find(h => h.id === Number(selectedHotelId)) || hotelsData[0]
       : hotelsData[0];
 
-  const hotelBranches = branchesData.filter(b => currentHotel && b.hotelId === currentHotel.id);
+  const hotelBranches = useMemo(
+    () => branchesData.filter(b => currentHotel && b.hotelId === currentHotel.id),
+    [branchesData, currentHotel]
+  );
 
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(() => {
     const stored = localStorage.getItem("selectedBranchId");
     return stored ? Number(stored) : null;
   });
+
+  const handleBranchSelect = useCallback((branchId: number | null) => {
+    setSelectedBranchId(branchId);
+    if (branchId) {
+      localStorage.setItem("selectedBranchId", String(branchId));
+    } else {
+      localStorage.removeItem("selectedBranchId");
+    }
+    queryClient.invalidateQueries();
+  }, [queryClient]);
 
   useEffect(() => {
     if (hotelBranches.length === 0) {
@@ -125,17 +138,7 @@ export default function AdminLayout({ children, role = "owner" }: { children: Re
     if (hotelBranches.length === 1 && selectedBranchId === null) {
       handleBranchSelect(hotelBranches[0].id);
     }
-  }, [hotelBranches, selectedBranchId]);
-
-  const handleBranchSelect = (branchId: number | null) => {
-    setSelectedBranchId(branchId);
-    if (branchId) {
-      localStorage.setItem("selectedBranchId", String(branchId));
-    } else {
-      localStorage.removeItem("selectedBranchId");
-    }
-    queryClient.invalidateQueries();
-  };
+  }, [hotelBranches, selectedBranchId, handleBranchSelect]);
 
   const selectedBranch = selectedBranchId ? hotelBranches.find(b => b.id === selectedBranchId) : null;
   const branchLabel = selectedBranch
