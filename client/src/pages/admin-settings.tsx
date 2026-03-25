@@ -863,7 +863,7 @@ export default function AdminSettings() {
                       <SelectTrigger data-testid="select-timezone">
                         <SelectValue placeholder="Select Timezone" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {TIMEZONE_OPTIONS.map(tz => (
                           <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
                         ))}

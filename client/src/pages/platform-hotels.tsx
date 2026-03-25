@@ -411,35 +411,36 @@ export default function PlatformHotels() {
       return;
     }
     const validBranches = editBranches.filter(b => b.name.trim());
-    updateMutation.mutate({
-      id: editHotel.id,
-      data: {
-        name: editForm.name,
-        monthlyCharges: editForm.monthlyCharges || "0",
-        country: editForm.country,
-        city: editForm.city,
-        taxId: editForm.taxId,
-        ownerName: editForm.ownerName,
-        ownerEmail: editForm.ownerEmail,
-        ownerPhone: editForm.ownerPhone,
-        ownerDob: editForm.ownerDob || null,
-        ownerIdNumber: editForm.ownerIdNumber,
-        customDomain: editForm.customDomain,
-        fromEmail: editForm.fromEmail,
-        logoUrl: editLogoPreview || "",
-        branches: JSON.stringify(validBranches),
-        ownerDocuments: JSON.stringify(editOwnerDocuments),
-      }
-    });
     try {
+      await updateMutation.mutateAsync({
+        id: editHotel.id,
+        data: {
+          name: editForm.name,
+          monthlyCharges: editForm.monthlyCharges || "0",
+          country: editForm.country,
+          city: editForm.city,
+          taxId: editForm.taxId,
+          ownerName: editForm.ownerName,
+          ownerEmail: editForm.ownerEmail,
+          ownerPhone: editForm.ownerPhone,
+          ownerDob: editForm.ownerDob || null,
+          ownerIdNumber: editForm.ownerIdNumber,
+          customDomain: editForm.customDomain,
+          fromEmail: editForm.fromEmail,
+          logoUrl: editLogoPreview || "",
+          branches: JSON.stringify(validBranches),
+          ownerDocuments: JSON.stringify(editOwnerDocuments),
+        }
+      });
       await apiRequest("PUT", `/api/branches/sync/${editHotel.id}`, { branches: validBranches });
       queryClient.invalidateQueries({ queryKey: ["/api/branches"] });
-    } catch (e) {
-      console.error("Failed to sync branches:", e);
+      queryClient.invalidateQueries({ queryKey: ["/api/hotels"] });
+      toast({ title: "Hotel Updated", description: `${editForm.name} has been updated successfully.` });
+      setEditDialogOpen(false);
+      setEditHotel(null);
+    } catch (e: any) {
+      toast({ title: "Save Failed", description: e?.message || "Failed to save changes. Please try again.", variant: "destructive" });
     }
-    toast({ title: "Hotel Updated", description: `${editForm.name} has been updated.` });
-    setEditDialogOpen(false);
-    setEditHotel(null);
   };
 
   return (
